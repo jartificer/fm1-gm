@@ -317,6 +317,9 @@ static void fm1_main(void)
                 k10 = (uint32_t)(knob / 16);
                 master_q12 = (k10 * k10) >> 8;           /* 0 .. ~4096 */
             }
+            a = fm1_adc_read(FM1_ADC_BATT);
+            if (a > 0)                                   /* slow: the level sags as the audio draws */
+                batt_raw = batt_raw ? batt_raw + (a - batt_raw) / 32 : a;
         }
         {   /* OCT- + OCT+ held 5 s: update mode (Felucca's, unchanged) */
             static uint32_t t0, shown;

@@ -33,7 +33,7 @@ enum {
     K_TEMPO, K_BARS, K_QUANT, K_METRO,
     K_FAMILY, K_PROG, K_VOL, K_PAN, K_CHAN, K_REV, K_TRANSPOSE, K_KEYVEL,
     K_MIX0, K_MIX1, K_MIX2, K_MIX3,
-    K_MIDIIN, K_MIDIOUT, K_CLOCK, K_COUNTIN, K_POLY, K_METROVOL, K_LEDS,
+    K_MIDIIN, K_MIDIOUT, K_CLOCK, K_COUNTIN, K_POLY, K_METROVOL, K_LEDS, K_THEME,
     K_SLOT, K_BAR, K_STEP, K_LOOP,
 };
 #define NKPAGES 2
@@ -42,22 +42,45 @@ static const uint8_t VIEW_KNOB[NVIEWS][NKPAGES][4] = {
     {{K_FAMILY, K_PROG, K_VOL, K_PAN}, {K_CHAN, K_REV, K_TRANSPOSE, K_KEYVEL}},
     {{K_MIX0, K_MIX1, K_MIX2, K_MIX3}, {K_MIX0, K_MIX1, K_MIX2, K_MIX3}},
     {{K_SLOT, K_NONE, K_NONE, K_NONE}, {K_SLOT, K_NONE, K_NONE, K_NONE}},
-    {{K_MIDIIN, K_MIDIOUT, K_CLOCK, K_COUNTIN}, {K_POLY, K_METROVOL, K_LEDS, K_NONE}},
+    {{K_MIDIIN, K_MIDIOUT, K_CLOCK, K_COUNTIN}, {K_POLY, K_METROVOL, K_LEDS, K_THEME}},
     {{K_BAR, K_STEP, K_LOOP, K_QUANT}, {K_BAR, K_STEP, K_LOOP, K_QUANT}},
 };
 
-/* the screen's colours: a dark panel, one accent per meaning */
-#define K_BG RGB(16, 18, 24)
-#define K_PANEL RGB(30, 34, 44)
-#define K_LINE RGB(50, 56, 70)
-#define K_DIM RGB(112, 120, 136)
-#define K_TEXT RGB(228, 232, 240)
-#define K_ACC RGB(255, 172, 64)        /* values, the selected thing */
-#define K_SELC RGB(64, 136, 255)       /* the selected track */
-#define K_SEL_T RGB(30, 56, 104)
-#define K_PLAYC RGB(84, 214, 124)
-#define K_RECC RGB(244, 72, 72)
-#define K_DRUMC RGB(214, 120, 255)
+/* the screen's colours (Setup, COLOURS): one accent per meaning. Dark is the default; the two
+ * colour-blind ones take their accents from Okabe and Ito's palette (red-green: no red against
+ * green, play is blue and record vermilion) and, for blue-yellow, from the red-cyan axis that
+ * tritan vision keeps */
+typedef struct {
+    const char *name;
+    uint16_t bg, panel, line, dim, text;
+    uint16_t acc;                      /* values, the selected thing */
+    uint16_t selc, sel_t;              /* the selected track; its fill */
+    uint16_t play, rec, drum;
+} theme_t;
+static const theme_t THEME[NTHEMES] = {
+    {"DARK", RGB(16, 18, 24), RGB(30, 34, 44), RGB(50, 56, 70), RGB(112, 120, 136), RGB(228, 232, 240),
+     RGB(255, 172, 64), RGB(64, 136, 255), RGB(30, 56, 104), RGB(84, 214, 124), RGB(244, 72, 72), RGB(214, 120, 255)},
+    {"LIGHT", RGB(236, 236, 232), RGB(216, 218, 222), RGB(184, 188, 198), RGB(100, 106, 118), RGB(16, 18, 24),
+     RGB(196, 96, 0), RGB(0, 88, 208), RGB(184, 206, 244), RGB(0, 136, 56), RGB(208, 24, 24), RGB(136, 48, 192)},
+    {"HI-CON", RGB(0, 0, 0), RGB(28, 28, 28), RGB(140, 140, 140), RGB(208, 208, 208), RGB(255, 255, 255),
+     RGB(255, 255, 0), RGB(0, 255, 255), RGB(0, 84, 100), RGB(0, 255, 0), RGB(255, 48, 48), RGB(255, 96, 255)},
+    {"RED-GRN", RGB(16, 18, 24), RGB(30, 34, 44), RGB(50, 56, 70), RGB(112, 120, 136), RGB(228, 232, 240),
+     RGB(240, 228, 66), RGB(86, 180, 233), RGB(20, 60, 92), RGB(40, 140, 210), RGB(213, 94, 0), RGB(204, 121, 167)},
+    {"BLU-YEL", RGB(16, 18, 24), RGB(30, 34, 44), RGB(50, 56, 70), RGB(112, 120, 136), RGB(228, 232, 240),
+     RGB(255, 120, 120), RGB(0, 184, 204), RGB(0, 58, 68), RGB(236, 236, 236), RGB(204, 0, 40), RGB(255, 176, 208)},
+};
+static const theme_t *thm = &THEME[0];
+#define K_BG (thm->bg)
+#define K_PANEL (thm->panel)
+#define K_LINE (thm->line)
+#define K_DIM (thm->dim)
+#define K_TEXT (thm->text)
+#define K_ACC (thm->acc)
+#define K_SELC (thm->selc)
+#define K_SEL_T (thm->sel_t)
+#define K_PLAYC (thm->play)
+#define K_RECC (thm->rec)
+#define K_DRUMC (thm->drum)
 
 #define LONG_MS 1000u
 #define KEY_BASE 53                    /* F3, the lowest key, at octave 0 */
@@ -184,6 +207,7 @@ static int knob_get(int k)
     case K_POLY: return set.poly;
     case K_METROVOL: return set.metro_vol;
     case K_LEDS: return set.leds;
+    case K_THEME: return set.theme;
     case K_SLOT: return ui.slot_cur + 1;
     case K_BAR: return bar_cur() + 1;
     case K_STEP: {
@@ -205,7 +229,7 @@ static void knob_range(int k, int *lo, int *hi)
         {K_FAMILY, 0, 15}, {K_PROG, 0, 127}, {K_VOL, 0, 127}, {K_PAN, -64, 63}, {K_CHAN, 1, 16},
         {K_REV, 0, 127}, {K_TRANSPOSE, -24, 24}, {K_KEYVEL, 1, 127}, {K_MIX0, 0, 127}, {K_MIX1, 0, 127},
         {K_MIX2, 0, 127}, {K_MIX3, 0, 127}, {K_MIDIIN, 0, 1}, {K_MIDIOUT, 0, 1}, {K_CLOCK, 0, 1},
-        {K_COUNTIN, 0, 1}, {K_POLY, 8, GM_NVOICE}, {K_METROVOL, 0, 10}, {K_LEDS, 0, 1},
+        {K_COUNTIN, 0, 1}, {K_POLY, 8, GM_NVOICE}, {K_METROVOL, 0, 10}, {K_LEDS, 0, 1}, {K_THEME, 0, NTHEMES - 1},
         {K_SLOT, 1, SEQ_NSONGS}, {K_LOOP, 0, 1},
     };
     uint32_t i;
@@ -251,6 +275,7 @@ static const char *knob_name(int k)
     case K_POLY: return "VOICES";
     case K_METROVOL: return "CLK VOL";
     case K_LEDS: return "LIGHTS";
+    case K_THEME: return "COLOURS";
     case K_SLOT: return "SLOT";
     case K_BAR: return "BAR";
     case K_STEP: return "STEP";
@@ -297,6 +322,7 @@ static void knob_text(int k, int v, char *b)    /* knob k's value v as it shows 
     case K_MIDIIN: cat(b, v ? "MULTI" : "TRACK"); return;
     case K_MIDIOUT: case K_CLOCK: case K_LEDS: case K_LOOP: cat(b, OFFON[v & 1]); return;
     case K_COUNTIN: cat(b, v ? "1 BAR" : "OFF"); return;
+    case K_THEME: cat(b, THEME[v % NTHEMES].name); return;
     default: itoa_s(v, b); return;
     }
 }
@@ -342,10 +368,14 @@ static void knob_set(int k, int v)
     default: {   /* the settings */
         uint8_t *p = k == K_METRO ? &set.metro : k == K_MIDIIN ? &set.midi_in : k == K_MIDIOUT ? &set.midi_out :
                      k == K_CLOCK ? &set.clock_out : k == K_COUNTIN ? &set.countin : k == K_POLY ? &set.poly :
-                     k == K_METROVOL ? &set.metro_vol : k == K_LEDS ? &set.leds : 0;
+                     k == K_METROVOL ? &set.metro_vol : k == K_LEDS ? &set.leds : k == K_THEME ? &set.theme : 0;
         if (!p)
             return;
         *p = (uint8_t)v;
+        if (k == K_THEME) {             /* every part redraws in the new colours */
+            thm = &THEME[set.theme];
+            ui.sig[0] = ui.sig[1] = ui.sig[2] = 0;
+        }
         if (k == K_MIDIOUT && !v)
             post(SC_PANIC, 0, 0, 0, 0);
         settings_apply();
@@ -811,13 +841,42 @@ static void track_name(int t, char *b)
     cat(b, is_drum(k) ? "GM Drum Kit" : gm_prog_name(k->prog));
 }
 
+/* the battery at the header's right end (ending at x1): 0..3 bars, a bolt when USB powers the
+ * FM-1, red when empty; the x it starts at (x1 when not read yet) */
+static int32_t draw_battery(int32_t x1)
+{
+    static const char *const BOLT[6] = {"......###.....", ".....###......", "....#########.", ".#########....",
+                                        "......###.....", ".....###......"};
+    int lv = plat_battery(), i, j, x = x1 - 20;
+    uint16_t c = lv == 0 ? K_RECC : lv == 1 ? K_ACC : K_TEXT;
+    if (lv < 0)
+        return x1;
+    cv_rect(x, 7, 18, 1, K_DIM);              /* the outline: 18 x 10, and the cap */
+    cv_rect(x, 16, 18, 1, K_DIM);
+    cv_rect(x, 7, 1, 10, K_DIM);
+    cv_rect(x + 17, 7, 1, 10, K_DIM);
+    cv_rect(x + 18, 10, 2, 4, K_DIM);
+    if (lv == 4) {
+        for (i = 0; i < 6; i++)
+            for (j = 0; j < 14; j++)
+                if (BOLT[i][j] == '#')
+                    cv_rect(x + 2 + j, 9 + i, 1, 1, K_ACC);
+    } else
+        for (i = 0; i < lv; i++)
+            cv_rect(x + 2 + i * 5, 9, 4, 6, c);
+    if (lv == 0)
+        cv_rect(x + 2, 9, 2, 6, c);
+    return x;
+}
+
 static void draw_header(void)
 {
     char t[24];
     int msg = plat_ms() < ui.msg_until;
     uint32_t h = hash(hash(hash(2166136261u, ui.view), seq_playing | seq_rec << 1 | seq_step << 2 | seq_counting << 3 |
                                                        (uint32_t)song_dirty() << 4 | (uint32_t)msg << 5),
-                      (uint32_t)seq_song.tempo | (uint32_t)set.song << 12);
+                      (uint32_t)seq_song.tempo | (uint32_t)set.song << 12 | (uint32_t)(plat_battery() + 1) << 20 |
+                      (uint32_t)set.theme << 24);
     if (msg)
         h = hash(hash(h, (uint32_t)ui.msg[0][0] << 8 | ui.msg[0][1]), ui.msg_until);
     if (seq_playing)
@@ -840,7 +899,7 @@ static void draw_header(void)
         if (song_dirty())
             x = cv_text(x, 6, &FONT_B, "*", K_ACC);
         cv_text(x + 8, 6, &FONT_B, VIEW_NAME[ui.view], K_DIM);
-        x = 232;
+        x = draw_battery(232) - 8;
         itoa_s(seq_song.tempo, t);
         x -= text_w(&FONT_S, t);
         cv_text(x, 6, &FONT_S, t, K_TEXT);
@@ -885,7 +944,8 @@ static int lvl16(int chan)
 
 static uint32_t main_sig(void)
 {
-    uint32_t h = hash(hash(2166136261u, ui.view | ui.kpage[ui.view] << 4), seq_sel | (uint32_t)ui.slot_cur << 8);
+    uint32_t h = hash(hash(2166136261u, ui.view | ui.kpage[ui.view] << 4 | (uint32_t)set.theme << 8),
+                      seq_sel | (uint32_t)ui.slot_cur << 8);
     int t;
     h = hash(h, seq_changes);
     for (t = 0; t < SEQ_NTRK; t++)
@@ -1157,7 +1217,7 @@ static void draw_setup(void)
     itoa_s((int32_t)song_bytes(&seq_song), q);
     cat(q + str_len(q), " B");
     cv_text(8, 70, &FONT_S, b, K_DIM);
-    cv_text(8, 96, &FONT_XS, ui.kpage[V_SETUP] ? "GLO: MIDI settings" : "GLO: voices, click, lights", K_DIM);
+    cv_text(8, 96, &FONT_XS, ui.kpage[V_SETUP] ? "GLO: MIDI settings" : "GLO: voices, click, lights, colours", K_DIM);
     cv_text(8, 112, &FONT_XS, "OCT- + OCT+ held 5 s: update mode", K_DIM);
 }
 
@@ -1182,8 +1242,8 @@ static void draw_main(void)
 static void draw_knobs(void)
 {
     const uint8_t *kn = VIEW_KNOB[ui.view][ui.kpage[ui.view]];
-    uint32_t h = hash(hash(2166136261u, ui.view | (uint32_t)ui.kpage[ui.view] << 4 | (uint32_t)ui.touched << 8),
-                      seq_sel), i;
+    uint32_t h = hash(hash(2166136261u, ui.view | (uint32_t)ui.kpage[ui.view] << 4 | (uint32_t)ui.touched << 8 |
+                                            (uint32_t)set.theme << 16), seq_sel), i;
     int now_touch = plat_ms() < ui.touch_until;
     for (i = 0; i < 4; i++)
         h = hash(h, (uint32_t)knob_get(kn[i]));
@@ -1293,6 +1353,7 @@ void ui_init(void)
     ui.saved_changes = seq_changes;
     ui.slot_cur = set.song;
     seq_sel = keep;
+    thm = &THEME[set.theme < NTHEMES ? set.theme : 0];
     lcd_fill(0, 0, 240, 240, K_BG);
 }
 

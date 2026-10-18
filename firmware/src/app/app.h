@@ -21,10 +21,13 @@ typedef struct {
     uint8_t metro, metro_vol, countin;
     uint8_t poly;                        /* melodic voices, 8..GM_NVOICE */
     uint8_t leds;                        /* key and button lights: 0 off, 1 on */
-    uint8_t rsv[23];
+    uint8_t theme;                       /* the screen's colours (ui.c THEME) */
+    uint8_t rsv[22];
 } settings_t;
 
 extern settings_t set;
+
+#define NTHEMES 5
 
 void settings_defaults(void);
 int settings_load(void);                 /* 0 = loaded; else the defaults are in place */
