@@ -9,7 +9,7 @@ It is built on, and includes code from:
 
 The GM engine, the sequencer, the song storage and the UI are new to this project. The General MIDI program and drum names are the standard GM1 names.
 
-The instrument and drum samples in `assets/soundfont/fm1gm.sf2`, the sustain fits made from them (`assets/soundfont/fm1gm_sustain.json`) and the tables the build makes from both are a reduced version of the Fluid R3 GM SoundFont, Copyright (c) 2000-2002, 2008 Frank Wen and 2008 Toby Smithe, MIT License (`assets/soundfont/LICENSE`).
+The instrument and drum samples in `assets/soundfont/fm1gm.sf2` (and the tables the build makes from it) are a reduced version of the Fluid R3 GM SoundFont, Copyright (c) 2000-2002, 2008 Frank Wen and 2008 Toby Smithe, MIT License (`assets/soundfont/LICENSE`).
 
 Fonts in `assets/fonts/`:
 
