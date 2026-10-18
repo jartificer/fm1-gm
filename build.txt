@@ -1,1 +1,1 @@
-built from main at 2325aa4
+built from PR #6 at 0292e62 (looped samples)
