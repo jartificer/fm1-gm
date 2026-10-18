@@ -1069,7 +1069,7 @@ static void draw_track(void)
 /* BAR: one bar of the selected track, close up: the steps, the step selected, the notes */
 #define BAR_HELP1 "ENV del step (held: bar)  ARP undo"
 #define BAR_HELP2 "LFO copy (held: paste)  ARP held: clear"
-#define SONGS_HELP "SEL load (held: new)  SAVE  ARP held: del"
+#define SONGS_HELP "SEL: load (held: new), SAVE: save, ARP held: del"
 static void draw_bar(void)
 {
     const seq_trk_t *k = sel_trk();
@@ -1192,7 +1192,7 @@ static void draw_songs(void)
     itoa_s((int32_t)(plat_song_sectors() * PLAT_SECTOR_BYTES / 1024u), q);
     cat(q + str_len(q), " KB");
     cv_text(6, 114, &FONT_XS, b, K_DIM);
-    cv_text(6, 128, &FONT_XS, SONGS_HELP, K_DIM);
+    cv_text(4, 128, &FONT_XS, SONGS_HELP, K_DIM);    /* 4 px margins: the help is a little wider */
 }
 
 static void draw_setup(void)
@@ -1417,7 +1417,7 @@ int ui_fit_check(void)
         bad += fit1("family (TRACK)", &FONT_S, gm_family_name(p), 232 - 16 - text_w(&FONT_S, "8192 notes"));
     bad += fit1("BAR help", &FONT_XS, BAR_HELP1, 228);
     bad += fit1("BAR help", &FONT_XS, BAR_HELP2, 228);
-    bad += fit1("SONGS help", &FONT_XS, SONGS_HELP, 228);
+    bad += fit1("SONGS help", &FONT_XS, SONGS_HELP, 232);
     bad += fit1("SONGS row", &FONT_XS, "128b 8192n", 116 - 22 - 10);
     bad += fit1("SETUP", &FONT_S, "CPU 100%   voices 48+16   xruns 9999", 232);
     bad += fit1("SETUP", &FONT_S, "song 8192 notes, 32768 B", 232);
