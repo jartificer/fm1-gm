@@ -42,6 +42,11 @@ else
     echo "  skip update-path tests (no build/fm1gm.fwsc: run ./build.sh)"
 fi
 run installer python3 tests/install_test.py
+if command -v node >/dev/null 2>&1; then
+    run web-installer node tests/web_install_test.mjs
+else
+    echo "  skip web-installer (needs node)"
+fi
 run host-build sh host/build_host.sh
 for s in tests/scenarios/*.gm; do
     n=$(basename "$s" .gm)

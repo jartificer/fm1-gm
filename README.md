@@ -105,17 +105,32 @@ python3 tools/fm1_install.py fm1gm.fwsc
 
 This works from the stock firmware or any Felucca-based firmware. To go back, install M-VAVE's stock package the same way, or with M-VAVE's updater.
 
+Or from the browser: the web page in `web/` installs over Web MIDI in Chrome, Edge or Opera on a computer (the same update as `fm1_install.py`). See "In the browser" below.
+
 Holding OCT- and OCT+ for 5 seconds puts FM1-GM into update mode, for an installer that cannot reach it otherwise.
 
 ### Recovery
 
 After two failed starts in a row the firmware comes up in a safe mode with USB on and no audio, so an installer can reach it; PLAY tries the firmware again. After four, it enters the chip's own update mode, the last resort: `tools/fm1_rescue.py` writes the stock firmware back through it (see the script's header and [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter)).
 
+## In the browser
+
+`web/` is a page with the firmware running in the browser and the installer. The emulator is the app, the sequencer and the sound engine compiled to WebAssembly from the same sources (`host/gm_web.c`, built by `host/build_web.sh`); songs you save are kept in the browser. The installer finds the FM-1 over Web MIDI (it needs SysEx permission) and installs the package that comes with the page, or one you choose.
+
+To use it on your own machine:
+
+```
+cd web && python3 -m http.server 8000      # then open http://localhost:8000
+```
+
+It also works as a static site (GitHub Pages or any web host). The page needs to be served over https or from localhost: Web MIDI and the audio worklet do not work from a `file://` page.
+
 ## Developing
 
 ```
 tests/run_tests.sh          # host tests and the simulator scenarios (needs cc and Python with Pillow)
 sh host/build_host.sh       # the firmware app on your machine: build/host/gm_host SCRIPT OUTDIR
+sh host/build_web.sh        # the same app as WebAssembly for the web page: web/fm1gm.wasm (clang + wasm-ld)
 ./build.sh                  # the device package (JieLi toolchain and AC79 SDK: BUILDING.md)
 ```
 
