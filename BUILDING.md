@@ -34,6 +34,15 @@ The build checks the image before packaging: entry point, no calls from RAM code
 
 GitHub Actions (`.github/workflows/build.yml`) does all of this on every push and uploads the package as an artifact.
 
+## The web page
+
+`web/` is a static site: `index.html`, `app.js` (the panel and the page), `emu.js` (runs the emulator), `worklet.js` (its audio out), `fm1ota.js` (the installer, a port of `tools/fm1_install.py`), and two built files kept in the repository so the site needs no build step to serve:
+
+- `web/fm1gm.wasm`: `sh host/build_web.sh`. Needs clang and wasm-ld (LLVM 13 or later, `--target=wasm32`); no Emscripten and no libc.
+- `web/fm1gm.fwsc`: the device package, copied from `build/fm1gm.fwsc` after `./build.sh`. Update `web/build.txt` with the commit it was built from.
+
+`tests/web_install_test.mjs` (Node 18 or later, run by `tests/run_tests.sh`) tests the installer against a simulated FM-1.
+
 ## Layout
 
 - `firmware/hal/`, `firmware/loader/`, `firmware/crt0.S`, `firmware/app.ld`: Felucca's FM-1 platform and update loader, unchanged.
@@ -44,3 +53,4 @@ GitHub Actions (`.github/workflows/build.yml`) does all of this on every push an
 - `firmware/src/app/`: the platform layer, settings and song slots, and the UI. The song byte format is `song_stream` / `song_parse` in `firmware/src/dsp/seq.c`.
 - `firmware/src/storage.c`: the A/B flash store for the settings and panel (FoMni's), and the song store: every other data sector, shared by the 64 slots, each save a new version in free sectors.
 - `host/gm_host.c`: the app on the host, driven by scenario scripts.
+- `host/gm_web.c`: the app as WebAssembly for the web page, driven by `web/emu.js`.

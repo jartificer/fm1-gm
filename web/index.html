@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FM1-GM Emulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="The FM1-GM firmware running in the browser, and an installer for the M-VAVE FM-1 over USB-MIDI.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the page is a bench. The FM-1 sits on it at full width and scales to fit; the notes on
+   playing it and the installer sit underneath, side by side, one column on a phone. The device keeps
+   its own colours in both themes; the bench follows the viewer's. */
+:root {
+  --bench: #e9ebee;        /* page ground, a cool grey with a slight blue bias */
+  --sheet: #f7f8fa;        /* panels on the bench */
+  --ink: #1b1f27;
+  --ink-2: #5a6272;
+  --rule: #cfd4dc;
+  --amber: #c66a00;        /* the screen's accent (values, the selected thing), deepened for light ground */
+  --ok: #1f8a4c;
+  --bad: #c0362c;
+  --focus: #3a78ff;
+
+  /* the device: always the same */
+  --shell: #23262d;
+  --shell-hi: #30343d;
+  --shell-edge: #15171b;
+  --legend: #c9ced8;
+  --cap: #3a3f49;
+  --cap-hi: #4a505c;
+  --led-amber: #ffac40;
+  --led-green: #54d67c;
+  --led-red: #f44848;
+  --led-blue: #4088ff;
+  --tray: #1b1d22;
+
+  --f-panel: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bench: #101217; --sheet: #191c23; --ink: #e4e8f0; --ink-2: #9aa3b4; --rule: #2c313c;
+    --amber: #ffac40; --ok: #54d67c; --bad: #ff6b5e; --focus: #6d9bff; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bench: #101217; --sheet: #191c23; --ink: #e4e8f0; --ink-2: #9aa3b4; --rule: #2c313c;
+  --amber: #ffac40; --ok: #54d67c; --bad: #ff6b5e; --focus: #6d9bff; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bench); color: var(--ink); font: 400 15px/1.55 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 24px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+h1 { font: 700 30px/1.1 var(--f-panel); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+h1 small { font: 600 15px var(--f-panel); color: var(--ink-2); letter-spacing: .08em; text-transform: uppercase; margin-left: 10px; }
+.status { font: 500 13px var(--f-mono); color: var(--ink-2); display: flex; gap: 16px; flex-wrap: wrap; }
+.status b { color: var(--ink); font-weight: 500; }
+
+/* --------------------------------------------------------------- the device */
+/* The FM-1's own layout (as Felucca's drawing of it, docs/controls.jpg there): MASTER, SELECT, PRESETS
+   and ALGORITHM top left with OCT- / OCT+ under them; the screen in the middle; KNOB 1-4 top right over
+   the 6 x 2 button grid; the 27 keys below in two rows, sharps on top. */
+.stage { position: relative; width: 100%; }
+.device {
+  position: absolute; left: 0; top: 0; width: 1000px; transform-origin: 0 0;
+  background: linear-gradient(180deg, var(--shell-hi), var(--shell) 18%);
+  border: 1px solid var(--shell-edge); border-radius: 36px;
+  box-shadow: 0 1px 0 #ffffff14 inset, 0 18px 40px -18px #0009, 0 2px 6px #0004;
+  padding: 26px 34px 30px; color: var(--legend);
+  font-family: var(--f-panel); user-select: none; -webkit-user-select: none; touch-action: none;
+}
+.top { display: grid; grid-template-columns: 224px 280px 1fr; gap: 26px; align-items: start; }
+.lbl { font: 600 12px var(--f-panel); letter-spacing: .1em; text-transform: uppercase; color: var(--legend); text-align: center; }
+.tray { background: var(--tray); border-radius: 14px; box-shadow: 0 1px 2px #0008 inset; }
+
+.left { display: grid; gap: 18px; justify-items: center; padding-top: 4px; }
+.dials2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 46px; }
+.dials4 { display: flex; justify-content: space-between; padding: 4px 16px 0; }
+.enc { display: grid; gap: 7px; justify-items: center; }
+.dial {
+  width: 50px; height: 50px; border-radius: 50%; cursor: ns-resize; position: relative;
+  background: radial-gradient(circle at 50% 38%, #5a5f69, #2b2e35 72%);
+  box-shadow: 0 0 0 5px var(--tray), 0 0 0 6px #0006, 0 6px 10px -4px #000c, 0 1px 0 #ffffff1a inset;
+}
+.dial .rot { position: absolute; inset: 0; border-radius: 50%; }
+.dial .rot::before {
+  content: ""; position: absolute; left: 50%; top: 5px; width: 3px; height: 12px; margin-left: -1.5px;
+  border-radius: 2px; background: var(--legend);
+}
+.oct { display: flex; gap: 14px; padding: 8px 10px; }
+.oct .cap { width: 86px; height: 34px; }
+
+.screenbox { padding: 10px; background: #0b0c0f; border-radius: 18px; box-shadow: 0 0 0 1px #000 inset, 0 1px 0 #ffffff10; margin-top: 6px; }
+#screen { display: block; width: 260px; height: 260px; image-rendering: auto; border-radius: 3px; background: #101218; }
+
+.right { display: grid; gap: 22px; }
+.grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px 10px; padding: 12px; }
+
+.cap {
+  height: 50px; border-radius: 8px; border: 1px solid #0007; cursor: pointer; position: relative; padding: 0;
+  background: linear-gradient(180deg, var(--cap-hi), var(--cap)); box-shadow: 0 2px 0 #15171b, 0 1px 0 #ffffff1c inset;
+  color: var(--legend); font: 600 12.5px var(--f-panel); letter-spacing: .06em; line-height: 1.1;
+  display: grid; place-content: center; transition: background .08s, color .08s;
+}
+.cap small { display: block; font-size: 10.5px; color: #9aa1ae; }
+.cap.rec { color: #ff6b5e; }
+.cap:active, .cap.down { transform: translateY(1px); box-shadow: 0 1px 0 #15171b, 0 1px 0 #ffffff1c inset; }
+.cap.glow { background: linear-gradient(180deg, #4d4a48, #403c39); }
+.cap.lit { background: linear-gradient(180deg, #ffbe66, var(--led-amber)); color: #2a1a05; box-shadow: 0 0 14px #ffac4080, 0 2px 0 #15171b; }
+.cap.lit small { color: #4a300a; }
+.cap.lit.green { background: linear-gradient(180deg, #7de89c, var(--led-green)); color: #0a2814; box-shadow: 0 0 14px #54d67c80, 0 2px 0 #15171b; }
+.cap.lit.red { background: linear-gradient(180deg, #ff7c7c, var(--led-red)); color: #2c0606; box-shadow: 0 0 14px #f4484880, 0 2px 0 #15171b; }
+
+.kb { position: relative; height: 252px; margin-top: 24px; }
+.key {
+  position: absolute; border: 0; padding: 0; cursor: pointer; border-radius: 999px;
+  background: linear-gradient(180deg, #4a3e40, #3a3033); box-shadow: 0 0 0 1px #0009, 0 3px 0 #1a1517, 0 1px 0 #ffffff14 inset;
+}
+.key.down { background: linear-gradient(180deg, #2f2729, #3a3033); transform: translateY(2px); box-shadow: 0 0 0 1px #0009, 0 1px 0 #1a1517; }
+.key em { position: absolute; left: 50%; top: 22%; bottom: 22%; width: 5px; margin-left: -2.5px; border-radius: 3px; background: #1f191b; box-shadow: 0 1px 0 #ffffff12; }
+.key.lit em { background: var(--led-blue); box-shadow: 0 0 8px var(--led-blue); }
+.key span { position: absolute; left: 0; right: 0; bottom: -18px; text-align: center; font: 500 10.5px var(--f-mono); color: #7d8492; pointer-events: none; }
+
+.overlay {
+  position: absolute; inset: 0; display: grid; place-items: center; background: #0b0c0fc0; border-radius: 36px; z-index: 5;
+}
+.overlay button { font: 700 18px var(--f-panel); letter-spacing: .1em; text-transform: uppercase; padding: 14px 28px; border-radius: 10px; border: 0; background: var(--led-amber); color: #1b1f27; cursor: pointer; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.bar label { font-size: 14px; color: var(--ink-2); display: flex; gap: 8px; align-items: center; }
+select, .bar button, .panel button, input[type=file]::file-selector-button {
+  font: 500 14px var(--f-body); color: var(--ink); background: var(--sheet); border: 1px solid var(--rule);
+  border-radius: 8px; padding: 7px 12px; cursor: pointer;
+}
+.bar button:hover, .panel button:hover { border-color: var(--ink-2); }
+.panel button.go { background: var(--ink); color: var(--sheet); border-color: var(--ink); font-weight: 600; }
+.panel button:disabled { opacity: .45; cursor: default; }
+
+/* --------------------------------------------------------------- below */
+.below { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 20px 22px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.panel h2 { font: 700 20px var(--f-panel); letter-spacing: .02em; margin: 0; }
+.panel p { margin: 0; max-width: 62ch; }
+.muted { color: var(--ink-2); }
+dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+dl.kv dt { color: var(--ink-2); }
+dl.kv dd { margin: 0; font-family: var(--f-mono); font-size: 13px; overflow-wrap: anywhere; }
+table.keys { border-collapse: collapse; font-size: 14px; width: 100%; }
+table.keys td { padding: 5px 0; border-top: 1px solid var(--rule); vertical-align: top; }
+table.keys td:first-child { padding-right: 14px; white-space: nowrap; font: 500 13px var(--f-mono); }
+kbd { font: 500 12px var(--f-mono); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--bench); }
+.pill { display: inline-block; font: 600 12px var(--f-panel); letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.ok { color: var(--ok); } .pill.bad { color: var(--bad); } .pill.wait { color: var(--amber); }
+.progress { height: 8px; border-radius: 4px; background: var(--rule); overflow: hidden; }
+.progress div { height: 100%; width: 0; background: var(--amber); transition: width .2s; }
+.log { font: 400 12.5px/1.5 var(--f-mono); color: var(--ink-2); max-height: 160px; overflow: auto; white-space: pre-wrap; margin: 0; }
+.warn { border-left: 3px solid var(--amber); padding: 6px 0 6px 12px; font-size: 14px; }
+.confirm { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--amber); border-radius: 10px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+footer { font-size: 13px; color: var(--ink-2); }
+footer a, .panel a { color: inherit; }
+
+@media (max-width: 760px) { .below { grid-template-columns: 1fr; } h1 { font-size: 26px; } }
+@media (prefers-reduced-motion: reduce) { .progress div { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>FM1-GM<small>emulator &amp; installer</small></h1>
+    <div class="status" id="status"><span>firmware <b id="st-fw">loading</b></span><span>sound <b id="st-audio">off</b></span><span>flash <b id="st-flash">new</b></span></div>
+  </header>
+
+  <div class="stage" id="stage">
+    <div class="device" id="device">
+      <div class="overlay" id="overlay"><button id="start">Switch on</button></div>
+      <div class="top">
+        <div class="left">
+          <div class="dials2">
+            <div class="enc"><div class="lbl">Master</div><div class="dial" data-enc="MASTER" tabindex="0" role="slider" aria-label="Master"><div class="rot"></div></div></div>
+            <div class="enc"><div class="lbl">Select</div><div class="dial" data-enc="SELECT" tabindex="0" role="slider" aria-label="Select"><div class="rot"></div></div></div>
+            <div class="enc"><div class="lbl">Presets</div><div class="dial" data-enc="PRESETS" tabindex="0" role="slider" aria-label="Presets"><div class="rot"></div></div></div>
+            <div class="enc"><div class="lbl">Algorithm</div><div class="dial" data-enc="ALGORITHM" tabindex="0" role="slider" aria-label="Algorithm"><div class="rot"></div></div></div>
+          </div>
+          <div class="tray oct" id="octs"></div>
+        </div>
+        <div class="screenbox"><canvas id="screen" width="240" height="240" aria-label="FM-1 screen"></canvas></div>
+        <div class="right">
+          <div class="dials4">
+            <div class="enc"><div class="lbl">Knob 1</div><div class="dial" data-enc="KNOB 1" tabindex="0" role="slider" aria-label="Knob 1"><div class="rot"></div></div></div>
+            <div class="enc"><div class="lbl">Knob 2</div><div class="dial" data-enc="KNOB 2" tabindex="0" role="slider" aria-label="Knob 2"><div class="rot"></div></div></div>
+            <div class="enc"><div class="lbl">Knob 3</div><div class="dial" data-enc="KNOB 3" tabindex="0" role="slider" aria-label="Knob 3"><div class="rot"></div></div></div>
+            <div class="enc"><div class="lbl">Knob 4</div><div class="dial" data-enc="KNOB 4" tabindex="0" role="slider" aria-label="Knob 4"><div class="rot"></div></div></div>
+          </div>
+          <div class="tray grid" id="btns"></div>
+        </div>
+      </div>
+      <div class="kb" id="kb"></div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <label for="midikb">Play from MIDI
+      <select id="midikb"><option value="">Connect MIDI first</option></select>
+    </label>
+    <button id="reboot" type="button">Power cycle</button>
+    <button id="erase" type="button">Erase flash</button>
+    <span class="muted" id="erase-note"></span>
+  </div>
+
+  <div class="below">
+    <section class="panel">
+      <h2>Playing it</h2>
+      <p class="muted">This is the firmware itself, compiled to WebAssembly from the same sources as the device build: the screens, the sequencer, the 128 GM sounds and the drum kit. Songs you save stay in this browser's flash.</p>
+      <table class="keys">
+        <tr><td>Knobs</td><td>Drag up and down, scroll, or focus one and use the arrow keys. MASTER is the volume</td></tr>
+        <tr><td>Keys</td><td><kbd>Z</kbd>…<kbd>/</kbd> is F3 to A4 with the black keys on the row above, <kbd>W</kbd>…<kbd>U</kbd> goes on to G5</td></tr>
+        <tr><td>PLAY</td><td><kbd>Space</kbd></td></tr>
+        <tr><td>Hold</td><td>Hold a button with the mouse as long as the manual says: SEL twice for a new song, ARP for 1 s to erase a track</td></tr>
+      </table>
+      <p class="muted">The panel is laid out like the FM-1's. The manual is in the <a href="https://github.com/jartificer/fm1-gm#using-it">README</a>.</p>
+    </section>
+
+    <section class="panel" id="install">
+      <h2>Install on your FM-1</h2>
+      <p class="muted" id="midi-note">Connect the FM-1 with a USB data cable, then let this page use MIDI. Chrome, Edge and Opera on a computer can do this; Safari cannot.</p>
+      <div class="row"><button id="connect" type="button" class="go">Connect MIDI</button><button id="detect" type="button" disabled>Look again</button></div>
+      <dl class="kv">
+        <dt>Device</dt><dd id="dev">not looked for yet</dd>
+        <dt>Package</dt><dd id="pkg">loading</dd>
+        <dt>SHA-256</dt><dd id="pkg-sha">…</dd>
+      </dl>
+      <div class="row"><label for="file" class="muted" style="font-size:14px">Another package</label><input type="file" id="file" accept=".fwsc"></div>
+      <p class="warn">Not yet tested on hardware. Know the recovery steps in the <a href="https://github.com/jartificer/fm1-gm#recovery">README</a> before you install.</p>
+      <div class="row"><button id="go" type="button" class="go" disabled>Install</button></div>
+      <div class="confirm" id="confirm" hidden>
+        <div id="confirm-text"></div>
+        <div class="row"><button id="yes" type="button" class="go">Install now</button><button id="no" type="button">Cancel</button></div>
+      </div>
+      <div class="progress" id="progress" hidden><div id="bar"></div></div>
+      <pre class="log" id="log"></pre>
+    </section>
+  </div>
+
+  <footer>FM1-GM is free software under the GPL-3.0. Sounds from Fluid R3 GM by Frank Wen (MIT). Built on Felucca, X0X and FoMni. <span id="build"></span></footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
