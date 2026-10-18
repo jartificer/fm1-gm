@@ -22,9 +22,12 @@ The sounds are samples from the Fluid R3 GM SoundFont by Frank Wen (MIT License)
 - **The attack, then a seamless loop.** It keeps the sample's first 0.05–0.15 s (it depends on the family), then a loop:
   - The loop is long, 0.12–0.25 s, so whatever still changes inside it is slow and not a buzz.
   - It holds a whole number of the note's periods exactly. The sample is resampled by a hair so that the periods come out to whole sample points, so each pass picks up exactly in step with the last.
+  - The loop is tuned: its pitch is measured across the whole loop and the sample's tuning corrected so that it sits on its note. Some of FluidR3's samples are a few cents off (its 440 Hz synth saw is 13 cents flat).
   - Its length (within a quarter of the target) and start are searched for where the seam's two sides match best. This also catches the cycle of a vibrato or chorus recorded in the sample.
   - The sample's own fade across the loop is taken out, and the volume envelope does the fading instead.
   - The seam is crossfaded over the last 30 % of the loop with what comes just before the loop. The crossfade keeps the level steady however alike the two sides are: linear for a steady tone, equal power for noise.
+- **Instruments with their own timing.** Harmonica and Alto Sax start a little flat and slide up to pitch, so their loops start after the slide (and Alto Sax's holds a whole cycle of its vibrato). Slap Bass 1 keeps its first half second, while its tone changes after the slap. Contrabass has a longer loop (0.4 s) for its bowing. Fifth Sawtooth mixes FluidR3's four layers (a saw and a saw a fourth below, each as a pair a few cents apart), and its 0.8 s loop holds one whole slow beat between them.
+- **Short recordings.** When FluidR3's recording is shorter than an attack and a loop (Tuba, the synth saws and squares), the whole recording plays and then its own short loop holds, as FluidR3 plays it.
 - **Exceptions.** Sounds that die away within about half a second (xylophone, woodblock, pizzicato) and bells without a clear pitch (glockenspiel) keep their sample without a loop.
 
 FluidR3's vibrato and tremolo are left out, which removes the wobble in the upper registers. The mod wheel (CC1) still adds vibrato. The SoundFont's volume envelope, low-pass filter and filter envelope, tuning and level still apply.
