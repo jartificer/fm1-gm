@@ -9,17 +9,19 @@ const emu = new Emulator();
 window.fm1 = emu;                                  // for the console
 
 // ------------------------------------------------------------ the panel ---
-// the button order follows the panel's matrix (OCT- and OCT+ first); the real layout may differ
-const ORDER = ["OCT-", "OCT+", "FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"];
+// laid out as the FM-1 (after Felucca's drawing of it): OCT- / OCT+ under the four encoders on the left,
+// the 6 x 2 grid on the right under KNOB 1-4
+const GRID = ["FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"];
 const caps = {};
-for (const name of ORDER) {
-    const w = document.createElement("div");
-    w.className = "btn";
-    w.innerHTML = `<button class="cap" type="button" aria-label="${name}"><i></i></button><div class="lbl">${name}</div>`;
-    const c = w.firstChild;
+for (const name of ["OCT-", "OCT+", ...GRID]) {
+    const c = document.createElement("button");
+    c.type = "button";
+    c.className = "cap" + (name === "REC" ? " rec" : "");
+    c.setAttribute("aria-label", name === "PLAY" ? "PLAY / STOP" : name);
+    c.innerHTML = name === "PLAY" ? "PLAY<small>STOP</small>" : name;
     hold(c, down => emu.press(name, down));
     caps[name] = c;
-    $("btns").append(w);
+    $(name.startsWith("OCT") ? "octs" : "btns").append(c);
 }
 
 // a control held while the pointer (or a key) is down on it
@@ -49,26 +51,23 @@ function hold(el, fn) {
     });
 }
 
-// the keyboard: 27 keys, F3 .. G5
+// the keys: 27, F3 .. G5, as the FM-1's: two rows of the same pill-shaped keys, the sharps above the
+// gaps between the naturals, each with a slit that lights
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const keyEls = [];
 {
-    const whites = [];
-    for (let k = 0; k < NKEYS; k++) {
-        const n = (5 + k) % 12, black = NAMES[n].includes("#");
-        if (!black) whites.push(k);
-    }
-    const W = 100 / whites.length;
+    const P = 100 / 16, KW = P * 0.74;            // 16 naturals across the keybed
     let wi = 0;
     for (let k = 0; k < NKEYS; k++) {
         const n = (5 + k) % 12, oct = 3 + Math.floor((5 + k) / 12), black = NAMES[n].includes("#");
         const b = document.createElement("button");
         b.type = "button";
-        b.className = "key " + (black ? "b" : "w");
+        b.className = "key";
         b.setAttribute("aria-label", NAMES[n] + oct);
-        if (black) { b.style.left = `calc(${wi * W}% - ${W * 0.32}%)`; b.style.width = `${W * 0.64}%`; }
-        else { b.style.left = `${wi * W}%`; b.style.width = `${W}%`; wi++; }
+        const cx = black ? wi * P : (wi + 0.5) * P;
+        Object.assign(b.style, {left: `${cx - KW / 2}%`, width: `${KW}%`, top: black ? "2%" : "52%", height: "42%"});
         b.innerHTML = `<em></em>${!black && n === 0 ? `<span>C${oct}</span>` : ""}`;
+        if (!black) wi++;
         hold(b, down => emu.key(k, down));
         keyEls.push(b);
         $("kb").append(b);
@@ -78,12 +77,21 @@ const keyEls = [];
 // the encoders: drag (a detent every 10 px), the wheel, or the arrow keys
 const angles = new Map();
 for (const d of document.querySelectorAll(".dial")) {
-    const name = d.dataset.enc, rot = d.querySelector(".rot");
+    const name = d.dataset.enc, rot = d.querySelector(".rot"), isMaster = name === "MASTER";
+    let master = 2048;                             // MASTER is a pot, the others endless encoders
     angles.set(d, 0);
     const turn = n => {
         if (!n) return;
-        emu.turn(name, n);
-        const a = angles.get(d) + n * 18;
+        let a;
+        if (isMaster) {
+            master = Math.max(0, Math.min(4096, master + n * 128));
+            emu.master(master);
+            a = -135 + 270 * master / 4096;
+            d.setAttribute("aria-valuenow", master);
+        } else {
+            emu.turn(name, n);
+            a = angles.get(d) + n * 18;
+        }
         angles.set(d, a);
         rot.style.transform = `rotate(${a}deg)`;
     };
@@ -109,7 +117,6 @@ for (const d of document.querySelectorAll(".dial")) {
         if (n) { turn(n); e.preventDefault(); e.stopPropagation(); }
     });
 }
-$("master").addEventListener("input", e => emu.master(+e.target.value));
 
 // the computer's keyboard plays the keys
 const KEYMAP = ["KeyZ", "KeyS", "KeyX", "KeyD", "KeyC", "KeyF", "KeyV", "KeyB", "KeyH", "KeyN", "KeyJ", "KeyM",
