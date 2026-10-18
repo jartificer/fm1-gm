@@ -14,7 +14,7 @@
  *   ARP            undo (again: redo) the last recording or edit; held 1 s: erase the selected track
  *   HOME EDIT FX SEL GLO   the pages: SONG, TRACK, MIX, SONGS, SETUP (EDIT, GLO again: their next
  *                  knob page; HOME again: BAR); on SONGS, SEL again loads the song highlighted, ARP
- *                  held twice deletes it
+ *                  held twice deletes it, SEL held twice starts a new song (undo: ARP)
  *   BAR            one bar of the selected track, close up: KNOB 1 the bar, 2 the step, 3 loop the
  *                  bar (playback and recording stay in it), 4 quantize (the step's size). ENV deletes
  *                  the step's notes (held: deletes the bar, every track), LFO copies the bar (held:
@@ -89,7 +89,7 @@ static struct {
     uint32_t frame;
     uint32_t sig[3];
 } ui;
-enum { C_NONE, C_LOAD, C_SAVE, C_DEL };
+enum { C_NONE, C_LOAD, C_SAVE, C_DEL, C_INIT };
 enum { P_NONE, P_LOAD, P_SAVE, P_DEL };
 
 static void say(const char *a, const char *b)
@@ -546,7 +546,21 @@ static void button(int b, int held_long)
     case B_FX: set_view(V_MIX); break;
     case B_GLO: set_view(V_SETUP); break;
     case B_SEL:
-        if (ui.view != V_SONGS) {
+        if (ui.view == V_SONGS && held_long) {     /* a new song: held twice */
+            if (ui.confirm != C_INIT) {
+                ui.confirm = C_INIT;
+                ui.confirm_until = plat_ms() + 4000u;
+                say("NEW SONG?", "HOLD SEL AGAIN");
+            } else {
+                ui.confirm = C_NONE;
+                keys_release();
+                post(SC_INIT, 0, 0, 0, 0);
+                post(SC_GMRESET, 0, 0, 0, 0);
+                post(SC_SELECT, 0, 0, 0, 0);
+                seq_sel = 0;
+                say("NEW SONG", "ARP: UNDO");
+            }
+        } else if (ui.view != V_SONGS) {
             set_view(V_SONGS);
         } else if (song_dirty() && ui.confirm != C_LOAD) {
             ui.confirm = C_LOAD;
@@ -669,7 +683,8 @@ static void button(int b, int held_long)
 
 static int has_long(int b)                      /* a button with a held action here */
 {
-    return b == B_ARP || (ui.view == V_BAR && !seq_step && (b == B_ENV || b == B_LFO));
+    return b == B_ARP || (ui.view == V_BAR && !seq_step && (b == B_ENV || b == B_LFO)) ||
+           (ui.view == V_SONGS && b == B_SEL);
 }
 
 static void input(void)
@@ -994,7 +1009,7 @@ static void draw_track(void)
 /* BAR: one bar of the selected track, close up: the steps, the step selected, the notes */
 #define BAR_HELP1 "ENV del step (held: bar)  ARP undo"
 #define BAR_HELP2 "LFO copy (held: paste)  ARP held: clear"
-#define SONGS_HELP "SEL load  SAVE save here  ARP held: delete"
+#define SONGS_HELP "SEL load (held: new)  SAVE  ARP held: del"
 static void draw_bar(void)
 {
     const seq_trk_t *k = sel_trk();

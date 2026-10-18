@@ -909,6 +909,21 @@ static void exec(const cmd_t *c)
         snapshot();
         bar_delete((uint32_t)c->w);
         break;
+    case SC_INIT:
+        stop();
+        seq_step = 0;
+        seq_rec = 0;
+        snapshot();
+        song_defaults(S);
+        seq_loop = 0;
+        seq_loop_bar = 0;
+        seq_step_tick = 0;
+        seq_full = 0;
+        seek(0);
+        spt = samples_per_tick();
+        apply_all();
+        changed();
+        break;
     case SC_STEP_DELETE:
         snapshot();
         tracks_off(t);

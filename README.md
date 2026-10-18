@@ -34,7 +34,7 @@ The screen has six views. EDIT or GLO again flips its view's four knobs to their
 | HOME | **Song** view: the 16 tracks. Knobs: tempo, bars, quantize, click. HOME again: **Bar** view (below) |
 | EDIT | **Track** view: piano roll of the selected track. Knobs: family, program, volume, pan / channel, reverb, transpose, velocity |
 | FX | **Mix** view: 16 strips. Knobs: the volumes of the selected track's group of four (1–4, 5–8, …) |
-| SEL | **Songs** view: 16 slots at a time (of 64) and the room left. SEL again loads the highlighted slot; hold ARP twice to delete it |
+| SEL | **Songs** view: 16 slots at a time (of 64) and the room left. SEL again loads the highlighted slot; hold ARP twice to delete it; hold SEL twice for a new song |
 | GLO | **Setup**. Knobs: MIDI in mode, MIDI out, clock out, count-in / voices, click volume, lights |
 | PLAY | Play / stop |
 | REC | Arm recording (overdub, with a one-bar count-in when it is on) |
@@ -50,6 +50,8 @@ Encoders: **SELECT** picks the track (or the slot in the Songs view), **ALGORITH
 The keys play the selected track. On a drum track (channel 10) the lowest key is note 35 (Acoustic Bass Drum) and the keys go up the kit.
 
 Loading a different song while the current one has changes asks for a second SEL.
+
+**A new song:** in the Songs view, hold SEL for a second, then again. Every note goes and every track and setting returns to its default (programs, volumes, tempo, bars, quantize); the slot stays the same and nothing in flash changes until you save. ARP undoes it.
 
 **MIDI in** has two modes, set in Setup. TRACK (the default) plays whatever arrives on the selected track, with its sound, so a keyboard records into the track you are on. MULTI plays each channel as sent, as a GM module; channel 10 is drums. MIDI Start and Stop start and stop the sequencer.
 

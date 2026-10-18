@@ -1,5 +1,6 @@
 # The BAR page: pick a bar and a step, step-record there, copy and paste a bar, delete a step and a
-# bar, undo, loop a bar; then save, reboot, and delete the song. And nothing on any page too wide.
+# bar, undo, loop a bar; then save, reboot, and delete the song; last, a new song and its undo. And
+# nothing on any page too wide.
 wait 600
 expect fit 0
 tap HOME
@@ -77,3 +78,24 @@ expect dirty 1
 reboot
 wait 600
 expect nev 0
+# a new song (SEL held twice on SONGS): no notes, default programs; ARP brings the song back
+tap SEQ
+tapkey 0
+tapkey 2
+tap SEQ
+turn ALGO 5
+expect prog1 5
+expect trknev1 2
+tap SEL
+expect view 3
+hold SEL 1200
+expect trknev1 2
+hold SEL 1200
+wait 100
+expect nev 0
+expect prog1 0
+expect prog2 33
+tap ARP
+wait 100
+expect trknev1 2
+expect prog1 5
