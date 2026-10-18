@@ -14,6 +14,7 @@
  *   turn ENC N [MS]              (ENC: SELECT ALGO PRESET K1 K2 K3 K4; N detents, MS apart, default 80)
  *   spin ENC N                   N detents at once, exactly N (no acceleration)
  *   master N                     MASTER pot 0..4096
+ *   battery N                    the battery: 0..3 bars, 4 powered over USB (the default)
  *   midi B0 B1 B2                incoming USB MIDI message (hex bytes)
  *   wav FILE | wavstop           start / stop recording the output
  *   peakreset                    restart the output peak (expect peak_db_min / peak_db_max)
@@ -75,6 +76,8 @@ int32_t plat_enc(int role)
     return v;
 }
 uint32_t plat_master(void) { return master; }
+static int battery = 4;
+int plat_battery(void) { return battery; }
 void plat_leds(uint32_t b, uint32_t k)
 {
     lit_btn = b;
@@ -382,6 +385,8 @@ static int expect(const char *what, const char *val)
         got = seq_undo_ok;
     else if (!strcmp(what, "midi_in"))
         got = set.midi_in;
+    else if (!strcmp(what, "theme"))
+        got = set.theme;
     else if (!strcmp(what, "poly"))
         got = gm_voice_max;
     else if (!strcmp(what, "voices"))
@@ -530,6 +535,8 @@ int main(int argc, char **argv)
             accel_off = 0;
         } else if (!strcmp(cmd, "master"))
             master = (uint32_t)atoi(a);
+        else if (!strcmp(cmd, "battery"))
+            battery = atoi(a);
         else if (!strcmp(cmd, "midi")) {
             uint32_t s = (uint32_t)strtoul(a, 0, 16), d1 = (uint32_t)strtoul(b, 0, 16), d2 = (uint32_t)strtoul(c, 0, 16);
             uint32_t cin = s >= 0xF0 ? 0x0F : s >> 4;

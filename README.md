@@ -8,6 +8,7 @@ Custom firmware that turns the M-VAVE FM-1 into a General MIDI sound module and 
 - Real-time recording with overdub, quantize and count-in, plus step recording, undo, mute and solo.
 - **Bar editing:** pick a bar and a step; loop the bar, delete a step, copy, paste, clear or delete a bar. Undo covers all of it.
 - MIDI in (USB and the TRS jack) plays the sounds; MIDI out and clock out over USB are optional.
+- A battery indicator, and five screen colour schemes, two of them for colour-blind players.
 
 It is built on [Felucca](https://github.com/hugelton/Felucca)'s FM-1 platform, through [X0X](https://github.com/charlesvestal/fm1-x0x) and [FoMni](https://github.com/charlesvestal/fm1-fomni). The sound engine, the sequencer, the song storage and the screens are new.
 
@@ -15,11 +16,18 @@ It is built on [Felucca](https://github.com/hugelton/Felucca)'s FM-1 platform, t
 
 ## The sounds
 
-The sounds are samples: a wavetable made from the Fluid R3 GM SoundFont by Frank Wen (MIT License). The full SoundFont is 141 MiB and the FM-1 has about 440 KiB of flash left after the firmware, so `tools/sf2_reduce.py` cuts it down to `assets/soundfont/fm1gm.sf2` (1.5 MiB, a normal SoundFont you can play in any SoundFont player): for each program one velocity layer and up to three mono samples spread over the keyboard (two for most), each at the lowest sample rate its spectrum needs and cut to its attack plus a short, crossfaded loop. The build stores the samples as 4-bit ADPCM, 381 KiB in all.
+Each instrument is a hybrid of a sample and a wavetable synth. A note starts with a real attack, sampled from the Fluid R3 GM SoundFont by Frank Wen (MIT License), and after a fraction of a second it crossfades into a simple waveform that holds for as long as the note sounds. Nothing loops, so there is no loop seam and no pitch wobble.
 
-Each note plays its program's sample for that key with the SoundFont's own settings: volume envelope, low-pass filter and filter envelope, vibrato and tremolo, tuning and level. All 128 programs have their own samples, apart from the few that FluidR3 itself shares: the three acoustic pianos, Accordion and Tango Accordion, Strings and Slow Strings, Saw Lead and Bass & Lead.
+- **One sample per instrument.** For each program, `tools/sf2_reduce.py` takes the sample FluidR3 plays at the instrument's middle key, keeps its first 0.05–0.25 s (it depends on the family), and stores it in `assets/soundfont/fm1gm.sf2`. The same sample plays across the whole keyboard, so an instrument sounds like itself in every register.
+- **The sustain** is the simple waveform nearest to the sample's own spectrum: a sine, triangle, sawtooth, square or pulse (some with their upper harmonics softened), a two-operator FM tone, or filtered noise for sounds with no pitch (sea shore, applause, cymbals). The fit is done over a window of a few periods right after the attack, and it gives the phase and level too, so the crossfade over that window has no seam. The choices are in `assets/soundfont/fm1gm_sustain.json`. For example, the pianos settle into a softened sawtooth, the electric pianos into FM or a soft pulse, the flutes into FM or triangle, and the square and saw leads into exactly those.
+- **The waveform plays at every pitch without aliasing:** each one is stored at seven band limits (64 harmonics down to 1), and a note uses the richest one its pitch allows.
+- **Its level follows the sample.** When the sampled instrument fades by itself (piano, guitar, mallets), that fade carries on in the volume envelope. Sounds that die away within about half a second (xylophone, woodblock, pizzicato) and bells without a clear pitch (glockenspiel) just play their sample out.
 
-The drum kit is FluidR3's standard kit, notes 35–81. Each drum keeps its sample until it has died away by 36 dB (at most a quarter second); cymbals and other long drums then loop and fade. Open and closed hi-hats choke each other, as do the other groups FluidR3 marks.
+FluidR3's vibrato and tremolo are left out, which removes the wobble in the upper registers. The mod wheel (CC1) still adds vibrato. The SoundFont's volume envelope, low-pass filter and filter envelope, tuning and level still apply.
+
+The drum kit is FluidR3's standard kit, notes 35–81. Each drum keeps its sample until it has died away by 36 dB (at most 0.3 s). Cymbals and other long drums then carry on as filtered noise, and toms and the triangle as a tone. Open and closed hi-hats choke each other, as do the other groups FluidR3 marks.
+
+The build stores the samples as 4-bit ADPCM (322 KiB) and the waveforms as 16-bit tables (54 KiB).
 
 A shared reverb follows CC91 (channel and track reverb send).
 
@@ -35,7 +43,7 @@ The screen has six views. EDIT or GLO again flips its view's four knobs to their
 | EDIT | **Track** view: piano roll of the selected track. Knobs: family, program, volume, pan / channel, reverb, transpose, velocity |
 | FX | **Mix** view: 16 strips. Knobs: the volumes of the selected track's group of four (1–4, 5–8, …) |
 | SEL | **Songs** view: 16 slots at a time (of 64) and the room left. SEL again loads the highlighted slot; hold ARP twice to delete it; hold SEL twice for a new song |
-| GLO | **Setup**. Knobs: MIDI in mode, MIDI out, clock out, count-in / voices, click volume, lights |
+| GLO | **Setup**. Knobs: MIDI in mode, MIDI out, clock out, count-in / voices, click volume, lights, colours |
 | PLAY | Play / stop |
 | REC | Arm recording (overdub, with a one-bar count-in when it is on) |
 | SEQ | Step recording on / off (stopped) |
@@ -52,6 +60,10 @@ The keys play the selected track. On a drum track (channel 10) the lowest key is
 Loading a different song while the current one has changes asks for a second SEL.
 
 **A new song:** in the Songs view, hold SEL for a second, then again. Every note goes and every track and setting returns to its default (programs, volumes, tempo, bars, quantize); the slot stays the same and nothing in flash changes until you save. ARP undoes it.
+
+**Colours:** Setup's second page (GLO twice), knob 4. DARK (the default), LIGHT, HI-CON (high contrast: black, white and saturated colours), RED-GRN (for red-green colour blindness: no red against green; playing is blue and recording vermilion, from the Okabe–Ito palette) and BLU-YEL (for blue-yellow colour blindness: red against cyan). The choice is saved with the settings.
+
+**Battery:** the icon at the top right shows three bars, two, one (orange) or none (red), from the battery's voltage. A bolt means a USB host is powering the FM-1.
 
 **MIDI in** has two modes, set in Setup. TRACK (the default) plays whatever arrives on the selected track, with its sound, so a keyboard records into the track you are on. MULTI plays each channel as sent, as a GM module; channel 10 is drums. MIDI Start and Stop start and stop the sequencer.
 
