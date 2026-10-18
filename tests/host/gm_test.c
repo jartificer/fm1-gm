@@ -208,7 +208,7 @@ static void test_polyphony_cost(void)
     int i, p;
     clock_t t0;
     double us;
-    static const int HEAVY[] = {81, 50, 29, 0, 88};   /* saws through filters, drive, FM pads */
+    static const int HEAVY[] = {89, 48, 92, 0, 81};   /* filtered pads, strings, vibrato, piano, lead */
     for (p = 0; p < 5; p++) {
         midi(0xC0 | (uint32_t)p, (uint32_t)HEAVY[p], 0);
         for (i = 0; i < 5; i++)

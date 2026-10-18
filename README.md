@@ -14,9 +14,11 @@ It is built on [Felucca](https://github.com/hugelton/Felucca)'s FM-1 platform, t
 
 ## The sounds
 
-Each GM program is one of a few synthesis types (2-operator FM, band-limited saw, pulse, noise), through a resonant filter, with amplitude, filter, FM-index and pitch envelopes, vibrato and tremolo. Pianos, mallets, bells and e-pianos use FM; strings, brass and synth leads use saw or pulse; winds add filtered breath noise. The patches are a fixed table in `firmware/src/dsp/gm_patches.h`.
+The sounds are samples: a wavetable made from the Fluid R3 GM SoundFont by Frank Wen (MIT License). The full SoundFont is 141 MiB and the FM-1 has about 440 KiB of flash left after the firmware, so `tools/sf2_reduce.py` cuts it down to `assets/soundfont/fm1gm.sf2` (1.5 MiB, a normal SoundFont you can play in any SoundFont player): for each program one velocity layer and up to three mono samples spread over the keyboard (two for most), each at the lowest sample rate its spectrum needs and cut to its attack plus a short, crossfaded loop. The build stores the samples as 4-bit ADPCM, 381 KiB in all.
 
-The drum kit is synthesized as well: kicks, snares, toms and claps are pitched tones with noise, hats and cymbals are metallic tones with filtered noise, and Latin percussion fills the rest of GM's 35–81 range. Open and closed hi-hats choke each other, as do the triangles, whistles, guiros and cuicas.
+Each note plays its program's sample for that key with the SoundFont's own settings: volume envelope, low-pass filter and filter envelope, vibrato and tremolo, tuning and level. All 128 programs have their own samples, apart from the few that FluidR3 itself shares: the three acoustic pianos, Accordion and Tango Accordion, Strings and Slow Strings, Saw Lead and Bass & Lead.
+
+The drum kit is FluidR3's standard kit, notes 35–81. Each drum keeps its sample until it has died away by 36 dB (at most a quarter second); cymbals and other long drums then loop and fade. Open and closed hi-hats choke each other, as do the other groups FluidR3 marks.
 
 A shared reverb follows CC91 (channel and track reverb send).
 
@@ -63,6 +65,7 @@ Step recording: stop, press SEQ, then play a note (or a chord) to place it at th
 - **Song length:** 1–128 bars of 4/4, 48 PPQN, up to 1280 notes per song across all tracks, 30–300 BPM.
 - **Key velocity:** the FM-1 keys are not velocity-sensitive, so each track has a fixed key velocity (default 100); MIDI in keeps its own velocity.
 - **No chorus.** CC93 is accepted and ignored, to keep CPU for voices.
+- **One velocity layer.** MIDI velocity sets the level only; the samples are FluidR3's velocity-100 layer.
 - **No external clock sync.** MIDI Start and Stop are followed, the tempo is the song's own.
 - **Notes only are recorded** (no controller or bend automation); per-track volume, pan and reverb are part of the song.
 - **Flash map.** The 16 songs sit at 0x97000 + slot × 0x4000 (two copies of 8 KiB each), panel calibration at 0xDC000 and settings at 0xFC000. The stock firmware's patches at 0xEA000 and the update staging area at 0xE0000 are not touched.
