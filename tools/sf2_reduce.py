@@ -17,6 +17,12 @@ only its attack and a loop after it. The loops are made to be seamless:
   and start searched for where the two match best (a recorded vibrato or chorus wants whole cycles
   of its own), and the crossfade's law keeping the level steady for however alike they are (linear
   for a periodic sound, equal power for noise).
+- tuned: its pitch, measured across the loop, sits on its note (to the semitone the zone's tuning
+  means).
+
+A few programs have an attack and a loop of their own (TIMING); one mixes its layers into its sample
+(LAYERED). Where the recording ends in a short loop of its own before an attack and a loop fit, the
+whole recording is kept and its own loop holds.
 
 Sounds that die away within about half a second keep their whole sample, with no loop; so does an
 inharmonic bell. The drum kit (bank 128, program 0) keeps notes 35..81, each trimmed (cymbals and
@@ -63,6 +69,13 @@ FAMILY = [
     (60, 0.15, 0.25),           # sound effects
 ]
 CENTRE = {43: 40, 58: 40, 70: 48, 72: 84, 73: 72, 47: 48}   # Contrabass, Tuba, Bassoon, Piccolo, Flute, Timpani
+# programs whose recording wants an attack and a loop (s) of its own: Harmonica and Alto Sax start a
+# little flat and slide up to pitch (a loop there replays the slide), Slap Bass 1 changes its tone for
+# half a second after the slap, Contrabass bows on with a slow swell, and Alto Sax's vibrato wants a
+# whole cycle; Fifth Sawtooth's loop holds one beat of its detuned layers (LAYERED)
+TIMING = {22: (0.17, 0.15), 36: (0.45, 0.20), 43: (0.15, 0.40), 65: (0.28, 0.22), 86: (0.05, 0.80)}
+LAYERED = {86}                  # programs whose layers (on the centre key) are mixed into their sample
+STATIC_LOOP = 0.04              # the loop when the recording is over before a loop of its own fits (s)
 UNPITCHED = {119, 120, 121, 122, 124, 125, 126, 127}   # GM programs whose loops are noise, not periods
 NOISE_LOOP = 0.25               # an unpitched loop (s): long, so it does not sound like a repeat
 ONE_SHOT = 0.6                  # a sample without a loop that has died away within this (s) stays a one-shot
@@ -259,23 +272,30 @@ def match_all(x, n, f, lo, hi):
     return dot / (np.sqrt(ea * eb) + 1e-12)
 
 
-def make_loop(x, nr, f0, s0, loop_t):
+def make_loop(x, nr, f0, s0, loop_t, exact=False):
     """x (at rate nr) cut to a seamless loop after point s0 (the attack's end): returns the sample
     (attack + loop), its rate (a hair from nr when the loop was made period-exact), the loop (start,
     end) and how alike the crossfade's two halves were. The crossfade's other half is what comes
     just before the loop, after the attack.
 
     The loop's length (a whole number of periods, within a quarter of loop_t: a recorded vibrato or
-    chorus wants whole cycles of its own) and start (within SEARCH) are those whose two halves match
+    chorus wants whole cycles of its own; exact: f0 is the loop's own pitch, one period a loop) and start (within SEARCH) are those whose two halves match
     best; then the sample is resampled by a hair so that the periods are whole points."""
     rate = nr
     hop = max(int(nr * 0.01), 16)
     n0 = loop_t * nr
     if f0:
-        span = min(int(0.1 * nr), len(x) - s0)
-        p = 1.0 / refine_cps(x[s0:s0 + span], f0 / nr, 8)
-        ms = range(max(1, int(0.75 * n0 / p)), max(2, int(1.25 * n0 / p)) + 1)
-        lens = [(m * p, m) for m in ms]
+        # whole periods of the pitch where the loop starts, and of its pitch across the loop (they differ
+        # by a few cents where it slides or has a vibrato, enough to put a long loop's seam out of step)
+        if exact:
+            ps = {nr / f0}
+        else:
+            ps = {1.0 / refine_cps(x[s0:s0 + min(int(t * nr), len(x) - s0)], f0 / nr, 8)
+                  for t in (0.1, max(0.1, 1.3 * loop_t))}
+        lens = []
+        for p in ps:
+            m0 = max(1, int(0.75 * n0 / p))
+            lens += [(m * p, m) for m in range(m0, max(m0, int(1.25 * n0 / p)) + 1)]
     else:
         lens = [(float(n), 0) for n in range(int(0.75 * n0), int(1.25 * n0) + 1, max(1, int(nr * 0.001)))]
     need = int(s0 + 1.25 * n0 * (1 + XF_SHARE) + SEARCH * nr + 4)
@@ -362,8 +382,45 @@ def cut(y, n, nr):
     return y
 
 
-def process(sf, z, zs, root, att, loop_t, pitched, drum):
-    """the sample kept (floats), its rate, its loop (or None), generators it adds, the loop's match"""
+def layered(sf, z, zs, key, f0, rate):
+    """z's sample (a waveform's few cycles, about f0 Hz) mixed with the other zones that sound on key,
+    each at its pitch relative to z, at z's rate and level; and the loop (s) that holds the mix.
+    FluidR3's Fifth Sawtooth is a saw and a saw a fourth below, each a stereo pair 5 cents apart, so
+    that they beat slowly: each layer's pitch is moved by a hair so that they all repeat together
+    after one beat of the pair (about 0.8 s at 440 Hz), and the loop is that"""
+    here = [o for o in zs if o["key"][0] <= key <= o["key"][1]]
+    zsm = sf.samples[z["sample"]]
+
+    def native(o):                                          # the waveform's pitch (Hz): whole cycles in its loop
+        sm = sf.samples[o["sample"]]
+        xo = unroll(pcm_float(sm), sm.loop[0], sm.loop[1], sm.rate)
+        nominal = f0 * 2 ** (100 * (root_of(sf, o) - root_of(sf, z)) / 1200)
+        n = sm.loop[1] - sm.loop[0]
+        return round(n * refine_cps(xo[:sm.rate // 10], nominal / sm.rate, 8)) * sm.rate / n, sm
+
+    def sounds(o, fo):                                      # its pitch as played, as a share of z's
+        g = o["gens"]
+        t = g.get(G["coarseTune"], 0) * 100 + g.get(G["fineTune"], 0) + sf.samples[o["sample"]].corr
+        return fo * 2 ** ((t + 100 * (key - root_of(sf, o))) / 1200)
+    nat = [native(o) for o in here]
+    fz = nat[here.index(z)][0]
+    rel = [sounds(o, fo) / sounds(z, fz) for o, (fo, _) in zip(here, nat)]
+    beat = min((abs(np.log2(r1 / r2)) for r1 in rel for r2 in rel if abs(np.log2(r1 / r2)) > 1e-4), default=0.0)
+    cycles = int(round(1 / (2 ** beat - 1))) if beat else int(round(0.5 * fz))   # of z, in the loop
+    n = int(np.ceil((0.8 + 1.6 * cycles / fz) * rate))
+    y = np.zeros(n)
+    for r, (fo, sm) in zip(rel, nat):
+        want = round(r * cycles) / cycles * fz / rate       # cycles a point of the mix
+        step = want / (fo / sm.rate)                        # points of o a point of the mix
+        xo = unroll(pcm_float(sm), sm.loop[0], sm.loop[1], int(n * step) + 2)
+        y += np.interp(np.arange(n) * step, np.arange(len(xo)), xo)
+    x = unroll(pcm_float(zsm), zsm.loop[0], zsm.loop[1], n)
+    return y * np.sqrt(np.mean(x ** 2) / (np.mean(y ** 2) + 1e-12)), cycles / fz, fz
+
+
+def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None):
+    """the sample kept (floats), its rate, its loop (or None), generators it adds, the loop's match,
+    the loop's pitch (Hz)"""
     x, rate, (ls0, le0), mixed = region_sample(sf, z, zs)
     g = z["gens"]
     # the sample's own pitch: its root key, less the correction a player adds; or, when the zone's
@@ -383,14 +440,21 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum):
     if not long:                                            # dies away by itself: a one-shot
         keep = min(max(ring, DRUM_MIN) * 1.15, DRUM_MAX * 1.15 if drum else ONE_SHOT_KEEP)
         xr, nr, _ = resample(x[:int(keep * rate) + 64], rate, want)
-        return cut(xr, int(keep * nr), nr), nr, None, extra, None
+        return cut(xr, int(keep * nr), nr), nr, None, extra, None, None
     if not f0 and not drum:
         loop_t = max(loop_t, NOISE_LOOP)
+    if layer_key is not None:
+        x, loop_t, fz = layered(sf, z, zs, layer_key, f0, rate)
+    elif looped and le0 - ls0 < 0.5 * loop_t * rate and ls0 < (att + 0.75 * loop_t) * rate:
+        # the recording is over (into a short loop of its own) before a loop of ours fits after the
+        # attack: the whole recording is the attack, and its own loop holds, as FluidR3 plays it (a loop
+        # of ours would replay the recording's end and its loop by turns, a flutter)
+        att, loop_t = ls0 / rate, STATIC_LOOP
     need = int((att + loop_t * (1 + XF_SHARE) + SEARCH + 0.05) * rate)
-    if looped:
+    if looped and layer_key is None:
         x = unroll(x, ls0, le0, need)
     xr, nr, _ = resample(x[:need + 64], rate, want)
-    if f0:
+    if f0 and layer_key is None:
         seg = xr[int(att * nr):int(att * nr) + int(0.1 * nr)]
         tune = g.get(G["coarseTune"], 0) * 100 + g.get(G["fineTune"], 0)
         best = None
@@ -403,13 +467,21 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum):
         if 1 - resid < 0.3:                                 # a bell: no period to loop, so it rings out
             keep = min(ring, BELL)
             xr, nr, _ = resample(x[:int(keep * rate) + 64], rate, want)
-            return cut(xr, int(keep * nr), nr), nr, None, extra, None
-    y, nr2, loop, rho = make_loop(xr, nr, f0, int(round(att * nr)), loop_t)
+            return cut(xr, int(keep * nr), nr), nr, None, extra, None, None
+    if layer_key is not None:                               # the mix repeats once a loop, exactly
+        y, nr2, loop, rho = make_loop(xr, nr, 1 / loop_t, int(round(att * nr)), loop_t, exact=True)
+        fl = fz
+    else:
+        y, nr2, loop, rho = make_loop(xr, nr, f0, int(round(att * nr)), loop_t)
+        fl = None
+        if f0:                                              # the sustain's pitch, across the whole loop
+            ls, le = loop
+            fl = refine_cps(y[ls:le], f0 / nr2, 8) * nr2
     if not looped:
         envelope_fade(decay_tc(x, rate, att), g, extra, att)
     elif ls0 > (att + 0.1) * rate:                          # looped late: it settles before its loop holds
         envelope_settle(x, rate, att, ls0, g, extra)
-    return y, nr2, loop, extra, rho
+    return y, nr2, loop, extra, rho, fl
 
 
 def out_gens(z, root, loop, extra, key):
@@ -447,16 +519,27 @@ def reduce(src, verbose=False):
     presets = {(p.bank, p.program): p for p in sf.presets}
     samples, cache, instruments, out_presets = [], {}, [], []
     stats = []
+    tuned = {}
 
-    def add_sample(z, zs, root, att, loop_t, pitched, drum, name):
-        key = (z["sample"], root, att, loop_t, drum, tuple(sorted((k, v) for k, v in z["gens"].items()
-                                                                  if k in sf2.NOT_ADDITIVE or k in (G["coarseTune"], G["fineTune"]))))
+    def add_sample(z, zs, root, att, loop_t, pitched, drum, name, layer_key=None):
+        key = (z["sample"], root, att, loop_t, drum, layer_key, tuple(sorted(
+            (k, v) for k, v in z["gens"].items() if k in sf2.NOT_ADDITIVE or k in (G["coarseTune"], G["fineTune"]))))
         if key not in cache:
-            y, rate, loop, extra, rho = process(sf, z, zs, root, att, loop_t, pitched, drum)
+            y, rate, loop, extra, rho, fl = process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key)
             sm = sf.samples[z["sample"]]
             # the rate is whole Hz in a SoundFont: what a period-exact loop's hair of resampling leaves
             # over goes into the pitch correction
             corr = sm.corr + 1200 * np.log2(rate / round(rate))
+            if fl:
+                # the loop in tune at its root key, to the nearest semitone the zone's tuning means: some
+                # of FluidR3's samples are a few cents off (its 440 Hz saw is a period of 101 points, 13
+                # cents flat), or settle a little off the pitch their attack starts at
+                g = z["gens"]
+                d = 1200 * np.log2(fl / (440.0 * 2 ** ((root - 69) / 12))) + sm.corr + \
+                    g.get(G["coarseTune"], 0) * 100 + g.get(G["fineTune"], 0)
+                d -= 100 * round(d / 100)
+                corr -= d
+                tuned[len(samples)] = d
             if loop:                                        # 8 points after the loop end (SoundFont 7.10)
                 y = np.concatenate([y[:loop[1]], y[loop[0]:loop[0] + 8]])
             samples.append(sf2.Sample(name[:19], to_pcm(y), int(round(rate)), root, int(round(corr)),
@@ -467,6 +550,7 @@ def reduce(src, verbose=False):
     for prog in range(128):
         ck, att, loop_t = FAMILY[prog >> 3]
         ck = CENTRE.get(prog, ck)
+        att, loop_t = TIMING.get(prog, (att, loop_t))
         p = presets[(0, prog)]
         zs = sf2.zones(sf, p)
         for z in zs:
@@ -474,12 +558,12 @@ def reduce(src, verbose=False):
         z = centre_zone(sf, zs, ck)
         root = root_of(sf, z)
         si, loop, extra, rho = add_sample(z, zs, root, att, loop_t, prog not in UNPITCHED, False,
-                                          f"{prog:03d} {p.name}"[:15] + f" {root}")
+                                          f"{prog:03d} {p.name}"[:15] + f" {root}", ck if prog in LAYERED else None)
         gz = out_gens(z, root, loop, extra, (0, 127))
         gz[G["sampleID"]] = si
         instruments.append(sf2.Instrument(p.name, [sf2.Zone(gz)]))
         out_presets.append(sf2.Preset(p.name, prog, 0, [sf2.Zone({G["instrument"]: len(instruments) - 1})]))
-        stats.append((prog, p.name, len(samples[si].pcm) // 2, loop, rho, samples[si].rate))
+        stats.append((prog, p.name, len(samples[si].pcm) // 2, loop, rho, samples[si].rate, tuned.get(si)))
 
     kit = presets[(128, 0)]
     zs = sf2.zones(sf, kit)
@@ -496,12 +580,14 @@ def reduce(src, verbose=False):
         gz = out_gens(z, root, loop, extra, (note, note))
         gz[G["sampleID"]] = si
         zones.append(sf2.Zone(gz))
-        stats.append((note, f"drum {note}", len(samples[si].pcm) // 2, loop, rho, samples[si].rate))
+        stats.append((note, f"drum {note}", len(samples[si].pcm) // 2, loop, rho, samples[si].rate, None))
     instruments.append(sf2.Instrument("Standard Kit", zones))
     out_presets.append(sf2.Preset("Standard", 0, 128, [sf2.Zone({G["instrument"]: len(instruments) - 1})]))
     if verbose:
-        for prog, name, n, loop, rho, rate in stats:
+        for prog, name, n, loop, rho, rate, cents in stats:
             d = f"loop {(loop[1] - loop[0]) / rate:.3f} s from {loop[0] / rate:.3f} s, match {rho:.2f}" if loop else "one-shot"
+            if cents is not None:
+                d += f", tuned {-cents:+.0f} c"
             print(f"  {prog:3d} {name:22s} {n:6d} pts  {d}")
     info = {
         "isng": "E-mu 10K1",
