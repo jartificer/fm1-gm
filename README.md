@@ -14,6 +14,12 @@ It is built on [Felucca](https://github.com/hugelton/Felucca)'s FM-1 platform, t
 
 > **Status: tested on a real FM-1 by the author, and it works.** Everything also runs and is tested in the host simulator (`tests/run_tests.sh`). The firmware comes with no warranty: see [No warranty](#no-warranty) before you install it.
 
+## Emulator and firmware loader
+
+You can use the following website to test out the firmware in your browser. On Chromium-based browsers, you can connect your FM1 via USB (use one of your main ports, not a USB hub) and load the FM1-GM firmware directly from the website.
+
+https://jartificer.github.io/fm1-gm/
+
 ## The sounds
 
 The sounds are samples from the Fluid R3 GM SoundFont by Frank Wen (MIT License). The full SoundFont is 141 MiB and the FM-1 has about 440 KiB of flash left after the firmware, so `tools/sf2_reduce.py` cuts it down to `assets/soundfont/fm1gm.sf2`, a normal SoundFont you can play in any SoundFont player.
