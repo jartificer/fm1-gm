@@ -13,7 +13,8 @@ only its attack and a loop after it. The loops are made to be seamless:
 - a whole number of periods exactly: the sample is resampled by a hair so that they come out to a
   whole number of points, and the loop replays in step with itself;
 - level: the sample's fade across the loop is taken out (the volume envelope fades it instead);
-- the seam crossfaded, over the loop's last 30 %, with what comes just before its start; the length
+- the seam crossfaded, over the loop's last 7-30 % (searched: a long crossfade over sides that do not
+  match is an echo), with what comes just before its start; the length
   and start searched for where the two match best (a recorded vibrato or chorus wants whole cycles
   of its own), and the crossfade's law keeping the level steady for however alike they are (linear
   for a periodic sound, equal power for noise).
@@ -81,7 +82,10 @@ NOISE_LOOP = 0.25               # an unpitched loop (s): long, so it does not so
 ONE_SHOT = 0.6                  # a sample without a loop that has died away within this (s) stays a one-shot
 ONE_SHOT_KEEP = 0.5             # and keeps at most this (s)
 BELL = 0.6                      # an inharmonic instrument (a glockenspiel) rings out for up to this (s)
-XF_SHARE = 0.3                  # the seam's crossfade, a share of the loop
+XF_SHARE = 0.3                  # the seam's crossfade, a share of the loop, at most
+XF_SHARES = (0.3, 0.15, 0.07)   # the shares tried
+XF_MIN = 0.006                  # and at least this (s)
+XF_REF = 0.015                  # the crossfade (s) that least shows a mismatch, both as an echo and as a jump
 SEARCH = 0.03                   # the loop start is searched over this (s) after the attack
 RATE_MIN, RATE_MAX = 11025, 16000
 DRUM_RATE_MAX = 28000           # hi-hats and cymbals have half their energy above 11 kHz
@@ -301,24 +305,31 @@ def make_loop(x, nr, f0, s0, loop_t, exact=False):
     need = int(s0 + 1.25 * n0 * (1 + XF_SHARE) + SEARCH * nr + 4)
     if len(x) < need:
         x = np.pad(x, (0, need - len(x)))
+    # the crossfade too: over two sides that do not match, a long one is heard as an echo (the loop's end
+    # and what came before its start, both at once), a short one as a jump; the cost of a mismatch (1 - rho)
+    # is least at XF_REF, and a longer crossfade only pays where the two sides are alike
+    ref = XF_REF * nr
     best = None
     for nf, m in lens:
         n = int(round(nf))
-        f = int(n * XF_SHARE)
-        lo = s0 + f
-        rho = match_all(x, n, f, lo, lo + int(SEARCH * nr) + 1)
-        i = int(np.argmax(rho))
-        score = rho[i] - 0.05 * abs(nf / n0 - 1)
-        if best is None or score > best[0]:
-            best = (score, nf, lo + i)
-    _, nf, s = best
+        for share in XF_SHARES:
+            f = max(int(n * share), int(XF_MIN * nr))
+            if f > n * XF_SHARE:
+                continue
+            lo = s0 + int(n * XF_SHARE)
+            rho = match_all(x, n, f, lo, lo + int(SEARCH * nr) + 1)
+            i = int(np.argmax(rho))
+            cost = (1 - rho[i]) * (f / ref + ref / f) / 2 + 0.05 * abs(nf / n0 - 1) - 0.002 * f / n
+            if best is None or cost < best[0]:
+                best = (cost, nf, lo + i, f / n)
+    _, nf, s, share = best
     if f0:                                                  # the periods to whole points
         r = round(nf) / nf
         if abs(r - 1) > 1e-7:
             x = fft_resample(x, int(round(len(x) * r)))
             rate, s = nr * r, int(round(s * r))
     n = int(round(nf * (rate / nr)))
-    f = int(n * XF_SHARE)
+    f = int(round(n * share))
     # the fade across the loop, taken out from the crossfade's other half on
     k = level_slope(x, s, s + n, hop)
     k = max(min(k, np.log(4) / n), -np.log(4) / n)          # at most 12 dB across the loop
