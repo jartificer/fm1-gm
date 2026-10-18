@@ -1,74 +1,81 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Make FM1-GM's General MIDI instruments (assets/soundfont/fm1gm.sf2 and fm1gm_sustain.json) from FluidR3_GM.sf2.
+"""Make FM1-GM's small General MIDI SoundFont (assets/soundfont/fm1gm.sf2) from FluidR3_GM.sf2.
 
   tools/sf2_reduce.py FluidR3_GM.sf2 assets/soundfont/fm1gm.sf2
 
 FluidR3 GM (Frank Wen, MIT License) is 141 MiB; the FM-1 has about 440 KiB of flash left after the
-firmware. FM1-GM plays each instrument as a hybrid: the attack of one Fluid sample, then a simple
-waveform (the shapes of tools/gm_shapes.py, or noise) for as long as the note sounds, no loops.
+firmware. For each GM program this keeps one sample, the one Fluid plays at the instrument's middle
+key (one velocity layer, mono), for the whole keyboard; at the lowest rate its spectrum needs; and
+only its attack and a loop after it. The loops are made to be seamless:
 
-For each GM program this takes one sample, the one Fluid plays at the instrument's middle key (one
-velocity layer, mono), at the lowest rate its spectrum needs, and keeps only its attack plus a short
-window after it. Over that window it fits the waveform: the shape whose harmonics are nearest the
-sample's, with the phase and level that line it up with the sample, so the firmware crossfades from
-the one into the other without a seam. A sample that fades by itself gives its fade to the volume
-envelope. The drum kit (bank 128, program 0) keeps notes 35..81, each a trimmed one-shot (cymbals
-and other long ones go on as filtered noise).
+- long (0.12-0.25 s, by family), so what little a loop still changes is slow, not a buzz;
+- a whole number of periods exactly: the sample is resampled by a hair so that they come out to a
+  whole number of points, and the loop replays in step with itself;
+- level: the sample's fade across the loop is taken out (the volume envelope fades it instead);
+- the seam crossfaded, over the loop's last 30 %, with what comes just before its start; the length
+  and start searched for where the two match best (a recorded vibrato or chorus wants whole cycles
+  of its own), and the crossfade's law keeping the level steady for however alike they are (linear
+  for a periodic sound, equal power for noise).
 
-The SoundFont holds the attacks (16-bit, one-shots: in an ordinary SoundFont player they stop after
-their attack); fm1gm_sustain.json holds the waveforms, per sample. tools/gen_wavetable.py turns the two
-into the firmware's tables. Needs numpy and scipy (this tool only; the firmware build does not).
+Sounds that die away within about half a second keep their whole sample, with no loop; so does an
+inharmonic bell. The drum kit (bank 128, program 0) keeps notes 35..81, each trimmed (cymbals and
+other long drums looped the same way, and faded). FluidR3's vibrato and tremolo are dropped.
+
+The result is an ordinary SoundFont (16-bit, the reduced rates): play it in any SoundFont player.
+tools/gen_wavetable.py turns it into the firmware's tables (4-bit ADPCM, about a quarter of its
+size). Needs numpy and scipy (this tool only; the firmware build does not).
 """
 import argparse
-import json
 import sys
 from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
+from scipy.signal import resample as fft_resample
 from scipy.signal import resample_poly, welch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import gm_shapes  # noqa: E402
 import sf2  # noqa: E402
 
 G = sf2.G
 GN_MOD = __import__("re").compile(r"^(modLfo|vibLfo|modEnv)To")
 VEL = 100                       # the velocity layer kept (the FM-1's keys play at a fixed velocity, 100 by default)
 DRUM_LO, DRUM_HI = 35, 81
-OUT_SR = 44100                  # the firmware's output rate (gm.h GM_SR): its noise runs at it
 
-# per GM family (program >> 3): the key whose sample is kept, the attack kept (s)
+# per GM family (program >> 3): the key whose sample is kept, the attack kept (s), the loop (s)
 FAMILY = [
-    (60, 0.20),                 # piano
-    (72, 0.15),                 # chromatic percussion
-    (60, 0.06),                 # organ
-    (52, 0.15),                 # guitar
-    (40, 0.12),                 # bass
-    (60, 0.20),                 # strings
-    (60, 0.20),                 # ensemble
-    (60, 0.10),                 # brass
-    (60, 0.08),                 # reed
-    (72, 0.08),                 # pipe
-    (60, 0.05),                 # synth lead
-    (60, 0.20),                 # synth pad
-    (60, 0.15),                 # synth effects
-    (60, 0.12),                 # ethnic
-    (60, 0.20),                 # percussive
-    (60, 0.25),                 # sound effects
+    (60, 0.10, 0.20),           # piano
+    (72, 0.10, 0.15),           # chromatic percussion
+    (60, 0.05, 0.15),           # organ
+    (52, 0.10, 0.15),           # guitar
+    (40, 0.10, 0.20),           # bass
+    (60, 0.10, 0.20),           # strings
+    (60, 0.10, 0.20),           # ensemble
+    (60, 0.08, 0.15),           # brass
+    (60, 0.07, 0.15),           # reed
+    (72, 0.07, 0.15),           # pipe
+    (60, 0.05, 0.12),           # synth lead
+    (60, 0.10, 0.25),           # synth pad
+    (60, 0.10, 0.20),           # synth effects
+    (60, 0.10, 0.15),           # ethnic
+    (60, 0.12, 0.15),           # percussive
+    (60, 0.15, 0.25),           # sound effects
 ]
 CENTRE = {43: 40, 58: 40, 70: 48, 72: 84, 73: 72, 47: 48}   # Contrabass, Tuba, Bassoon, Piccolo, Flute, Timpani
-UNPITCHED = {119, 120, 121, 122, 124, 125, 126, 127}   # GM programs whose sustain is noise, not a waveform
-XF_MIN, XF_MAX, XF_PERIODS = 0.03, 0.10, 4  # the crossfade window: at least this long and this many periods
+UNPITCHED = {119, 120, 121, 122, 124, 125, 126, 127}   # GM programs whose loops are noise, not periods
+NOISE_LOOP = 0.25               # an unpitched loop (s): long, so it does not sound like a repeat
 ONE_SHOT = 0.6                  # a sample without a loop that has died away within this (s) stays a one-shot
-RATE_MIN, RATE_MAX = 11025, 22050
-DRUM_RATE_MAX = 32000           # hi-hats and cymbals have half their energy above 11 kHz
-DRUM_MIN, DRUM_MAX = 0.06, 0.30  # a drum keeps until it is 36 dB down, within these (s)
-DRUM_LONG = 0.6                 # a drum that rings longer than this goes on as noise after DRUM_ATT
-DRUM_ATT = 0.15
-BELL = 1.0                      # an inharmonic instrument (a glockenspiel) rings out for up to this (s)
-HARM = 32                       # harmonics fitted
+ONE_SHOT_KEEP = 0.5             # and keeps at most this (s)
+BELL = 0.6                      # an inharmonic instrument (a glockenspiel) rings out for up to this (s)
+XF_SHARE = 0.3                  # the seam's crossfade, a share of the loop
+SEARCH = 0.03                   # the loop start is searched over this (s) after the attack
+RATE_MIN, RATE_MAX = 11025, 16000
+DRUM_RATE_MAX = 28000           # hi-hats and cymbals have half their energy above 11 kHz
+DRUM_MIN, DRUM_MAX = 0.06, 0.24  # a drum keeps until it is 36 dB down, within these (s)
+DRUM_LONG = 0.6                 # a drum that rings longer than this is looped after DRUM_ATT
+DRUM_ATT, DRUM_LOOP = 0.10, 0.20
+DRUM_LONG_RATE = 20000          # a looped drum's rate, at most (its loop is noise: it needs length more than top end)
 
 
 def pcm_float(sm):
@@ -202,7 +209,7 @@ def to_pcm(y):
     return (np.clip(np.round(y * 32767.0), -32768, 32767).astype("<i2")).tobytes()
 
 
-# ------------------------------------------------------------------ the sustain fit ---
+# ------------------------------------------------------------------ pitch ---
 
 def harmonics(seg, cps, n):
     """seg as a sum of harmonics of cps (cycles a point) by least squares: the complex amplitudes
@@ -228,52 +235,82 @@ def refine_cps(seg, cps, n):
     return best[1]
 
 
-def shape_coefs(name, n):
-    s = np.zeros(n, complex)
-    for h, a, p in gm_shapes.SHAPES[name]:
-        if h <= n:
-            s[h - 1] += a * np.exp(1j * p)
-    return s
+# ------------------------------------------------------------------ loops ---
+
+def level_slope(x, a, b, hop):
+    """the slope (log amplitude a point) of x's level over [a, b), from RMS in windows of hop"""
+    n = (b - a) // hop
+    if n < 3:
+        return 0.0
+    r = np.sqrt(np.mean(x[a:a + n * hop].reshape(n, hop) ** 2, axis=1) + 1e-12)
+    t = a + hop * (np.arange(n) + 0.5)
+    return float(np.polyfit(t, np.log(r), 1)[0])
 
 
-PHI = np.arange(512) / 512
+def match_all(x, n, f, lo, hi):
+    """for each loop start s in [lo, hi): how alike the loop's last f points (before s + n) are to the
+    f points before s, the crossfade's two halves (correlation, by running sums)"""
+    m = len(x) - n
+    pr = np.concatenate([[0.0], np.cumsum(x[:m] * x[n:])])
+    e = np.concatenate([[0.0], np.cumsum(x * x)])
+    s = np.arange(lo, hi)
+    dot = pr[s] - pr[s - f]
+    ea, eb = e[s + n] - e[s + n - f], e[s] - e[s - f]
+    return dot / (np.sqrt(ea * eb) + 1e-12)
 
 
-def fit_shape(c):
-    """the shape nearest c (its harmonics' levels first, their phases second), and the phase phi
-    (turns) and gain that line it up: c ~ gain * S_h e^(2 pi i h phi)"""
-    n = len(c)
-    e = np.sum(np.abs(c) ** 2)
-    mc = np.abs(c) / np.sqrt(e)
-    rot = np.exp(-2j * np.pi * np.outer(PHI, np.arange(1, n + 1)))
+def make_loop(x, nr, f0, s0, loop_t):
+    """x (at rate nr) cut to a seamless loop after point s0 (the attack's end): returns the sample
+    (attack + loop), its rate (a hair from nr when the loop was made period-exact), the loop (start,
+    end) and how alike the crossfade's two halves were. The crossfade's other half is what comes
+    just before the loop, after the attack.
+
+    The loop's length (a whole number of periods, within a quarter of loop_t: a recorded vibrato or
+    chorus wants whole cycles of its own) and start (within SEARCH) are those whose two halves match
+    best; then the sample is resampled by a hair so that the periods are whole points."""
+    rate = nr
+    hop = max(int(nr * 0.01), 16)
+    n0 = loop_t * nr
+    if f0:
+        span = min(int(0.1 * nr), len(x) - s0)
+        p = 1.0 / refine_cps(x[s0:s0 + span], f0 / nr, 8)
+        ms = range(max(1, int(0.75 * n0 / p)), max(2, int(1.25 * n0 / p)) + 1)
+        lens = [(m * p, m) for m in ms]
+    else:
+        lens = [(float(n), 0) for n in range(int(0.75 * n0), int(1.25 * n0) + 1, max(1, int(nr * 0.001)))]
+    need = int(s0 + 1.25 * n0 * (1 + XF_SHARE) + SEARCH * nr + 4)
+    if len(x) < need:
+        x = np.pad(x, (0, need - len(x)))
     best = None
-    for name in gm_shapes.NAMES if n > 1 else ["sine"]:    # one harmonic measured: no more to go on
-        s = shape_coefs(name, n)
-        es = np.sum(np.abs(s) ** 2)
-        dm = float(np.sum((mc - np.abs(s) / np.sqrt(es)) ** 2))
-        d = np.real(rot @ (np.conj(s) * c))
-        k = int(np.argmax(d))
-        rc = 1 - d[k] ** 2 / (es * e) if d[k] > 0 else 1.0
-        score = dm + 0.3 * rc
-        if best is None or score < best[0]:
-            best = (score, name, float(PHI[k]), float(d[k] / es), dm, rc)
-    return best[1:]
-
-
-def noise_fit(seg, rate):
-    """filtered noise like seg: the high- and low-pass corners (Hz) and the gain on the firmware's
-    noise (uniform -1..1, then one-pole low-pass and high-pass at OUT_SR)"""
-    f, p = welch(seg, rate, nperseg=min(1024, len(seg)))
-    c = np.cumsum(p)
-    hp = float(max(f[np.searchsorted(c, 0.10 * c[-1])], 30.0))
-    lp = float(max(f[min(np.searchsorted(c, 0.85 * c[-1]), len(f) - 1)], hp * 1.5))
-    from scipy.signal import lfilter
-    w = np.random.default_rng(1).uniform(-1, 1, 1 << 16)
-    al, ah = 1 - np.exp(-2 * np.pi * lp / OUT_SR), 1 - np.exp(-2 * np.pi * hp / OUT_SR)
-    lo = lfilter([al], [1, al - 1], w)
-    y = lo - lfilter([ah], [1, ah - 1], lo)
-    rms = np.sqrt(np.mean(y[4096:] ** 2))
-    return hp, lp, float(np.sqrt(np.mean(seg ** 2)) / rms)
+    for nf, m in lens:
+        n = int(round(nf))
+        f = int(n * XF_SHARE)
+        lo = s0 + f
+        rho = match_all(x, n, f, lo, lo + int(SEARCH * nr) + 1)
+        i = int(np.argmax(rho))
+        score = rho[i] - 0.05 * abs(nf / n0 - 1)
+        if best is None or score > best[0]:
+            best = (score, nf, lo + i)
+    _, nf, s = best
+    if f0:                                                  # the periods to whole points
+        r = round(nf) / nf
+        if abs(r - 1) > 1e-7:
+            x = fft_resample(x, int(round(len(x) * r)))
+            rate, s = nr * r, int(round(s * r))
+    n = int(round(nf * (rate / nr)))
+    f = int(n * XF_SHARE)
+    # the fade across the loop, taken out from the crossfade's other half on
+    k = level_slope(x, s, s + n, hop)
+    k = max(min(k, np.log(4) / n), -np.log(4) / n)          # at most 12 dB across the loop
+    a = x[s + n - f:s + n] * np.exp(-k * (np.arange(s + n - f, s + n) - s))
+    b = x[s - f:s] * np.exp(-k * (np.arange(s - f, s) - s))
+    rho = float(np.dot(a, b) / (np.sqrt(np.dot(a, a) * np.dot(b, b)) + 1e-12))
+    y = x[:s + n].copy()
+    y[s:] *= np.exp(-k * np.arange(n))
+    t = (np.arange(f) + 0.5) / f
+    g = 1.0 / np.sqrt((1 - t) ** 2 + t ** 2 + 2 * max(rho, 0.0) * t * (1 - t))
+    y[s + n - f:] = (1 - t) * g * a + t * g * b
+    return y, rate, (s, s + n), rho
 
 
 def unroll(x, ls, le, need):
@@ -285,7 +322,7 @@ def unroll(x, ls, le, need):
 
 
 def envelope_fade(decay, g, extra, att):
-    """a sample's own fade (decay, timecents per 100 dB), now that a waveform holds its level, goes
+    """a sample's own fade (decay, timecents per 100 dB), now that a loop holds its level, goes
     into the volume envelope: from the end of the attack on, added to the envelope's own decay when
     that falls to silence (and is not held off for seconds: FluidR3's drums hold for longer than their
     samples last), else instead of it"""
@@ -325,75 +362,57 @@ def cut(y, n, nr):
     return y
 
 
-def process(sf, z, zs, root, att, pitched, drum):
-    """the sample kept (floats), its rate, generators it adds, and its sustain (or None)"""
+def process(sf, z, zs, root, att, loop_t, pitched, drum):
+    """the sample kept (floats), its rate, its loop (or None), generators it adds, the loop's match"""
     x, rate, (ls0, le0), mixed = region_sample(sf, z, zs)
     g = z["gens"]
-    # the sample's own pitch: its root key, less the correction a player adds (the zone's tuning
-    # moves where it plays, not what it holds)
+    # the sample's own pitch: its root key, less the correction a player adds; or, when the zone's
+    # tuning corrects the sample (FluidR3's trumpet is an E played as a C), that
     f0 = 440.0 * 2 ** ((root - 69) / 12 - sf.samples[z["sample"]].corr / 1200) if pitched else None
     looped = bool(g.get(G["sampleModes"], 0) & 1 and 0 <= ls0 < le0 <= len(x))
     extra = {} if drum and not mixed else {G["pan"]: 0}     # mono now: no pan (melodic: the channel pans)
     ring = ring_time(x, rate) if not looped else 1e9
     want = band_rate(x, rate, f0, DRUM_RATE_MAX if drum else RATE_MAX)
     if drum:
+        att, loop_t, f0 = DRUM_ATT, DRUM_LOOP, None
         long = ring > DRUM_LONG
-        att, pitched, f0 = DRUM_ATT, False, None
+        if long:
+            want = min(want, DRUM_LONG_RATE)
     else:
         long = ring > ONE_SHOT
     if not long:                                            # dies away by itself: a one-shot
-        keep = min(max(ring, DRUM_MIN), DRUM_MAX if drum else ONE_SHOT) * 1.15
+        keep = min(max(ring, DRUM_MIN) * 1.15, DRUM_MAX * 1.15 if drum else ONE_SHOT_KEEP)
         xr, nr, _ = resample(x[:int(keep * rate) + 64], rate, want)
-        return cut(xr, int(keep * nr), nr), nr, extra, None
-    xf = min(max(XF_MIN, XF_PERIODS / f0 if f0 else 0.0), XF_MAX)
-    need = int((att + xf + 0.02) * rate)
+        return cut(xr, int(keep * nr), nr), nr, None, extra, None
+    if not f0 and not drum:
+        loop_t = max(loop_t, NOISE_LOOP)
+    need = int((att + loop_t * (1 + XF_SHARE) + SEARCH + 0.05) * rate)
     if looped:
         x = unroll(x, ls0, le0, need)
     xr, nr, _ = resample(x[:need + 64], rate, want)
-    xs, xe = int(round(att * nr)), int(round((att + xf) * nr))
-    xe = min(xe, len(xr) - 2)
-    seg = xr[xs:xe]
-    if drum:                                                # a tom, a bell: its strongest partial as the pitch
-        f, p = welch(seg, nr, nperseg=len(seg), nfft=1 << 15)
-        f0 = float(f[np.argmax(p[1:]) + 1])
-    sus = None
     if f0:
-        # the zone's tuning either corrects the sample's pitch (FluidR3's trumpet is an E played as
-        # a C) or transposes the instrument (its drawbar organ sounds two octaves down): whichever
-        # the sample's harmonics bear out
+        seg = xr[int(att * nr):int(att * nr) + int(0.1 * nr)]
         tune = g.get(G["coarseTune"], 0) * 100 + g.get(G["fineTune"], 0)
         best = None
         for f in {f0, f0 * 2 ** (-tune / 1200)}:
-            cps = refine_cps(seg, f / nr, HARM)
-            n = max(1, min(HARM, int(0.45 / cps)))
-            c, resid = harmonics(seg, cps, n)
+            cps = refine_cps(seg, f / nr, 8)
+            resid = harmonics(seg, cps, max(1, min(32, int(0.45 / cps))))[1]
             if best is None or resid < best[0]:
-                best = (resid, cps, n, c)
-        resid, cps, n, c = best
-        if not drum and 1 - resid < 0.3:                    # a bell: no pitch to hold, so it rings out
+                best = (resid, cps * nr)
+        resid, f0 = best
+        if 1 - resid < 0.3:                                 # a bell: no period to loop, so it rings out
             keep = min(ring, BELL)
             xr, nr, _ = resample(x[:int(keep * rate) + 64], rate, want)
-            return cut(xr, int(keep * nr), nr), nr, extra, None
-        if 1 - resid >= (0.6 if drum else 0.3):             # else not a pitch it can hold: noise
-            name, phi, _, dm, rc = fit_shape(c)
-            # the level: the harmonics', and half the rest (an inharmonic sound's partials die away
-            # during the crossfade; meeting them halfway keeps its loudness and its pitch)
-            e = np.sum(np.abs(c) ** 2) / 2 * (1 + 0.5 * resid / max(1 - resid, 1e-3))
-            gain = float(np.sqrt(e / (np.sum(np.abs(shape_coefs(name, n)) ** 2) / 2)))
-            sus = dict(shape=name, ph0=float((phi - xs * cps) % 1.0), cps=float(cps), gain=gain,
-                       fit=dict(harmonic=round(1 - resid, 3), levels=round(dm, 3), phases=round(rc, 3)))
-    if sus is None:
-        hp, lp, gain = noise_fit(seg, nr)
-        sus = dict(shape="noise", hp=round(hp, 1), lp=round(lp, 1), gain=gain)
-    sus.update(xs=xs, xe=xe)
+            return cut(xr, int(keep * nr), nr), nr, None, extra, None
+    y, nr2, loop, rho = make_loop(xr, nr, f0, int(round(att * nr)), loop_t)
     if not looped:
         envelope_fade(decay_tc(x, rate, att), g, extra, att)
     elif ls0 > (att + 0.1) * rate:                          # looped late: it settles before its loop holds
         envelope_settle(x, rate, att, ls0, g, extra)
-    return xr[:xe + 2], nr, extra, sus
+    return y, nr2, loop, extra, rho
 
 
-def out_gens(z, root, extra, key):
+def out_gens(z, root, loop, extra, key):
     keep = {k: v for k, v in z["gens"].items() if k not in sf2.NOT_ADDITIVE and k not in sf2.RANGE and
             k != G["instrument"] and sf2.DEFAULTS.get(k, 0) != v and k not in DROP}
     for k in (G["exclusiveClass"],):
@@ -406,6 +425,8 @@ def out_gens(z, root, extra, key):
         keep[k] = max(-lim, min(lim, v))
     keep[G["keyRange"]] = key
     keep[G["overridingRootKey"]] = root
+    if loop:
+        keep[G["sampleModes"]] = 1
     return keep
 
 
@@ -424,24 +445,27 @@ def centre_zone(sf, zs, key):
 def reduce(src, verbose=False):
     sf = sf2.read(src)
     presets = {(p.bank, p.program): p for p in sf.presets}
-    samples, cache, instruments, out_presets, sustain = [], {}, [], [], {}
+    samples, cache, instruments, out_presets = [], {}, [], []
     stats = []
 
-    def add_sample(z, zs, root, att, pitched, drum, name):
-        key = (z["sample"], root, att, drum, tuple(sorted((k, v) for k, v in z["gens"].items()
-                                                          if k in sf2.NOT_ADDITIVE or k in (G["coarseTune"], G["fineTune"]))))
+    def add_sample(z, zs, root, att, loop_t, pitched, drum, name):
+        key = (z["sample"], root, att, loop_t, drum, tuple(sorted((k, v) for k, v in z["gens"].items()
+                                                                  if k in sf2.NOT_ADDITIVE or k in (G["coarseTune"], G["fineTune"]))))
         if key not in cache:
-            y, rate, extra, sus = process(sf, z, zs, root, att, pitched, drum)
+            y, rate, loop, extra, rho = process(sf, z, zs, root, att, loop_t, pitched, drum)
             sm = sf.samples[z["sample"]]
-            name = name[:19]
-            samples.append(sf2.Sample(name, to_pcm(y), rate, root, sm.corr, (max(len(y) - 8, 0), max(len(y) - 1, 0))))
-            if sus:
-                sustain[name] = sus
-            cache[key] = (len(samples) - 1, extra, sus)
+            # the rate is whole Hz in a SoundFont: what a period-exact loop's hair of resampling leaves
+            # over goes into the pitch correction
+            corr = sm.corr + 1200 * np.log2(rate / round(rate))
+            if loop:                                        # 8 points after the loop end (SoundFont 7.10)
+                y = np.concatenate([y[:loop[1]], y[loop[0]:loop[0] + 8]])
+            samples.append(sf2.Sample(name[:19], to_pcm(y), int(round(rate)), root, int(round(corr)),
+                                      loop if loop else (max(len(y) - 8, 0), max(len(y) - 1, 0))))
+            cache[key] = (len(samples) - 1, loop, extra, rho)
         return cache[key]
 
     for prog in range(128):
-        ck, att = FAMILY[prog >> 3]
+        ck, att, loop_t = FAMILY[prog >> 3]
         ck = CENTRE.get(prog, ck)
         p = presets[(0, prog)]
         zs = sf2.zones(sf, p)
@@ -449,12 +473,13 @@ def reduce(src, verbose=False):
             z["stype"] = sf.samples[z["sample"]].stype
         z = centre_zone(sf, zs, ck)
         root = root_of(sf, z)
-        si, extra, sus = add_sample(z, zs, root, att, prog not in UNPITCHED, False, f"{prog:03d} {p.name}"[:15] + f" {root}")
-        gz = out_gens(z, root, extra, (0, 127))
+        si, loop, extra, rho = add_sample(z, zs, root, att, loop_t, prog not in UNPITCHED, False,
+                                          f"{prog:03d} {p.name}"[:15] + f" {root}")
+        gz = out_gens(z, root, loop, extra, (0, 127))
         gz[G["sampleID"]] = si
         instruments.append(sf2.Instrument(p.name, [sf2.Zone(gz)]))
         out_presets.append(sf2.Preset(p.name, prog, 0, [sf2.Zone({G["instrument"]: len(instruments) - 1})]))
-        stats.append((prog, p.name, len(samples[si].pcm) // 2, sus))
+        stats.append((prog, p.name, len(samples[si].pcm) // 2, loop, rho, samples[si].rate))
 
     kit = presets[(128, 0)]
     zs = sf2.zones(sf, kit)
@@ -467,56 +492,40 @@ def reduce(src, verbose=False):
             continue
         z = pick([dict(z, key=(note, note)) for z in here])[0][2]
         root = root_of(sf, z)
-        si, extra, sus = add_sample(z, here, root, 0.0, False, True, f"Drum {note}")
-        gz = out_gens(z, root, extra, (note, note))
+        si, loop, extra, rho = add_sample(z, here, root, 0.0, 0.0, False, True, f"Drum {note}")
+        gz = out_gens(z, root, loop, extra, (note, note))
         gz[G["sampleID"]] = si
         zones.append(sf2.Zone(gz))
-        stats.append((note, f"drum {note}", len(samples[si].pcm) // 2, sus))
+        stats.append((note, f"drum {note}", len(samples[si].pcm) // 2, loop, rho, samples[si].rate))
     instruments.append(sf2.Instrument("Standard Kit", zones))
     out_presets.append(sf2.Preset("Standard", 0, 128, [sf2.Zone({G["instrument"]: len(instruments) - 1})]))
     if verbose:
-        for prog, name, n, sus in stats:
-            d = ""
-            if sus and sus["shape"] == "noise":
-                d = f"noise {sus['hp']:.0f}..{sus['lp']:.0f} Hz"
-            elif sus:
-                f = sus["fit"]
-                d = f"{sus['shape']:10s} harm {f['harmonic']:.2f} lv {f['levels']:.2f} ph {f['phases']:.2f}"
+        for prog, name, n, loop, rho, rate in stats:
+            d = f"loop {(loop[1] - loop[0]) / rate:.3f} s from {loop[0] / rate:.3f} s, match {rho:.2f}" if loop else "one-shot"
             print(f"  {prog:3d} {name:22s} {n:6d} pts  {d}")
     info = {
         "isng": "E-mu 10K1",
         "INAM": "FM1-GM mini GM",
         "IENG": "Frank Wen (Fluid R3 GM); reduced for FM1-GM",
         "ICOP": "Fluid R3 GM: Copyright (c) 2000-2002, 2008 Frank Wen, 2008 Toby Smithe. MIT License.",
-        "ICMT": "Reduced from Fluid R3 GM by FM1-GM's tools/sf2_reduce.py: one mono attack sample per program "
-                "(its sustain, a simple waveform, is in fm1gm_sustain.json). MIT License (assets/soundfont/LICENSE).",
+        "ICMT": "Reduced from Fluid R3 GM by FM1-GM's tools/sf2_reduce.py: one mono sample per program, lower "
+                "rates, the attack and a long seamless loop. MIT License (assets/soundfont/LICENSE).",
         "ISFT": "FM1-GM sf2_reduce.py",
     }
-    return sf2.SoundFont(info, out_presets, instruments, samples), sustain
-
-
-def sustain_path(sf2_path):
-    p = Path(sf2_path)
-    return p.with_name(p.stem + "_sustain.json")
+    return sf2.SoundFont(info, out_presets, instruments, samples)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("src", help="FluidR3_GM.sf2")
-    ap.add_argument("out", help="the reduced SoundFont (its sustains go next to it, NAME_sustain.json)")
+    ap.add_argument("out", help="the reduced SoundFont")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
-    sf, sustain = reduce(a.src, a.verbose)
+    sf = reduce(a.src, a.verbose)
     sf2.write(a.out, sf)
-    with open(sustain_path(a.out), "w") as f:
-        json.dump({"about": "FM1-GM: each sample's sustain (tools/sf2_reduce.py). xs..xe: the crossfade from "
-                            "the sample into it (points); cps: cycles a point; ph0: its phase at point 0 (turns); "
-                            "gain: on the sample's own scale; noise: one-pole high-pass and low-pass (Hz)",
-                   "samples": sustain}, f, indent=1, sort_keys=True)
-        f.write("\n")
     n = sum(len(s.pcm) // 2 for s in sf.samples)
     print(f"{a.out}: {len(sf.samples)} samples, {n} points ({n * 2 // 1024} KiB as 16-bit, "
-          f"about {n // 2 // 1024} KiB as 4-bit ADPCM); {len(sustain)} sustains")
+          f"about {n // 2 // 1024} KiB as 4-bit ADPCM)")
 
 
 if __name__ == "__main__":
