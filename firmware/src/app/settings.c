@@ -23,7 +23,7 @@ static int settings_valid(void)
 {
     return set.magic == SET_MAGIC && set.format == SET_FORMAT && set.song < SEQ_NSONGS && set.midi_in <= 1 &&
            set.midi_out <= 1 && set.clock_out <= 1 && set.metro <= 2 && set.metro_vol <= 10 && set.countin <= 1 &&
-           set.poly >= 8 && set.poly <= GM_NVOICE && set.leds <= 1;
+           set.poly >= 8 && set.poly <= GM_NVOICE && set.leds <= 1 && set.theme < NTHEMES;
 }
 
 int settings_load(void)

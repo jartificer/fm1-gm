@@ -1,0 +1,46 @@
+# The screen's colours: each theme on the Setup page and the Song page (and nothing too wide in any);
+# the battery icon at its levels; the theme kept across a reboot.
+wait 600
+battery 3
+tap GLO
+tap GLO
+expect view 4
+expect theme 0
+shot theme0.png
+turn K4 1
+expect theme 1
+expect fit 0
+shot theme1.png
+turn K4 1
+expect theme 2
+shot theme2.png
+turn K4 1
+expect theme 3
+shot theme3.png
+turn K4 1
+expect theme 4
+shot theme4.png
+turn K4 3
+expect theme 4
+tap HOME
+expect fit 0
+shot theme4_song.png
+battery 0
+wait 100
+shot batt0.png
+battery 1
+wait 100
+shot batt1.png
+battery 4
+wait 100
+shot batt_usb.png
+# the settings save themselves once the panel is left alone
+wait 4000
+reboot
+wait 600
+expect theme 4
+tap GLO
+tap GLO
+turn K4 -4
+expect theme 0
+expect fit 0
