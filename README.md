@@ -16,18 +16,22 @@ It is built on [Felucca](https://github.com/hugelton/Felucca)'s FM-1 platform, t
 
 ## The sounds
 
-Each instrument is a hybrid of a sample and a wavetable synth. A note starts with a real attack, sampled from the Fluid R3 GM SoundFont by Frank Wen (MIT License), and after a fraction of a second it crossfades into a simple waveform that holds for as long as the note sounds. Nothing loops, so there is no loop seam and no pitch wobble.
+The sounds are samples from the Fluid R3 GM SoundFont by Frank Wen (MIT License). The full SoundFont is 141 MiB and the FM-1 has about 440 KiB of flash left after the firmware, so `tools/sf2_reduce.py` cuts it down to `assets/soundfont/fm1gm.sf2`, a normal SoundFont you can play in any SoundFont player.
 
-- **One sample per instrument.** For each program, `tools/sf2_reduce.py` takes the sample FluidR3 plays at the instrument's middle key, keeps its first 0.05–0.25 s (it depends on the family), and stores it in `assets/soundfont/fm1gm.sf2`. The same sample plays across the whole keyboard, so an instrument sounds like itself in every register.
-- **The sustain** is the simple waveform nearest to the sample's own spectrum: a sine, triangle, sawtooth, square or pulse (some with their upper harmonics softened), a two-operator FM tone, or filtered noise for sounds with no pitch (sea shore, applause, cymbals). The fit is done over a window of a few periods right after the attack, and it gives the phase and level too, so the crossfade over that window has no seam. The choices are in `assets/soundfont/fm1gm_sustain.json`. For example, the pianos settle into a softened sawtooth, the electric pianos into FM or a soft pulse, the flutes into FM or triangle, and the square and saw leads into exactly those.
-- **The waveform plays at every pitch without aliasing:** each one is stored at seven band limits (64 harmonics down to 1), and a note uses the richest one its pitch allows.
-- **Its level follows the sample.** When the sampled instrument fades by itself (piano, guitar, mallets), that fade carries on in the volume envelope. Sounds that die away within about half a second (xylophone, woodblock, pizzicato) and bells without a clear pitch (glockenspiel) just play their sample out.
+- **One sample per instrument.** For each program it keeps the sample FluidR3 plays at the instrument's middle key (one velocity layer, mono), at the lowest sample rate its spectrum needs. The same sample plays across the whole keyboard, so an instrument sounds like itself in every register.
+- **The attack, then a seamless loop.** It keeps the sample's first 0.05–0.15 s (it depends on the family), then a loop:
+  - The loop is long, 0.12–0.25 s, so whatever still changes inside it is slow and not a buzz.
+  - It holds a whole number of the note's periods exactly. The sample is resampled by a hair so that the periods come out to whole sample points, so each pass picks up exactly in step with the last.
+  - Its length (within a quarter of the target) and start are searched for where the seam's two sides match best. This also catches the cycle of a vibrato or chorus recorded in the sample.
+  - The sample's own fade across the loop is taken out, and the volume envelope does the fading instead.
+  - The seam is crossfaded over the last 30 % of the loop with what comes just before the loop. The crossfade keeps the level steady however alike the two sides are: linear for a steady tone, equal power for noise.
+- **Exceptions.** Sounds that die away within about half a second (xylophone, woodblock, pizzicato) and bells without a clear pitch (glockenspiel) keep their sample without a loop.
 
 FluidR3's vibrato and tremolo are left out, which removes the wobble in the upper registers. The mod wheel (CC1) still adds vibrato. The SoundFont's volume envelope, low-pass filter and filter envelope, tuning and level still apply.
 
-The drum kit is FluidR3's standard kit, notes 35–81. Each drum keeps its sample until it has died away by 36 dB (at most 0.3 s). Cymbals and other long drums then carry on as filtered noise, and toms and the triangle as a tone. Open and closed hi-hats choke each other, as do the other groups FluidR3 marks.
+The drum kit is FluidR3's standard kit, notes 35–81. Each drum keeps its sample until it has died away by 36 dB (at most a quarter second). Cymbals and other long drums are looped the same way and fade. Open and closed hi-hats choke each other, as do the other groups FluidR3 marks.
 
-The build stores the samples as 4-bit ADPCM (322 KiB) and the waveforms as 16-bit tables (54 KiB).
+The build stores the samples as 4-bit ADPCM, 411 KiB in all.
 
 A shared reverb follows CC91 (channel and track reverb send).
 

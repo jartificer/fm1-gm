@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* FM1-GM sound engine (gm.h). One compilation unit, -O2 (tools/build.py O2_UNITS).
  *
- * A hybrid of sample player and wavetable synth. Each note plays one zone of gm_wavetable.h
- * (generated from assets/soundfont/fm1gm.sf2 and fm1gm_sustain.json): its 4-bit ADPCM sample, the
- * instrument's attack, decoded as it plays and interpolated linearly; crossfaded, over a few periods
- * where the sample and it were fitted to line up, into its sustain: a single-cycle waveform at the
- * same pitch and phase (band-limited for the note's register) or filtered noise, which holds for as
- * long as the note sounds. No loops. Then the zone's low-pass filter with its modulation envelope
- * and its volume envelope (attack, hold, decay, sustain, release); the mod wheel adds vibrato.
+ * A sample player. Each note plays one zone of the wavetable (gm_wavetable.h, generated from the
+ * SoundFont assets/soundfont/fm1gm.sf2): its 4-bit ADPCM sample, decoded as it plays and
+ * interpolated linearly (above 1.5 points a frame, averaged: less aliasing), its loop replaying
+ * exactly, through the zone's volume envelope (attack, hold, decay, sustain, release) and low-pass
+ * filter with its modulation envelope. One sample covers the whole keyboard; the pitch stays put
+ * (no built-in vibrato or tremolo: the mod wheel adds vibrato).
  *
  * The render works in chunks of up to GM_CHUNK frames: per chunk each voice works out its pitch,
  * envelopes and filter coefficients once, then runs a tight per-sample loop with the amplitude
@@ -79,18 +78,11 @@ typedef struct {
     uint8_t st, ch, note, vel;
     uint8_t held, sus;                          /* key down; let go while the pedal was down */
     uint8_t drum, eos;                          /* a drum voice; its one-shot sample has ended */
-    uint8_t shape, sust;                        /* the sustain (GMW_TAB index, GMW_NOISE, GMW_NONE); the sample
-                                                 * is past (the sustain alone plays) */
     const gmw_zone_t *z;
-    const gmw_smp_t *s;
     const uint8_t *data;
-    uint32_t pos, len;                          /* the next point to decode; the sample's end */
-    int32_t pred, idx;                          /* the ADPCM decoder */
+    uint32_t pos, len, ls, le;                  /* the next point to decode; the sample's end and loop */
+    int32_t pred, idx, lpred, lidx;             /* the ADPCM decoder, and its state at the loop start */
     float y0, y1, frac;                         /* the two points the output lies between, and where */
-    float ph, xs, xk;                           /* the waveform's phase (turns); the crossfade: its start
-                                                 * and 1 / its length (points) */
-    uint32_t nz;                                /* noise: the generator, */
-    float nl, nh;                               /* its low-pass and high-pass states */
     uint32_t age;
     float semi, ratio;                          /* pitch: semitones from the sample's own; its rate / GM_SR */
     float amp, a_inc, th, sus_l, td, tr;        /* volume envelope: now, attack step a frame, hold left (s),
@@ -230,22 +222,17 @@ static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int ve
     v->drum = (uint8_t)drum;
     v->eos = 0;
     v->age = ++age_ctr;
-    v->s = s;
     v->data = GMW_DATA + s->off;
     v->pos = 0;
     v->len = s->len;
+    v->ls = s->ls;
+    v->le = s->le ? s->le : 0xFFFFFFFFu;
     v->pred = 0;
     v->idx = s->idx0;
+    v->lpred = s->lpred;
+    v->lidx = s->lidx;
     v->y0 = v->y1;                              /* from where a restruck voice was: no click */
     v->frac = 1.0f;
-    v->shape = s->shape;
-    v->sust = 0;
-    v->ph = s->ph0 - s->cps;                    /* at point -1: where the first output starts from */
-    v->ph -= fm_floorf(v->ph);
-    v->xs = (float)s->xs;
-    v->xk = s->xe > s->xs ? 1.0f / (float)(s->xe - s->xs) : 1.0f;
-    v->nz = 0x9E3779B9u * (uint32_t)(note + 1) + age_ctr;
-    v->nl = v->nh = 0.0f;
     v->semi = ((float)(note - z->root) * (float)z->kt + (float)z->tune) * 0.01f;
     v->ratio = s->rate * INV_SR;
     v->st = ST_ATT;
@@ -427,59 +414,12 @@ void gm_midi(uint32_t st, uint32_t d1, uint32_t d2)
 }
 
 /* -------------------------------------------------------------- render --- */
-static float mix_l[GM_CHUNK], mix_r[GM_CHUNK], mix_rev[GM_CHUNK], vsrc[GM_CHUNK], vsrc2[GM_CHUNK];
+static float mix_l[GM_CHUNK], mix_r[GM_CHUNK], mix_rev[GM_CHUNK], vsrc[GM_CHUNK];
 
-/* 1 / n for the points decoded in one output (at most 12, the highest pitch) */
+/* 1 / n for the points decoded in one frame (at most 12: the highest pitch) */
 static const float INV_N[13] = {1.0f, 1.0f, 1.0f / 2, 1.0f / 3, 1.0f / 4, 1.0f / 5, 1.0f / 6, 1.0f / 7, 1.0f / 8,
                                 1.0f / 9, 1.0f / 10, 1.0f / 11, 1.0f / 12};
 #define INC_MAX 12.0f
-
-/* one-pole coefficient for a corner of f Hz */
-static inline float pole(float f)
-{
-    if (f > 0.45f * GM_SR)
-        f = 0.45f * GM_SR;
-    return 1.0f - fm_exp2f(-9.0647202f * f * INV_SR);   /* 1 - e^(-2 pi f / SR) */
-}
-
-/* the sustain alone into src[] (n frames; inc: sample points a frame) */
-static void sustain_render(voice_t *v, float *src, uint32_t n, float inc)
-{
-    const gmw_smp_t *s = v->s;
-    uint32_t j;
-    if (v->shape == GMW_NOISE) {
-        float k = inc / (s->rate * INV_SR), al = pole(s->lp * k), ah = pole(s->hp * k), g = s->gain;
-        float nl = v->nl, nh = v->nh;
-        uint32_t nz = v->nz;
-        for (j = 0; j < n; j++) {
-            nz = nz * 1664525u + 1013904223u;
-            nl += al * ((float)(int32_t)nz * (1.0f / 2147483648.0f) - nl);
-            nh += ah * (nl - nh);
-            src[j] = (nl - nh) * g;
-        }
-        v->nz = nz;
-        v->nl = fm_flush(nl);
-        v->nh = fm_flush(nh);
-    } else {
-        float d = inc * s->cps, ph = v->ph, g = s->gain * (1.0f / 32768.0f), fn;
-        const int16_t *t;
-        int L = 0;
-        while (L < GMW_LEVELS - 1 && (float)(64 >> L) * d >= 0.45f)   /* no harmonic past 0.45 SR */
-            L++;
-        t = GMW_TAB[v->shape] + GMW_LV_OFF[L];
-        fn = (float)GMW_LV_N[L];
-        for (j = 0; j < n; j++) {
-            float x;
-            int32_t i;
-            ph += d;
-            ph -= (float)(int32_t)ph;
-            x = ph * fn;
-            i = (int32_t)x;
-            src[j] = ((float)t[i] + (float)(t[i + 1] - t[i]) * (x - (float)i)) * g;
-        }
-        v->ph = ph;
-    }
-}
 
 /* one voice for n frames, added to the mix; 0 when it has finished */
 static int voice_render(voice_t *v, uint32_t n)
@@ -559,85 +499,57 @@ static int voice_render(voice_t *v, uint32_t n)
         gl *= v->pl * 1.41f;
         gr *= v->pr * 1.41f;
     }
-    {   /* the sound into src[]; then the filter, the amplitude and the mix */
-        float ic1 = v->ic1, ic2 = v->ic2, amp = a0;
+    {   /* the sample into src[]; then the filter, the amplitude and the mix */
+        float y0 = v->y0, y1 = v->y1, frac = v->frac, ic1 = v->ic1, ic2 = v->ic2, amp = a0;
         float rev = (float)c->rev * (1.0f / 127.0f), gwl, gwr, gwv;
         float *src = vsrc;
-        if (v->sust)
-            sustain_render(v, src, n, inc);
-        else {
-            float y0 = v->y0, y1 = v->y1, frac = v->frac, xs = v->xs, xk = v->xk;
-            uint32_t pos = v->pos, len = v->len;
-            int32_t pred = v->pred, idx = v->idx;
-            const uint8_t *data = v->data;
-            int box = inc >= 1.5f;              /* above 1.5 points a frame: the mean of them (less aliasing) */
-            for (j = 0; j < n; j++) {
-                float acc = 0.0f;
-                uint32_t cnt = 0;
-                frac += inc;
-                while (frac >= 1.0f) {          /* the next point: one ADPCM nibble */
-                    uint32_t b, nb;
-                    int32_t step, dq;
-                    frac -= 1.0f;
-                    y0 = y1;
-                    if (pos >= len) {
-                        y1 = 0.0f;
-                        v->eos = 1;
-                        continue;
-                    }
-                    b = data[pos >> 1];
-                    nb = pos & 1u ? b >> 4 : b & 15u;
-                    pos++;
-                    step = IMA_STEP[idx];
-                    dq = step >> 3;
-                    if (nb & 4u)
-                        dq += step;
-                    if (nb & 2u)
-                        dq += step >> 1;
-                    if (nb & 1u)
-                        dq += step >> 2;
-                    pred += nb & 8u ? -dq : dq;
-                    pred = pred > 32767 ? 32767 : pred < -32768 ? -32768 : pred;
-                    idx += IMA_IDX[nb & 7u];
-                    idx = idx < 0 ? 0 : idx > 88 ? 88 : idx;
-                    y1 = (float)pred * (1.0f / 32768.0f);
-                    acc += y1;
-                    cnt++;
+        uint32_t pos = v->pos, len = v->len, ls = v->ls, le = v->le;
+        int32_t pred = v->pred, idx = v->idx;
+        const uint8_t *data = v->data;
+        int box = inc >= 1.5f;                  /* above 1.5 points a frame: the mean of them (less aliasing) */
+        for (j = 0; j < n; j++) {
+            float acc = 0.0f;
+            uint32_t cnt = 0;
+            frac += inc;
+            while (frac >= 1.0f) {              /* the next point: one ADPCM nibble */
+                uint32_t b, nb;
+                int32_t step, dq;
+                frac -= 1.0f;
+                y0 = y1;
+                if (pos == le) {
+                    pos = ls;
+                    pred = v->lpred;
+                    idx = v->lidx;
                 }
-                src[j] = box && cnt > 1 ? acc * INV_N[cnt] : y0 + (y1 - y0) * frac;
-            }
-            if (v->shape != GMW_NONE && ((float)v->pos - 2.0f + v->frac - xs) * xk + inc * xk * (float)n <= 0.0f) {
-                if (v->shape != GMW_NOISE) {    /* not there yet: only the waveform's phase moves on */
-                    v->ph += inc * v->s->cps * (float)n;
-                    v->ph -= fm_floorf(v->ph);
+                if (pos >= len) {
+                    y1 = 0.0f;
+                    v->eos = 1;
+                    continue;
                 }
-            } else if (v->shape != GMW_NONE) {  /* the crossfade into the sustain */
-                float w0 = ((float)v->pos - 2.0f + v->frac - xs) * xk, dw = inc * xk, *o = vsrc2;
-                sustain_render(v, o, n, inc);
-                if (v->shape == GMW_NOISE)      /* noise and sample are unrelated: about equal power */
-                    for (j = 0; j < n; j++) {
-                        float w = w0 + dw * (float)(j + 1);
-                        w = w < 0.0f ? 0.0f : w > 1.0f ? 1.0f : w;
-                        src[j] = src[j] * (1.0f - w * w) + o[j] * (1.0f - (1.0f - w) * (1.0f - w));
-                    }
-                else                            /* the waveform was fitted in phase: linear */
-                    for (j = 0; j < n; j++) {
-                        float w = w0 + dw * (float)(j + 1);
-                        w = w < 0.0f ? 0.0f : w > 1.0f ? 1.0f : w;
-                        src[j] += (o[j] - src[j]) * w;
-                    }
-                if (w0 + dw * (float)n >= 1.0f)
-                    v->sust = 1;                /* from here on, the sustain alone */
+                b = data[pos >> 1];
+                nb = pos & 1u ? b >> 4 : b & 15u;
+                pos++;
+                step = IMA_STEP[idx];
+                dq = step >> 3;
+                if (nb & 4u)
+                    dq += step;
+                if (nb & 2u)
+                    dq += step >> 1;
+                if (nb & 1u)
+                    dq += step >> 2;
+                pred += nb & 8u ? -dq : dq;
+                pred = pred > 32767 ? 32767 : pred < -32768 ? -32768 : pred;
+                idx += IMA_IDX[nb & 7u];
+                idx = idx < 0 ? 0 : idx > 88 ? 88 : idx;
+                y1 = (float)pred * (1.0f / 32768.0f);
+                acc += y1;
+                cnt++;
             }
-            v->pos = pos;
-            v->pred = pred;
-            v->idx = idx;
-            v->y0 = y0;
-            v->y1 = y1;
-            v->frac = frac;
+            src[j] = box && cnt > 1 ? acc * INV_N[cnt] : y0 + (y1 - y0) * frac;
         }
-        if (v->sust)                            /* a restrike starts its attack from here: no click */
-            v->y1 = src[n - 1];
+        v->pos = pos;
+        v->pred = pred;
+        v->idx = idx;
         if (filt)                               /* TPT state-variable low-pass */
             for (j = 0; j < n; j++) {
                 float v3 = src[j] - ic2, v1 = a1c * ic1 + a2c * v3, v2 = ic2 + a2c * ic1 + a3c * v3;
@@ -656,11 +568,14 @@ static int voice_render(voice_t *v, uint32_t n)
             mix_r[j] += o * gwr;
             mix_rev[j] += o * gwv;
         }
+        v->y0 = y0;
+        v->y1 = y1;
+        v->frac = frac;
         v->ic1 = fm_flush(ic1);
         v->ic2 = fm_flush(ic2);
         ch[v->ch].lvl += (a0 + a1) * 0.5f * gain * 0.6f;   /* the meter: the envelope, not the waveform */
     }
-    if (v->shape == GMW_NONE && v->eos && v->y0 == 0.0f)   /* a one-shot that has played out */
+    if (v->eos && v->y0 == 0.0f)                /* a one-shot that has played out */
         v->st = ST_FREE;
     return v->st != ST_FREE;
 }
