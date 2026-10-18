@@ -12,7 +12,8 @@ only its attack and a loop after it. The loops are made to be seamless:
 - long (0.12-0.25 s, by family), so what little a loop still changes is slow, not a buzz;
 - a whole number of periods exactly: the sample is resampled by a hair so that they come out to a
   whole number of points, and the loop replays in step with itself;
-- level: the sample's fade across the loop is taken out (the volume envelope fades it instead);
+- level: the sample's fade across the loop is taken out, in octave bands (the volume envelope fades it
+  instead), and the loop may start a little later where the level is smoother;
 - the seam crossfaded, over the loop's last 7-30 % (searched: a long crossfade over sides that do not
   match is an echo), with what comes just before its start; the length
   and start searched for where the two match best (a recorded vibrato or chorus wants whole cycles
@@ -85,6 +86,10 @@ BELL = 0.6                      # an inharmonic instrument (a glockenspiel) ring
 XF_SHARE = 0.3                  # the seam's crossfade, a share of the loop, at most
 XF_SHARES = (0.3, 0.15, 0.07)   # the shares tried
 XF_MIN = 0.006                  # and at least this (s)
+BAND_LO = 100.0                 # the loop's fade is taken out in octave bands above this (Hz), and in one below
+BAND_FLAT = np.log(16.0)        # by at most 24 dB across the loop
+LATE = 0.15                    # a loop may start up to this (s) after its attack, where its level is smoother
+LATE_COST = 0.5                 # dB of roughness that starting LATE later must save
 XF_REF = 0.015                  # the crossfade (s) that least shows a mismatch, both as an echo and as a jump
 SEARCH = 0.03                   # the loop start is searched over this (s) after the attack
 RATE_MIN, RATE_MAX = 11025, 16000
@@ -264,6 +269,63 @@ def level_slope(x, a, b, hop):
     return float(np.polyfit(t, np.log(r), 1)[0])
 
 
+def flatten_bands(x, a, s, b, rate, hop):
+    """x[a:b] with the fade across [s, b) taken out of each octave band (from the loop start s on, each
+    band at the level it starts the loop with): a piano's top end fades faster than its body, and a loop
+    that only holds its overall level brightens again at every seam, as if struck anew"""
+    pad = 4 * hop
+    lo, hi = max(0, a - pad), min(len(x), b + pad)
+    seg = x[lo:hi]
+    X = np.fft.rfft(seg)
+    fr = np.fft.rfftfreq(len(seg), 1.0 / rate)
+    edges = [0.0] + [BAND_LO * 2 ** i for i in range(16) if BAND_LO * 2 ** i < rate / 2] + [rate]
+    t = np.arange(lo, hi) - s
+    out = np.zeros(len(seg))
+    lf = np.log2(np.maximum(fr, 1.0))
+    for i in range(len(edges) - 1):
+        # raised-cosine shoulders an octave wide, at the band edges: the bands sum to x again
+        def up(e):
+            return np.ones_like(lf) if e <= 0 else np.clip(0.5 - 0.5 * np.cos(np.pi * np.clip(lf - np.log2(e) + 0.5, 0, 1)), 0, 1)
+        m = up(edges[i]) - (up(edges[i + 1]) if edges[i + 1] < rate else 0)
+        band = np.fft.irfft(X * m, len(seg))
+        k = level_slope(band, s - lo, b - lo, hop)
+        k = max(min(k, BAND_FLAT / (b - s)), -BAND_FLAT / (b - s))
+        out += band * np.exp(-k * t)
+    return out[a - lo:b - lo]
+
+
+def settled(x, s0, n, hop, rate):
+    """where after s0 (within LATE) n points of x have the smoothest level (dB in windows of hop, about
+    a straight line): a choir's or a pad's attack can swell and dip for longer than its family's, and a
+    loop over a dip comes back as a fresh onset every pass"""
+    m = (len(x) - s0 - n) // hop
+    late = min(int(LATE * rate / hop), m)
+    if late <= 0:
+        return s0
+    k = n // hop
+    db = 10 * np.log10(np.mean(x[s0:s0 + (late + k) * hop].reshape(late + k, hop) ** 2, axis=1) + 1e-12)
+    t = np.arange(k)
+
+    def rough(i):
+        e = db[i:i + k]
+        return float(np.std(e - np.polyval(np.polyfit(t, e, 1), t)))
+    r = [rough(i) + LATE_COST * i / late for i in range(late + 1)]
+    i = int(np.argmin(r))
+    return s0 + i * hop if rough(0) - r[i] > 0.5 else s0
+
+
+def band_step(u, v, rate):
+    """how far (dB) the octave bands that matter (within 30 dB of the strongest) step from u to v"""
+    def levels(seg):
+        sp = np.abs(np.fft.rfft(seg * np.hanning(len(seg)))) ** 2
+        fr = np.fft.rfftfreq(len(seg), 1.0 / rate)
+        e = [0.0] + [BAND_LO * 2 ** i for i in range(16) if BAND_LO * 2 ** i < rate / 2] + [rate]
+        return np.array([sp[(fr >= e[i]) & (fr < e[i + 1])].sum() + 1e-12 for i in range(len(e) - 1)])
+    lu, lv = levels(u), levels(v)
+    keep = lu + lv > (lu + lv).max() * 1e-3
+    return float(np.max(np.abs(10 * np.log10(lv[keep] / lu[keep]))))
+
+
 def match_all(x, n, f, lo, hi):
     """for each loop start s in [lo, hi): how alike the loop's last f points (before s + n) are to the
     f points before s, the crossfade's two halves (correlation, by running sums)"""
@@ -276,7 +338,25 @@ def match_all(x, n, f, lo, hi):
     return dot / (np.sqrt(ea * eb) + 1e-12)
 
 
-def make_loop(x, nr, f0, s0, loop_t, exact=False):
+def make_loop(x, nr, f0, s0, loop_t, exact=False, bands=True):
+    """make_loop1 after the attack, or later where the level is smoother (settled), whichever steps
+    least at the seam"""
+    y, rate, loop, rho = best = make_loop1(x, nr, f0, s0, loop_t, exact, bands)
+    if bands:
+        later = settled(x, s0, int(loop_t * nr * (1 + XF_SHARE)), max(int(nr * 0.01), 16), nr)
+        if later != s0:
+            alt = make_loop1(x, nr, f0, later, loop_t, exact, bands)
+            if seam_step(*alt[:3]) < seam_step(y, rate, loop) - 1.0:
+                best = alt
+    return best
+
+
+def seam_step(y, rate, loop):
+    w = max(int(0.025 * rate), 64)
+    return band_step(y[loop[1] - w:loop[1]], y[loop[0]:loop[0] + w], rate)
+
+
+def make_loop1(x, nr, f0, s0, loop_t, exact=False, bands=True):
     """x (at rate nr) cut to a seamless loop after point s0 (the attack's end): returns the sample
     (attack + loop), its rate (a hair from nr when the loop was made period-exact), the loop (start,
     end) and how alike the crossfade's two halves were. The crossfade's other half is what comes
@@ -330,17 +410,25 @@ def make_loop(x, nr, f0, s0, loop_t, exact=False):
             rate, s = nr * r, int(round(s * r))
     n = int(round(nf * (rate / nr)))
     f = int(round(n * share))
-    # the fade across the loop, taken out from the crossfade's other half on
+    # the fade across the loop, band by band, taken out from the crossfade's other half on
     k = level_slope(x, s, s + n, hop)
     k = max(min(k, np.log(4) / n), -np.log(4) / n)          # at most 12 dB across the loop
-    a = x[s + n - f:s + n] * np.exp(-k * (np.arange(s + n - f, s + n) - s))
-    b = x[s - f:s] * np.exp(-k * (np.arange(s - f, s) - s))
-    rho = float(np.dot(a, b) / (np.sqrt(np.dot(a, a) * np.dot(b, b)) + 1e-12))
-    y = x[:s + n].copy()
-    y[s:] *= np.exp(-k * np.arange(n))
-    t = (np.arange(f) + 0.5) / f
-    g = 1.0 / np.sqrt((1 - t) ** 2 + t ** 2 + 2 * max(rho, 0.0) * t * (1 - t))
-    y[s + n - f:] = (1 - t) * g * a + t * g * b
+
+    def seamed(p):                                          # x with p as its loop, the seam crossfaded
+        a, b = p[n:n + f], p[:f]
+        rho = float(np.dot(a, b) / (np.sqrt(np.dot(a, a) * np.dot(b, b)) + 1e-12))
+        y = x[:s + n].copy()
+        y[s:] = p[f:f + n]
+        t = (np.arange(f) + 0.5) / f
+        g = 1.0 / np.sqrt((1 - t) ** 2 + t ** 2 + 2 * max(rho, 0.0) * t * (1 - t))
+        y[s + n - f:] = (1 - t) * g * a + t * g * b
+        return y, rho
+    tries = [seamed(x[s - f:s + n] * np.exp(-k * (np.arange(s - f, s + n) - s)))]
+    if bands:
+        tries.append(seamed(flatten_bands(x, s - f, s, s + n, rate, hop)))
+    # the one whose bands step least where the loop's end runs into its start (a vibrato's band levels
+    # swing without fading: flattening them band by band can make the seam worse)
+    y, rho = min(tries, key=lambda yr: seam_step(yr[0], rate, (s, s + n)))
     return y, rate, (s, s + n), rho
 
 
@@ -429,7 +517,7 @@ def layered(sf, z, zs, key, f0, rate):
     return y * np.sqrt(np.mean(x ** 2) / (np.mean(y ** 2) + 1e-12)), cycles / fz, fz
 
 
-def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None):
+def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=True):
     """the sample kept (floats), its rate, its loop (or None), generators it adds, the loop's match,
     the loop's pitch (Hz)"""
     x, rate, (ls0, le0), mixed = region_sample(sf, z, zs)
@@ -460,8 +548,8 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None):
         # the recording is over (into a short loop of its own) before a loop of ours fits after the
         # attack: the whole recording is the attack, and its own loop holds, as FluidR3 plays it (a loop
         # of ours would replay the recording's end and its loop by turns, a flutter)
-        att, loop_t = ls0 / rate, STATIC_LOOP
-    need = int((att + loop_t * (1 + XF_SHARE) + SEARCH + 0.05) * rate)
+        att, loop_t, bands = ls0 / rate, STATIC_LOOP, False
+    need = int((att + loop_t * (1 + XF_SHARE) + SEARCH + LATE + 0.05) * rate)
     if looped and layer_key is None:
         x = unroll(x, ls0, le0, need)
     xr, nr, _ = resample(x[:need + 64], rate, want)
@@ -480,10 +568,10 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None):
             xr, nr, _ = resample(x[:int(keep * rate) + 64], rate, want)
             return cut(xr, int(keep * nr), nr), nr, None, extra, None, None
     if layer_key is not None:                               # the mix repeats once a loop, exactly
-        y, nr2, loop, rho = make_loop(xr, nr, 1 / loop_t, int(round(att * nr)), loop_t, exact=True)
+        y, nr2, loop, rho = make_loop(xr, nr, 1 / loop_t, int(round(att * nr)), loop_t, exact=True, bands=False)
         fl = fz
     else:
-        y, nr2, loop, rho = make_loop(xr, nr, f0, int(round(att * nr)), loop_t)
+        y, nr2, loop, rho = make_loop(xr, nr, f0, int(round(att * nr)), loop_t, bands=bands)
         fl = None
         if f0:                                              # the sustain's pitch, across the whole loop
             ls, le = loop
@@ -532,11 +620,11 @@ def reduce(src, verbose=False):
     stats = []
     tuned = {}
 
-    def add_sample(z, zs, root, att, loop_t, pitched, drum, name, layer_key=None):
-        key = (z["sample"], root, att, loop_t, drum, layer_key, tuple(sorted(
+    def add_sample(z, zs, root, att, loop_t, pitched, drum, name, layer_key=None, bands=True):
+        key = (z["sample"], root, att, loop_t, drum, layer_key, bands, tuple(sorted(
             (k, v) for k, v in z["gens"].items() if k in sf2.NOT_ADDITIVE or k in (G["coarseTune"], G["fineTune"]))))
         if key not in cache:
-            y, rate, loop, extra, rho, fl = process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key)
+            y, rate, loop, extra, rho, fl = process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key, bands)
             sm = sf.samples[z["sample"]]
             # the rate is whole Hz in a SoundFont: what a period-exact loop's hair of resampling leaves
             # over goes into the pitch correction
@@ -569,7 +657,8 @@ def reduce(src, verbose=False):
         z = centre_zone(sf, zs, ck)
         root = root_of(sf, z)
         si, loop, extra, rho = add_sample(z, zs, root, att, loop_t, prog not in UNPITCHED, False,
-                                          f"{prog:03d} {p.name}"[:15] + f" {root}", ck if prog in LAYERED else None)
+                                          f"{prog:03d} {p.name}"[:15] + f" {root}", ck if prog in LAYERED else None,
+                                          prog not in TIMING)   # those with their own timing: as they were tuned by ear
         gz = out_gens(z, root, loop, extra, (0, 127))
         gz[G["sampleID"]] = si
         instruments.append(sf2.Instrument(p.name, [sf2.Zone(gz)]))
