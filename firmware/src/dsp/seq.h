@@ -99,6 +99,8 @@ enum {
     SC_BAR_PASTE,   /* a: track: bar w's notes replaced by the clipboard's */
     SC_BAR_DELETE,  /* bar w out of the song, every track; the bars after it move up one */
     SC_STEP_DELETE, /* a: track: its notes in the step at the step cursor (a quantize step long) */
+    SC_INIT,        /* a new song in place of this one: no notes, every track and setting at its default
+                     * (stops first; undo brings the song back) */
 };
 int seq_post(uint32_t op, uint32_t a, uint32_t b, uint32_t c, int32_t w);   /* 0, or -1 (full) */
 int seq_idle(void);                     /* 1 = every command posted has been carried out */
