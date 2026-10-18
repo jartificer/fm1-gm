@@ -1,0 +1,54 @@
+# Record a track in real time, play it back, save it, reboot, find it again.
+wait 600
+shot boot.png
+expect view 0
+expect sel 0
+expect tempo 120
+expect bars 4
+# a few keys on track 1 (Acoustic Grand), stopped: they sound, nothing is recorded
+wav keys.wav
+tapkey 7
+tapkey 11
+tapkey 14
+wait 1500
+wavstop
+expect nev 0
+expect peak_db_min -40
+# arm REC, then PLAY: a bar of count-in (2 s at 120), then record
+tap REC
+expect rec 1
+tap PLAY
+expect playing 1
+wait 2000
+key 7 down
+wait 200
+key 7 up
+wait 300
+key 11 down
+wait 200
+key 11 up
+wait 300
+key 14 down
+wait 400
+key 14 up
+wait 600
+expect trknev1 3
+tap REC
+expect rec 0
+shot recording.png
+wav playback.wav
+wait 8000
+wavstop
+tap PLAY
+expect playing 0
+expect dirty 1
+# save to slot 1, then reboot: the song comes back
+tap SAVE
+wait 200
+expect dirty 0
+expect slotused1 1
+reboot
+wait 600
+expect nev 3
+expect trknev1 3
+expect song 0

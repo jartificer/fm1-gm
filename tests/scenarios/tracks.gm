@@ -1,0 +1,84 @@
+# Tracks: select, program, channel, mute; the drum track; step recording; undo / erase; the pages.
+wait 600
+turn SELECT 9
+expect sel 9
+expect chan10 10
+tap EDIT
+expect view 1
+shot track_drums.png
+# step recording on the drum track: kick, hat, snare, hat (keys are drums from note 35)
+tap SEQ
+expect step 1
+tapkey 1
+tapkey 7
+tapkey 3
+tapkey 7
+expect trknev10 4
+expect step_tick 48
+tap ARP
+expect step_tick 60
+tap LFO
+expect step_tick 48
+tap SEQ
+expect step 0
+shot track_steps.png
+# undo the step recording (it took a copy when it started), then redo
+tap ARP
+expect trknev10 0
+tap ARP
+expect trknev10 4
+# erase: ARP held
+hold ARP 1200
+wait 50
+expect trknev10 0
+tap ARP
+expect trknev10 4
+# track 1: program by ALGORITHM, family by K1
+turn SELECT -9
+expect sel 0
+spin ALGO 5
+wait 20
+expect prog1 5
+spin K1 3
+wait 20
+expect prog1 24
+spin K3 -20
+wait 20
+expect vol1 80
+tap ENV
+expect mute1 1
+tap ENV
+expect mute1 0
+tap EDIT
+spin K1 2
+wait 20
+expect chan1 3
+spin K1 -2
+wait 20
+shot track.png
+tap HOME
+shot song.png
+tap FX
+shot mix.png
+tap GLO
+shot setup.png
+tap GLO
+shot setup2.png
+spin K1 4
+wait 20
+expect poly 20
+tap SEL
+shot songs.png
+expect view 3
+# MIDI in (TRACK mode): any channel plays the selected track
+midi 93 3C 64
+wait 300
+midi 83 3C 00
+wait 50
+expect voices >0
+# both OCT buttons: octave moves
+tap OCT+
+expect oct 1
+tap OCT-
+tap OCT-
+expect oct -1
