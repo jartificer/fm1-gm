@@ -112,29 +112,32 @@ void seq_midi_out(uint32_t st, uint32_t d1, uint32_t d2)
     plat_midi_out(cin | st << 8 | d1 << 16 | d2 << 24);
 }
 
-/* flash: one buffer per object, kept across a simulated reboot */
-static uint8_t store[OBJ_NOBJ][PLAT_SONG_MAX];
-static int store_len[OBJ_NOBJ];
-static uint32_t store_writes;
-int plat_store_load(uint32_t obj, void *dst, uint32_t max)
+/* flash: a simulated NOR (erase -> 0xFF, programming clears bits), kept across a simulated reboot,
+ * under the firmware's own storage.c */
+static uint8_t nor[0x100000];
+static uint32_t store_writes;                    /* sectors erased: one a save of an object, or a song's sector */
+static const uint8_t flash_ok = 1;
+static int st_read(uint32_t off, void *dst, uint32_t n) { memcpy(dst, nor + off, n); return 0; }
+static int st_erase(uint32_t off)
 {
-    int n;
-    if (obj >= OBJ_NOBJ || (n = store_len[obj]) < 0)
-        return -1;
-    if ((uint32_t)n > max)
-        n = (int)max;
-    memcpy(dst, store[obj], (size_t)n);
-    return n;
-}
-int plat_store_save(uint32_t obj, const void *src, uint32_t len)
-{
-    if (obj >= OBJ_NOBJ || len > (obj >= OBJ_SONG0 ? PLAT_SONG_MAX : PLAT_STORE_MAX))
-        return -1;
-    memcpy(store[obj], src, len);
-    store_len[obj] = (int)len;
+    memset(nor + off, 0xFF, 4096);
     store_writes++;
     return 0;
 }
+static int st_prog(uint32_t off, const void *src, uint32_t n)
+{
+    const uint8_t *p = src;
+    uint32_t i;
+    if ((off & 0xFFu) + n > 256u) {
+        fprintf(stderr, "flash: a program crosses a page at %#x\n", off);
+        exit(1);
+    }
+    for (i = 0; i < n; i++)
+        nor[off + i] &= p[i];
+    return 0;
+}
+#include "../firmware/src/storage.c"
+#include "../firmware/src/app/plat_store.c"
 
 static uint32_t cpu_pct;
 uint32_t plat_cpu_pct(void) { return cpu_pct; }
@@ -278,6 +281,10 @@ static double now_ns(void)
 
 static void boot(void)
 {
+    static int fresh = 1;
+    if (fresh)                                   /* a new device: the flash erased */
+        memset(nor, 0xFF, sizeof nor);
+    fresh = 0;
     seq_init();
     settings_load();
     song_boot_load();
@@ -379,6 +386,16 @@ static int expect(const char *what, const char *val)
         got = gm_voice_max;
     else if (!strcmp(what, "voices"))
         got = gm_voices_used;
+    else if (!strcmp(what, "fit"))                  /* what does not fit on the screen */
+        got = ui_fit_check();
+    else if (!strcmp(what, "bar"))                  /* the BAR page's bar, 1.. */
+        got = bar_cur() + 1;
+    else if (!strcmp(what, "loop"))
+        got = seq_loop;
+    else if (!strcmp(what, "clip"))
+        got = seq_clip_n;
+    else if (!strcmp(what, "free"))                 /* song sectors free */
+        got = (int)plat_song_free();
     else if (!strcmp(what, "store_writes"))
         got = (int)store_writes;
     else if (!strcmp(what, "clocks_out"))
@@ -395,7 +412,7 @@ static int expect(const char *what, const char *val)
         got = seq_song.trk[atoi(what + 4) - 1].chan + 1;
     else if (!strncmp(what, "mute", 4))
         got = seq_song.trk[atoi(what + 4) - 1].mute;
-    else if (!strncmp(what, "slotused", 8))         /* slotusedS: 1..16 */
+    else if (!strncmp(what, "slotused", 8))         /* slotusedS: 1..64 */
         got = slot_info[atoi(what + 8) - 1].used;
     else if (!strncmp(what, "evtick", 6))           /* evtickI: note I's tick (song order) */
         got = seq_song.ev[atoi(what + 6)].tick;

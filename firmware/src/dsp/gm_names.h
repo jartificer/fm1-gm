@@ -34,8 +34,8 @@ static const char *const GM_NAME[128] = {
 };
 
 static const char *const GM_FAMILY[16] = {
-    "Piano", "Chromatic Perc", "Organ", "Guitar", "Bass", "Strings", "Ensemble", "Brass",
-    "Reed", "Pipe", "Synth Lead", "Synth Pad", "Synth FX", "Ethnic", "Percussive", "Sound FX",
+    "Piano", "Mallets", "Organ", "Guitar", "Bass", "Strings", "Ensemble", "Brass",   /* short: they */
+    "Reed", "Pipe", "Lead", "Pad", "Synth FX", "Ethnic", "Perc", "SFX",              /* fit a knob */
 };
 
 static const char *const GM_DRUM_NAME[GM_DRUM_HI - GM_DRUM_LO + 1] = {

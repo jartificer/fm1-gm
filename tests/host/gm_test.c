@@ -364,6 +364,85 @@ static void test_step(void)
     run(256);
 }
 
+static const uint8_t *rd_buf;
+static uint32_t rd_n, rd_i;
+static int rd_get(void) { return rd_i < rd_n ? rd_buf[rd_i++] : -1; }
+
+static int trk_first(int t)
+{
+    int i, k = 0;
+    for (i = 0; i < t; i++)
+        k += seq_song.trk[i].nev;
+    return k;
+}
+
+/* bar editing on track 3: loop a bar, copy, paste, clear, delete it; delete a step */
+static void test_bars(void)
+{
+    int s;
+    post(SC_SONG, SP_BARS, 0, 0, 4);
+    post(SC_SONG, SP_QUANT, 0, 0, 4);
+    post(SC_SELECT, 2, 0, 0, 0);
+    post(SC_LOOP, 1, 0, 0, 1);                 /* bar 2 only */
+    post(SC_CURSOR, 0, 0, 0, SEQ_BAR + 12);
+    post(SC_STEP, 1, 0, 0, 0);
+    run(256);
+    CHECK(seq_step_tick == SEQ_BAR + 12, "cursor at %d, expected %d", seq_step_tick, SEQ_BAR + 12);
+    for (s = 0; s < 16; s++) {                 /* a bar of 1/16s, and the cursor wraps in the bar */
+        post(SC_NOTE_ON, 2, (uint32_t)(60 + s), 100, 0);
+        post(SC_NOTE_OFF, 2, (uint32_t)(60 + s), 0, 0);
+    }
+    post(SC_STEP, 0, 0, 0, 0);
+    run(256);
+    s = trk_first(2);
+    CHECK(seq_song.trk[2].nev == 16, "bar 2: %d notes", seq_song.trk[2].nev);
+    CHECK(seq_step_tick == SEQ_BAR + 12 && seq_song.ev[s].tick == SEQ_BAR && seq_song.ev[s + 15].tick == SEQ_BAR + 180,
+          "the cursor did not wrap in the bar: %d, first %d, last %d", seq_step_tick, seq_song.ev[s].tick,
+          seq_song.ev[s + 15].tick);
+    post(SC_BAR_COPY, 2, 0, 0, 1);
+    post(SC_BAR_PASTE, 2, 0, 0, 3);
+    run(256);
+    CHECK(seq_clip_n == 16 && seq_song.trk[2].nev == 32, "copy, paste: clip %d, %d notes", seq_clip_n,
+          seq_song.trk[2].nev);
+    post(SC_BAR_PASTE, 2, 0, 0, 3);             /* again over it: replaces, does not add */
+    run(256);
+    CHECK(seq_song.trk[2].nev == 32, "paste over: %d notes", seq_song.trk[2].nev);
+    post(SC_BAR_CLEAR, 2, 0, 0, 3);
+    run(256);
+    CHECK(seq_song.trk[2].nev == 16, "clear: %d notes", seq_song.trk[2].nev);
+    post(SC_UNDO, 0, 0, 0, 0);
+    run(256);
+    CHECK(seq_song.trk[2].nev == 32, "undo the clear: %d notes", seq_song.trk[2].nev);
+    post(SC_BAR_DELETE, 0, 0, 0, 0);            /* bar 1 out: bar 2 is bar 1 */
+    run(256);
+    s = trk_first(2);
+    CHECK(seq_song.bars == 3 && seq_song.trk[2].nev == 32 && seq_song.ev[s].tick == 0 &&
+          seq_song.ev[s + 16].tick == 2 * SEQ_BAR, "delete bar: %d bars, %d notes, first at %d, bar 3 at %d",
+          seq_song.bars, seq_song.trk[2].nev, seq_song.ev[s].tick, seq_song.ev[s + 16].tick);
+    CHECK(seq_loop_bar == 1, "the loop bar is %d", seq_loop_bar);
+    /* the step at tick 12 (note 60, the bar's first step before): deleted, then undone */
+    post(SC_LOOP, 0, 0, 0, 0);
+    post(SC_CURSOR, 0, 0, 0, 12);
+    post(SC_STEP_DELETE, 2, 0, 0, 0);
+    run(256);
+    s = trk_first(2) + 1;
+    CHECK(seq_song.trk[2].nev == 31 && seq_song.ev[s].tick == 24, "delete a step: %d notes, next at %d",
+          seq_song.trk[2].nev, seq_song.ev[s].tick);
+    post(SC_UNDO, 0, 0, 0, 0);
+    run(256);
+    s = trk_first(2) + 1;
+    CHECK(seq_song.trk[2].nev == 32 && seq_song.ev[s].tick == 12 && seq_song.ev[s].note == 60,
+          "undo the step delete: %d notes, %d at %d", seq_song.trk[2].nev, seq_song.ev[s].note, seq_song.ev[s].tick);
+    post(SC_LOOP, 1, 0, 0, 1);
+    post(SC_PLAY, 0, 0, 0, 0);                  /* looped: playback stays in the bar */
+    run(GM_SR * 3);
+    CHECK(seq_playing && seq_tick >= SEQ_BAR && seq_tick < 2 * SEQ_BAR, "looped bar: tick %d", seq_tick);
+    post(SC_STOP, 0, 0, 0, 0);
+    post(SC_LOOP, 0, 0, 0, 0);
+    post(SC_ERASE, 2, 0, 0, 0);
+    run(256);
+}
+
 static void test_full(void)
 {
     int i;
@@ -379,9 +458,28 @@ static void test_full(void)
     }
     run(256);
     CHECK(seq_song.nev == SEQ_MAXEV && seq_full, "full song: %d notes, full %d", seq_song.nev, seq_full);
-    CHECK(song_valid(&seq_song, song_bytes(&seq_song)), "the full song is not valid");
-    CHECK(song_bytes(&seq_song) <= 2u * 4096u - 256u, "a full song (%u B) does not fit its flash object",
-          song_bytes(&seq_song));
+    {   /* the stream: back to the same song, and small */
+        static uint8_t buf[SEQ_MAXEV * 8];
+        static song_t back;
+        uint32_t n = song_bytes(&seq_song);
+        CHECK(n <= sizeof buf, "stream %u B", n);
+        song_stream(&seq_song, buf, 0, n);
+        rd_buf = buf;
+        rd_n = n;
+        rd_i = 0;
+        CHECK(song_parse(&back, rd_get) == 0, "the full song's stream does not parse");
+        CHECK(!memcmp(&back, &seq_song, song_ram_bytes(&seq_song)), "the stream does not give the song back");
+        CHECK(n < 3u * SEQ_MAXEV, "a full song is %u B (%.2f B a note)", n, (double)n / SEQ_MAXEV);
+        printf("full song: %u notes, %u B in flash (%.2f B a note)\n", (unsigned)seq_song.nev, n,
+               (double)n / seq_song.nev);
+        rd_n = n - 1;                           /* cut short: refused */
+        rd_i = 0;
+        CHECK(song_parse(&back, rd_get) != 0, "a truncated stream parses");
+        buf[0] ^= 0x40;                         /* not this format: refused */
+        rd_n = n;
+        rd_i = 0;
+        CHECK(song_parse(&back, rd_get) != 0, "a stream of another format parses");
+    }
     post(SC_STEP, 0, 0, 0, 0);
     post(SC_ERASE, 1, 0, 0, 0);
     run(256);
@@ -397,9 +495,10 @@ int main(int argc, char **argv)
     test_polyphony_cost();
     test_record_play();
     test_step();
+    test_bars();
     test_full();
-    printf("song object: %u B header + %u B a note, %u B full\n", (unsigned)SONG_HEAD_BYTES,
-           (unsigned)sizeof(seq_ev_t), (unsigned)(SONG_HEAD_BYTES + SEQ_MAXEV * sizeof(seq_ev_t)));
+    printf("song in RAM: %u B header + %u B a note, %u B full\n", (unsigned)SONG_HEAD_BYTES,
+           (unsigned)sizeof(seq_ev_t), (unsigned)sizeof(song_t));
     if (fails)
         printf("%d FAILED\n", fails);
     else

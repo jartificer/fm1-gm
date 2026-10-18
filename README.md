@@ -3,9 +3,10 @@
 Custom firmware that turns the M-VAVE FM-1 into a General MIDI sound module and 16-track sequencer.
 
 - **128 General MIDI programs** (the full GM1 sound set, fixed, not editable) and a **GM drum kit** (notes 35–81) on channel 10.
-- **16 tracks, each on any of the 16 MIDI channels**, with program, volume, pan, reverb, transpose and key velocity per track.
-- **16 songs saved on the device**, power-safe (two copies per slot, CRC-checked).
+- **16 tracks, each on any of the 16 MIDI channels**, with program, volume, pan, reverb, transpose and velocity per track.
+- **64 song slots sharing all of the device's free data flash** (284 KB, roughly 100,000 notes), power-safe (a save never touches the song it replaces until it is complete; CRC-checked).
 - Real-time recording with overdub, quantize and count-in, plus step recording, undo, mute and solo.
+- **Bar editing:** pick a bar and a step; loop the bar, delete a step, copy, paste, clear or delete a bar. Undo covers all of it.
 - MIDI in (USB and the TRS jack) plays the sounds; MIDI out and clock out over USB are optional.
 
 It is built on [Felucca](https://github.com/hugelton/Felucca)'s FM-1 platform, through [X0X](https://github.com/charlesvestal/fm1-x0x) and [FoMni](https://github.com/charlesvestal/fm1-fomni). The sound engine, the sequencer, the song storage and the screens are new.
@@ -26,14 +27,14 @@ GM controllers: note on/off, program change, pitch bend (with RPN 0 bend range),
 
 ## Using it
 
-The screen has five views. A view's button again flips its four knobs to their second page.
+The screen has six views. EDIT or GLO again flips its view's four knobs to their second page; HOME again goes between Song and Bar.
 
 | Button | |
 |---|---|
-| HOME | **Song** view: piano roll of the selected track. Knobs: tempo, bars, quantize, click |
-| EDIT | **Track** view. Knobs: family, program, volume, pan / channel, reverb, transpose, key velocity |
+| HOME | **Song** view: the 16 tracks. Knobs: tempo, bars, quantize, click. HOME again: **Bar** view (below) |
+| EDIT | **Track** view: piano roll of the selected track. Knobs: family, program, volume, pan / channel, reverb, transpose, velocity |
 | FX | **Mix** view: 16 strips. Knobs: the volumes of the selected track's group of four (1–4, 5–8, …) |
-| SEL | **Songs** view: the 16 slots. SEL again loads the highlighted slot |
+| SEL | **Songs** view: 16 slots at a time (of 64) and the room left. SEL again loads the highlighted slot; hold ARP twice to delete it |
 | GLO | **Setup**. Knobs: MIDI in mode, MIDI out, clock out, count-in / voices, click volume, lights |
 | PLAY | Play / stop |
 | REC | Arm recording (overdub, with a one-bar count-in when it is on) |
@@ -58,17 +59,37 @@ Press REC, then PLAY (or PLAY then REC). The click counts in a bar, then the loo
 
 Step recording: stop, press SEQ, then play a note (or a chord) to place it at the step and move on by the quantize value. ARP inserts a rest, LFO steps back, SEQ finishes.
 
+### Editing a bar
+
+Press HOME twice for the **Bar** view: one bar of the selected track, close up, divided into steps of the quantize value (16 steps at 1/16). It opens at the bar playing, or where the step cursor is.
+
+| Control | |
+|---|---|
+| KNOB 1 | The bar |
+| KNOB 2 | The step (it is also where step recording starts: press SEQ) |
+| KNOB 3 | Loop: playback and recording stay in this bar until it is off or you leave the view |
+| KNOB 4 | Quantize, which sets the step size |
+| ENV | Delete the step's notes (the selected track) |
+| ENV held 1 s | Delete the bar from the song, all tracks; the bars after it move up |
+| LFO | Copy the bar (the selected track) |
+| LFO held 1 s | Paste the copied bar over this one |
+| ARP held 1 s | Clear the bar (the selected track) |
+| ARP | Undo the last of these (again: redo) |
+
+Mute and solo are on the other views. To add a bar at the end, turn up Bars in the Song view.
+
 ## Defaults chosen where the hardware or the request was open
 
 - **128 programs, not 127.** GM1 has 128 (0–127), so all of them are here.
 - **Polyphony: 16 melodic + 8 drum voices**, GM1's minimum. Setup → Voices allows 8..24 melodic voices. If the render runs over 85 % of its time budget, the quietest voice is dropped rather than letting audio break up.
-- **Song length:** 1–128 bars of 4/4, 48 PPQN, up to 1280 notes per song across all tracks, 30–300 BPM.
-- **Key velocity:** the FM-1 keys are not velocity-sensitive, so each track has a fixed key velocity (default 100); MIDI in keeps its own velocity.
+- **Song length:** 1–128 bars of 4/4, 48 PPQN, up to 8192 notes per song across all tracks, 30–300 BPM.
+- **No velocity in songs.** The FM-1 keys are not velocity-sensitive, so each track has one velocity (default 100) and every note it plays uses it. Notes from MIDI in are recorded without velocity too, and in TRACK mode they also sound at the track's velocity, so you hear what will play back. In MULTI mode MIDI in sounds as sent.
 - **No chorus.** CC93 is accepted and ignored, to keep CPU for voices.
 - **One velocity layer.** MIDI velocity sets the level only; the samples are FluidR3's velocity-100 layer.
 - **No external clock sync.** MIDI Start and Stop are followed, the tempo is the song's own.
-- **Notes only are recorded** (no controller or bend automation); per-track volume, pan and reverb are part of the song.
-- **Flash map.** The 16 songs sit at 0x97000 + slot × 0x4000 (two copies of 8 KiB each), panel calibration at 0xDC000 and settings at 0xFC000. The stock firmware's patches at 0xEA000 and the update staging area at 0xE0000 are not touched.
+- **Notes only are recorded** (no velocity, controllers or bend); per-track volume, pan and reverb are part of the song.
+- **Song format.** A song is stored like a stripped-down MIDI file: the song and track settings (133 bytes), then per track its notes as delta time, note and length, with MIDI's variable-length numbers, and the length left out when it repeats (like MIDI running status). That is 2 to 4 bytes a note; a step-recorded song averages about 2.
+- **Song storage.** The songs share every free sector of the data area, 0x97000–0xDFFFF apart from the panel calibration at 0xDC000: 71 sectors of 4 KiB, 4064 bytes of song each. A song takes as many sectors as it needs, so one small song is one sector and a long song can use most of the store. A save writes the new version to free sectors and only then lets go of the old one, so resaving a song needs room for it once more. Settings are at 0xFC000. The stock firmware's patches at 0xEA000–0xFBFFF (72 KB) and the update staging area at 0xE0000 are left untouched; the patch area could be given to songs too (about 25 % more room), at the cost of the stock firmware's saved patches.
 - **Package identity FM-1_600** (release builds FM-1_6XXYYZZ), apart from FoMni (FM-1_8…) and X0X (FM-1_9…).
 
 ## Installing

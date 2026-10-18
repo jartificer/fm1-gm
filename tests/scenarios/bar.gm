@@ -1,0 +1,79 @@
+# The BAR page: pick a bar and a step, step-record there, copy and paste a bar, delete a step and a
+# bar, undo, loop a bar; then save, reboot, and delete the song. And nothing on any page too wide.
+wait 600
+expect fit 0
+tap HOME
+expect view 5
+expect bar 1
+turn K1 1
+expect bar 2
+turn K2 2
+expect step_tick 216
+# three 1/16 steps on track 1 from bar 2, step 3
+tap SEQ
+expect step 1
+tapkey 0
+tapkey 2
+tapkey 4
+tap SEQ
+expect step 0
+expect trknev1 3
+expect step_tick 252
+shot bar.png
+# copy bar 2, paste it over bar 3
+tap LFO
+expect clip 3
+turn K1 1
+expect bar 3
+expect step_tick 384
+hold LFO 1200
+expect trknev1 6
+# delete bar 3's step 3 (one note), undo it
+turn K2 2
+expect step_tick 408
+tap ENV
+expect trknev1 5
+tap ARP
+expect trknev1 6
+# delete bar 3 (every track), undo it
+hold ENV 1200
+expect bars 3
+expect trknev1 3
+tap ARP
+expect bars 4
+expect trknev1 6
+# clear bar 3 of track 1
+hold ARP 1200
+expect trknev1 3
+# loop bar 2: playback stays in it
+turn K1 -1
+expect bar 2
+turn K3 1
+expect loop 1
+tap PLAY
+wait 4500
+expect playing 1
+shot bar_loop.png
+tap PLAY
+tap HOME
+expect view 0
+expect loop 0
+# save, reboot: the notes are back; then delete the song (ARP held twice on SONGS)
+tap SAVE
+wait 200
+expect slotused1 1
+reboot
+wait 600
+expect trknev1 3
+tap SEL
+expect view 3
+shot songs.png
+hold ARP 1200
+expect slotused1 1
+hold ARP 1200
+wait 200
+expect slotused1 0
+expect dirty 1
+reboot
+wait 600
+expect nev 0

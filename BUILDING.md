@@ -41,6 +41,6 @@ GitHub Actions (`.github/workflows/build.yml`) does all of this on every push an
 - `firmware/src/dsp/gm.c`: the GM engine, a sample player; `gm_wave.h` the wavetable's types, `gm_names.h` the GM names.
 - `assets/soundfont/fm1gm.sf2`: the instruments and drums. The build turns it into `build/gen/gm_wavetable.h` (`tools/gen_wavetable.py`, 4-bit ADPCM, Python standard library only). The SoundFont itself is made from FluidR3_GM.sf2 by `tools/sf2_reduce.py` (needs numpy and scipy): `python3 tools/sf2_reduce.py -v FluidR3_GM.sf2 assets/soundfont/fm1gm.sf2`. Its settings (samples per program, attack and loop lengths, sample rates) are at the top of the script. The app image must stay within the 581,564-byte app slot; the wavetable takes about 400 KB of it.
 - `firmware/src/dsp/seq.c`: the sequencer, run from the audio render; the UI talks to it through a command ring.
-- `firmware/src/app/`: the platform layer, settings and song slots, and the UI.
-- `firmware/src/storage.c`: the A/B flash store (FoMni's, extended to two-sector objects for the songs).
+- `firmware/src/app/`: the platform layer, settings and song slots, and the UI. The song byte format is `song_stream` / `song_parse` in `firmware/src/dsp/seq.c`.
+- `firmware/src/storage.c`: the A/B flash store for the settings and panel (FoMni's), and the song store: every other data sector, shared by the 64 slots, each save a new version in free sectors.
 - `host/gm_host.c`: the app on the host, driven by scenario scripts.
