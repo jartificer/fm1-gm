@@ -14,7 +14,7 @@
 
 typedef struct {
     uint32_t magic, format;
-    uint8_t song;                        /* the slot in use (0..15) */
+    uint8_t song;                        /* the slot in use (0..SEQ_NSONGS - 1) */
     uint8_t midi_in;                     /* 0 TRACK: every channel plays the selected track; 1 MULTI: as sent */
     uint8_t midi_out;                    /* seq_cfg's */
     uint8_t clock_out;
@@ -32,16 +32,13 @@ int settings_save(void);                 /* 0 = saved and verified */
 void settings_apply(void);               /* to the sequencer and the engine */
 
 /* the songs in flash: what each slot holds (read at boot, kept up to date by saves) */
-typedef struct {
-    uint8_t used;
-    uint8_t bars;
-    uint16_t tempo, nev;
-} slot_info_t;
+typedef plat_song_info_t slot_info_t;
 extern slot_info_t slot_info[SEQ_NSONGS];
 void slots_scan(void);
 /* with seq_lock set (the render leaves the song alone): */
 int song_load_slot(int slot);            /* 0 loaded, 1 empty slot (a new song), -1 unreadable (a new song) */
-int song_save_slot(int slot);            /* 0 = saved and verified */
+int song_save_slot(int slot);            /* 0 = saved and verified, -10 = no room */
+int song_delete_slot(int slot);          /* 0 = deleted */
 void song_boot_load(void);               /* boot, before the audio starts: the slot in use */
 
 void ui_init(void);

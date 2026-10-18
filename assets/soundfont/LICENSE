@@ -1,0 +1,35 @@
+fm1gm.sf2 is a reduced version of the Fluid (R3) General MIDI SoundFont, made by
+tools/sf2_reduce.py from FluidR3_GM.sf2 (as packaged in Debian and Ubuntu as
+fluid-soundfont-gm 3.1). It keeps, for each GM program, one velocity layer and a
+few mono samples, at lower sample rates, each cut to its attack and a short
+loop; and 47 notes of the standard drum kit.
+
+Like the original, it is under the MIT License:
+
+Fluid (R3) SoundFont
+Copyright (c) 2000-2002, 2008 Frank Wen <getfrank@gmail.com>
+Copyright (c) 2008 Toby Smithe
+
+"Fluid was constructed in part from samples found in the public domain that I
+edited/cleaned/remixed/programmed and largely from recordings of my own and in
+conjunction with the people below who helped along the way: Suren M. Seron,
+Scott Hanan, Steve Aupperle, Chris Gillman, Alex Taubr, Chris Prola, Andrew
+Klenk, Winfried Hubbe, Dylan, Tim, Gort, Uros Katic, Ethan Winer."
+(from Fluid's README)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

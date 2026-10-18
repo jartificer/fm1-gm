@@ -40,12 +40,30 @@ void plat_midi_out(uint32_t pkt);      /* queue one (audio ISR or main loop) */
 /* persistent storage (Felucca storage.c objects: A/B copies, CRC, torn-write safe) */
 int plat_store_load(uint32_t obj, void *dst, uint32_t max);   /* bytes loaded, < 0 = none / bad */
 int plat_store_save(uint32_t obj, const void *src, uint32_t len);   /* 0 = ok */
-#define PLAT_STORE_MAX 3840u           /* bytes in a one-sector object (settings, panel) */
-#define PLAT_SONG_MAX 7936u            /* bytes in a song */
-#define PLAT_NSONGS 16
-enum { OBJ_SET, OBJ_PANEL, OBJ_SONG0, OBJ_NOBJ = OBJ_SONG0 + PLAT_NSONGS };
-/* flash: OBJ_SET 0xFC000, OBJ_PANEL 0xDC000 (a sector a copy); OBJ_SONG0 + i at 0x97000 + i * 0x4000
- * (two sectors a copy), all inside Felucca's data area (storage.c) */
+#define PLAT_STORE_MAX 3840u           /* bytes in an object (settings, panel) */
+enum { OBJ_SET, OBJ_PANEL, OBJ_NOBJ };
+/* flash: OBJ_SET 0xFC000, OBJ_PANEL 0xDC000, a sector a copy */
+
+/* the songs (storage.c's song store): every other sector of the data area, shared by the slots; a
+ * song takes as many 4 KiB sectors as its bytes need (PLAT_SECTOR_BYTES each). The bytes are the
+ * app's (a song's format is seq.c's); the store keeps a few facts about each for the song list. */
+#define PLAT_NSONGS 64
+#define PLAT_SECTOR_BYTES 4064u
+typedef struct {
+    uint8_t used, bars;
+    uint16_t tempo, nev, nsec;         /* nsec: the sectors it takes */
+    uint32_t bytes;
+} plat_song_info_t;
+void plat_song_scan(void);             /* boot: find the songs */
+void plat_song_info(int slot, plat_song_info_t *i);
+uint32_t plat_song_free(void);         /* sectors free (a song that is resaved needs its sectors free again) */
+uint32_t plat_song_sectors(void);      /* sectors in all */
+/* fill(dst, from, n): the song's bytes from .. from + n - 1; 0 = saved and verified, -10 = no room */
+int plat_song_save(int slot, uint32_t bytes, void (*fill)(uint8_t *dst, uint32_t from, uint32_t n),
+                   const plat_song_info_t *i);
+int plat_song_open(int slot);          /* 0: the song is there; read it with plat_song_getc */
+int plat_song_getc(void);              /* the next byte; -1 at the end, -2 unreadable */
+int plat_song_delete(int slot);        /* 0 = gone */
 
 /* audio load in % of the render budget, and xruns since boot (device: from the ISR) */
 uint32_t plat_cpu_pct(void);

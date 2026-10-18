@@ -125,10 +125,11 @@ def tc_all(*cmds):
 
 
 def generate():
-    """generated headers: the font (Felucca's)"""
+    """generated headers: the font (Felucca's), the wavetable (assets/soundfont/fm1gm.sf2)"""
     GEN.mkdir(parents=True, exist_ok=True)
     tools = SRC / "tools"
-    for c in [[tools / "gen_font.py", GEN / "felucca_font.h"]]:
+    for c in [[tools / "gen_font.py", GEN / "felucca_font.h"],
+              [tools / "gen_wavetable.py", GEN / "gm_wavetable.h"]]:
         r = subprocess.run([sys.executable, *map(str, c)], capture_output=True, text=True)
         sys.stdout.write(r.stdout)
         if r.returncode:

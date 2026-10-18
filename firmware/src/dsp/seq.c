@@ -7,7 +7,8 @@
  * every audible track's notes at that tick. The loop end cuts what still sounds.
  * Recording: a note's start is the tick nearest the moment it was played, quantized; it is written
  * when it ends (its length known), so it lands behind the playback position and does not play
- * twice; a note quantized ahead of the position is stepped over for this pass. */
+ * twice; a note quantized ahead of the position is stepped over for this pass.
+ * The loop is the song, or one bar (SC_LOOP): playback, recording and the step cursor wrap in it. */
 #include "seq.h"
 #include "fastmath.h"
 
@@ -18,6 +19,9 @@ volatile uint8_t seq_lock;
 volatile uint8_t seq_playing, seq_rec, seq_step, seq_counting, seq_full, seq_sel, seq_undo_ok;
 volatile uint16_t seq_tick, seq_step_tick;
 volatile uint32_t seq_changes;
+volatile uint8_t seq_loop, seq_loop_bar;
+volatile uint16_t seq_clip_n;
+static seq_ev_t clip[SEQ_CLIP] GM_POOL;         /* ticks from the bar's start */
 
 static const uint8_t QT[SEQ_NQUANT] = {1, 48, 24, 16, 12, 8, 6};
 static const char *const QN[SEQ_NQUANT] = {"OFF", "1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"};
@@ -59,8 +63,6 @@ void song_defaults(song_t *s)
     uint8_t *b = (uint8_t *)s;
     for (i = 0; i < sizeof *s; i++)
         b[i] = 0;
-    s->magic = SONG_MAGIC;
-    s->format = SONG_FORMAT;
     s->tempo = 120;
     s->bars = 4;
     s->quant = 4;                               /* 1/16 */
@@ -75,29 +77,151 @@ void song_defaults(song_t *s)
     }
 }
 
-int song_valid(const song_t *s, uint32_t len)
+/* ------------------------------------------------------- the stream --- *
+ *   format (SONG_FORMAT), tempo (2 bytes, low first), bars, quantize;
+ *   16 tracks: channel, program, volume, pan, reverb, velocity, mute | solo << 1, transpose;
+ *   16 tracks: notes (a variable-length number), then each note: ticks since the note before (the
+ *   first: since 0), the note | 0x80 when its length is the note before's, else its length.
+ * Variable-length numbers are MIDI's: 7 bits a byte, the high first, bit 7 set on all but the last. */
+typedef struct {
+    uint8_t *d;
+    uint32_t from, n, i;
+} wr_t;
+
+static void put(wr_t *w, uint32_t b)
 {
-    uint32_t i, n = 0;
-    if (len < SONG_HEAD_BYTES || s->magic != SONG_MAGIC || s->format != SONG_FORMAT)
-        return 0;
-    if (s->tempo < 30 || s->tempo > 300 || s->bars < 1 || s->bars > SEQ_MAXBARS || s->quant >= SEQ_NQUANT ||
-        s->nev > SEQ_MAXEV || len < song_bytes(s))
-        return 0;
-    for (i = 0; i < SEQ_NTRK; i++) {
-        const seq_trk_t *t = &s->trk[i];
-        if (t->chan > 15 || t->prog > 127 || t->vol > 127 || t->pan > 127 || t->rev > 127 || t->vel < 1 ||
-            t->vel > 127 || t->mute > 1 || t->solo > 1 || t->transpose < -24 || t->transpose > 24)
-            return 0;
-        n += t->nev;
+    if (w->d && w->i >= w->from && w->i - w->from < w->n)
+        w->d[w->i - w->from] = (uint8_t)b;
+    w->i++;
+}
+
+static void put_vlq(wr_t *w, uint32_t v)
+{
+    uint8_t b[5];
+    int k = 0;
+    do
+        b[k++] = (uint8_t)(v & 127u);
+    while ((v >>= 7) != 0);
+    while (k--)
+        put(w, b[k] | (k ? 128u : 0u));
+}
+
+uint32_t song_stream(const song_t *s, uint8_t *dst, uint32_t from, uint32_t n)
+{
+    wr_t w = {dst, from, n, 0};
+    uint32_t t, e = 0;
+    put(&w, SONG_FORMAT);
+    put(&w, s->tempo & 255u);
+    put(&w, s->tempo >> 8);
+    put(&w, s->bars);
+    put(&w, s->quant);
+    for (t = 0; t < SEQ_NTRK; t++) {
+        const seq_trk_t *k = &s->trk[t];
+        put(&w, k->chan);
+        put(&w, k->prog);
+        put(&w, k->vol);
+        put(&w, k->pan);
+        put(&w, k->rev);
+        put(&w, k->vel);
+        put(&w, (uint32_t)k->mute | (uint32_t)k->solo << 1);
+        put(&w, (uint8_t)k->transpose);
     }
-    if (n != s->nev)
-        return 0;
-    for (i = 0; i < s->nev; i++) {
-        const seq_ev_t *e = &s->ev[i];
-        if (e->note > 127 || e->vel < 1 || e->vel > 127 || e->len < 1 || e->tick >= SEQ_MAXBARS * SEQ_BAR)
-            return 0;
+    for (t = 0; t < SEQ_NTRK; t++) {
+        uint32_t j, prev = 0, plen = 0, ne = s->trk[t].nev;
+        put_vlq(&w, ne);
+        for (j = 0; j < ne && e < SEQ_MAXEV; j++, e++) {
+            const seq_ev_t *v = &s->ev[e];
+            put_vlq(&w, v->tick >= prev ? v->tick - prev : 0u);
+            put(&w, v->note | (v->len == plen ? 128u : 0u));
+            if (v->len != plen)
+                put_vlq(&w, v->len);
+            prev = v->tick;
+            plen = v->len;
+        }
     }
-    return 1;
+    return w.i;
+}
+
+static int (*rd)(void);
+static uint8_t rd_bad;
+
+static uint32_t get8(void)
+{
+    int c = rd_bad ? -2 : rd();
+    if (c < 0) {
+        rd_bad = 1;
+        return 0;
+    }
+    return (uint32_t)c;
+}
+
+static uint32_t get_vlq(void)
+{
+    uint32_t v = 0, k;
+    for (k = 0; k < 3u; k++) {                  /* nothing in a song needs more than 21 bits */
+        uint32_t c = get8();
+        v = v << 7 | (c & 127u);
+        if (!(c & 128u))
+            return v;
+    }
+    rd_bad = 1;
+    return 0;
+}
+
+int song_parse(song_t *s, int (*get)(void))
+{
+    uint32_t t, e = 0;
+    rd = get;
+    rd_bad = 0;
+    song_defaults(s);
+    if (get8() != SONG_FORMAT)
+        return -1;
+    s->tempo = (uint16_t)get8();
+    s->tempo = (uint16_t)(s->tempo | get8() << 8);
+    s->bars = (uint8_t)get8();
+    s->quant = (uint8_t)get8();
+    if (s->tempo < 30 || s->tempo > 300 || s->bars < 1 || s->bars > SEQ_MAXBARS || s->quant >= SEQ_NQUANT)
+        return -1;
+    for (t = 0; t < SEQ_NTRK; t++) {
+        seq_trk_t *k = &s->trk[t];
+        uint32_t f;
+        k->chan = (uint8_t)get8();
+        k->prog = (uint8_t)get8();
+        k->vol = (uint8_t)get8();
+        k->pan = (uint8_t)get8();
+        k->rev = (uint8_t)get8();
+        k->vel = (uint8_t)get8();
+        f = get8();
+        k->mute = (uint8_t)(f & 1u);
+        k->solo = (uint8_t)(f >> 1 & 1u);
+        k->transpose = (int8_t)(uint8_t)get8();
+        if (k->chan > 15 || k->prog > 127 || k->vol > 127 || k->pan > 127 || k->rev > 127 || k->vel < 1 ||
+            k->vel > 127 || f > 3 || k->transpose < -24 || k->transpose > 24)
+            return -1;
+    }
+    for (t = 0; t < SEQ_NTRK && !rd_bad; t++) {
+        uint32_t j, ne = get_vlq(), tick = 0, plen = 0;
+        if (ne > SEQ_MAXEV - e)
+            return -1;
+        s->trk[t].nev = (uint16_t)ne;
+        for (j = 0; j < ne && !rd_bad; j++, e++) {
+            seq_ev_t *v = &s->ev[e];
+            uint32_t nb, len;
+            tick += get_vlq();
+            nb = get8();
+            len = nb & 128u ? plen : get_vlq();
+            if (tick >= SEQ_MAXBARS * SEQ_BAR || len < 1 || len > 0xFFFFu)
+                return -1;
+            v->tick = (uint16_t)tick;
+            v->note = (uint8_t)(nb & 127u);
+            v->len = (uint16_t)len;
+            plen = len;
+        }
+    }
+    s->nev = (uint16_t)e;
+    if (rd_bad || rd() != -1)                   /* every byte, and no more */
+        return -1;
+    return 0;
 }
 
 static song_t *const S = &seq_song;
@@ -113,16 +237,16 @@ static uint32_t trk_start(int t)
 
 static void copy_song(song_t *d, const song_t *s)
 {
-    uint32_t n = song_bytes(s) / 4u, i;          /* both are word-aligned; the size is a multiple of 2 */
+    uint32_t n = song_ram_bytes(s) / 4u, i;      /* both are word-aligned; the size is a multiple of 2 */
     const uint32_t *a = (const uint32_t *)s;
     uint32_t *b = (uint32_t *)d;
     for (i = 0; i < n; i++)
         b[i] = a[i];
-    if (song_bytes(s) & 2u)
+    if (song_ram_bytes(s) & 2u)
         ((uint16_t *)d)[2u * n] = ((const uint16_t *)s)[2u * n];
 }
 
-static void snapshot(void)                      /* the undo copy: before a recording pass or an erase */
+static void snapshot(void)                      /* the undo copy: before a recording pass or an edit */
 {
     copy_song(&undo, S);
     seq_undo_ok = 1;
@@ -170,6 +294,15 @@ static uint32_t abs_t;                          /* ticks played since PLAY: the 
 static float acc, spt;                          /* samples since the last tick; samples per tick */
 static uint32_t preroll;                        /* count-in ticks left */
 static float click_amp, click_ph, click_inc;
+
+/* the loop: the song, or bar seq_loop_bar */
+static uint32_t reg_lo(void) { return seq_loop && seq_loop_bar < S->bars ? (uint32_t)seq_loop_bar * SEQ_BAR : 0u; }
+static uint32_t reg_hi(void) { return seq_loop && seq_loop_bar < S->bars ? reg_lo() + SEQ_BAR : seq_song_ticks(); }
+static uint32_t reg_wrap(uint32_t t)
+{
+    uint32_t lo = reg_lo(), hi = reg_hi();
+    return t < lo ? lo : t < hi ? t : lo + (t - lo) % (hi - lo);
+}
 
 static float samples_per_tick(void) { return GM_SR * 60.0f / ((float)S->tempo * (float)SEQ_PPQN); }
 
@@ -249,7 +382,7 @@ static void click(int down)
 
 static void play_tick(void)
 {
-    uint32_t t, s = 0, len = seq_song_ticks(), i;
+    uint32_t t, s = 0, i;
     if (preroll) {                              /* the count-in: clicks only */
         uint32_t k = SEQ_BAR - preroll;
         if (k % SEQ_PPQN == 0)
@@ -261,12 +394,11 @@ static void play_tick(void)
         }
         return;
     }
-    if (cur >= len) {                           /* the loop: back to the top */
-        cur = 0;
+    if (cur >= reg_hi() || cur < reg_lo()) {    /* the loop: back to its top */
+        cur = reg_lo();
         tracks_off(-1);
+        seek(cur);
     }
-    if (cur == 0)
-        seek(0);
     for (i = 0; i < NACT; i++)
         if (act[i].on && act[i].off <= abs_t)
             act_off(&act[i]);
@@ -278,7 +410,7 @@ static void play_tick(void)
             const seq_ev_t *ev = &S->ev[pos[t]];
             if (on && ev->tick == cur) {
                 int n = out_note(k, ev->note);
-                out3(0x90u | k->chan, (uint32_t)n, ev->vel);
+                out3(0x90u | k->chan, (uint32_t)n, k->vel);
                 act_add((int)t, k->chan, n, abs_t + ev->len);
             }
             pos[t]++;
@@ -300,12 +432,12 @@ static void start(void)
     uint32_t i;
     for (i = 0; i < NACT; i++)
         act[i].on = 0;
-    cur = 0;
+    cur = reg_lo();
     last = 0xFFFFFFFFu;
     abs_t = 0;
     spt = samples_per_tick();
     acc = spt;                                  /* the first tick now */
-    seek(0);
+    seek(cur);
     apply_all();
     seq_playing = 1;
     preroll = 0;
@@ -323,7 +455,7 @@ static void start(void)
 
 /* --------------------------------------------------------- recording --- */
 typedef struct {
-    uint8_t on, trk, vel;
+    uint8_t on, trk;
     uint16_t tick;                              /* where it lands (quantized) */
     uint32_t abs;                               /* when it started: abs_t and the fraction */
     float frac;
@@ -333,7 +465,7 @@ static pend_t pend[128];
 static int quant(void) { return seq_quant_ticks(S->quant); }
 
 /* insert (or, the same note at the same tick, replace) a note in track t */
-static void ev_insert(int t, uint32_t tick, int note, int vel, uint32_t len)
+static void ev_insert(int t, uint32_t tick, int note, uint32_t len)
 {
     uint32_t s = trk_start(t), e = s + S->trk[t].nev, i, j, k;
     if (len < 1)
@@ -342,7 +474,6 @@ static void ev_insert(int t, uint32_t tick, int note, int vel, uint32_t len)
         len = 0xFFFFu;
     for (i = s; i < e && S->ev[i].tick <= tick; i++)
         if (S->ev[i].tick == tick && S->ev[i].note == note) {
-            S->ev[i].vel = (uint8_t)vel;
             S->ev[i].len = (uint16_t)len;
             changed();
             return;
@@ -355,7 +486,7 @@ static void ev_insert(int t, uint32_t tick, int note, int vel, uint32_t len)
         S->ev[j] = S->ev[j - 1];
     S->ev[i].tick = (uint16_t)tick;
     S->ev[i].note = (uint8_t)note;
-    S->ev[i].vel = (uint8_t)vel;
+    S->ev[i].rsv = 0;
     S->ev[i].len = (uint16_t)len;
     S->nev++;
     S->trk[t].nev++;
@@ -417,14 +548,14 @@ static uint32_t step_held[4];                   /* the keys down while step reco
 static uint8_t step_any_note;                   /* a note went in at this step */
 static int held_any(void) { return step_held[0] | step_held[1] | step_held[2] | step_held[3]; }
 
-static void rec_on(int t, int note, int vel)
+static void rec_on(int t, int note)
 {
     pend_t *p = &pend[note & 127];
-    uint32_t tick, abs, len = seq_song_ticks(), q = (uint32_t)quant(), r;
+    uint32_t tick, abs, q = (uint32_t)quant(), r;
     float frac;
     if (seq_step) {                             /* step recording: at the cursor, a step long */
         uint32_t sl = step_len();
-        ev_insert(t, seq_step_tick, note, vel, sl - sl / 8u);
+        ev_insert(t, seq_step_tick, note, sl - sl / 8u);
         step_held[(note >> 5) & 3] |= 1u << (note & 31);
         step_any_note = 1;
         return;
@@ -437,8 +568,7 @@ static void rec_on(int t, int note, int vel)
         r = (r + q / 2u) / q * q;
     p->on = 1;
     p->trk = (uint8_t)t;
-    p->vel = (uint8_t)vel;
-    p->tick = (uint16_t)(r % len);
+    p->tick = (uint16_t)reg_wrap(r);
     p->abs = abs;
     p->frac = frac;
 }
@@ -452,7 +582,7 @@ static void rec_off(int note)
         step_held[(note >> 5) & 3] &= ~(1u << (note & 31));
         if (!held_any() && step_any_note) {     /* the chord is let go: the cursor moves on */
             step_any_note = 0;
-            seq_step_tick = (uint16_t)((seq_step_tick + step_len()) % seq_song_ticks());
+            seq_step_tick = (uint16_t)reg_wrap(seq_step_tick + step_len());
         }
         return;
     }
@@ -464,7 +594,7 @@ static void rec_off(int note)
     len = d < 1.0f ? 1u : (uint32_t)(d + 0.5f);
     if (len > seq_song_ticks())
         len = seq_song_ticks();
-    ev_insert(p->trk, p->tick, note, p->vel, len);
+    ev_insert(p->trk, p->tick, note, len);
 }
 
 static void rec_flush(void)                     /* stop: the notes still held end now */
@@ -475,14 +605,9 @@ static void rec_flush(void)                     /* stop: the notes still held en
             rec_off(n);
 }
 
-static void step_back(void)
+static void step_clear(int t, uint32_t t0, uint32_t sl)   /* track t's notes that start in t0 .. t0 + sl - 1 */
 {
-    uint32_t sl = step_len(), len = seq_song_ticks(), t0, s, e, i;
-    int t = seq_sel;
-    t0 = (seq_step_tick + len - sl) % len;
-    seq_step_tick = (uint16_t)t0;
-    s = trk_start(t);
-    e = s + S->trk[t].nev;
+    uint32_t s = trk_start(t), e = s + S->trk[t].nev, i;
     for (i = s; i < e;) {
         if (S->ev[i].tick >= t0 && S->ev[i].tick < t0 + sl) {
             ev_remove(i, t);
@@ -491,6 +616,66 @@ static void step_back(void)
             i++;
         }
     }
+}
+
+static void step_back(void)
+{
+    uint32_t sl = step_len(), lo = reg_lo(), len = reg_hi() - lo, t0;
+    t0 = lo + (reg_wrap(seq_step_tick) - lo + len - sl % len) % len;
+    seq_step_tick = (uint16_t)t0;
+    step_clear(seq_sel, t0, sl);
+}
+
+/* -------------------------------------------------------- bar editing --- */
+static void bar_clear(int t, uint32_t bar)      /* track t's notes in the bar */
+{
+    tracks_off(t);
+    step_clear(t, bar * SEQ_BAR, SEQ_BAR);
+}
+
+static void bar_copy(int t, uint32_t bar)
+{
+    uint32_t s = trk_start(t), e = s + S->trk[t].nev, i, lo = bar * SEQ_BAR, n = 0;
+    for (i = s; i < e && n < SEQ_CLIP; i++)
+        if (S->ev[i].tick >= lo && S->ev[i].tick < lo + SEQ_BAR) {
+            clip[n] = S->ev[i];
+            clip[n].tick = (uint16_t)(S->ev[i].tick - lo);
+            n++;
+        }
+    seq_clip_n = (uint16_t)n;
+}
+
+static void bar_paste(int t, uint32_t bar)
+{
+    uint32_t i, lo = bar * SEQ_BAR;
+    if (bar >= S->bars)
+        return;
+    bar_clear(t, bar);
+    for (i = 0; i < seq_clip_n; i++)
+        ev_insert(t, lo + clip[i].tick, clip[i].note, clip[i].len);
+}
+
+static void bar_delete(uint32_t bar)            /* every track: the bar out, the bars after it up one */
+{
+    uint32_t t, i, lo = bar * SEQ_BAR;
+    if (bar >= S->bars)
+        return;
+    tracks_off(-1);
+    for (t = 0; t < SEQ_NTRK; t++)
+        bar_clear((int)t, bar);
+    for (i = 0; i < S->nev; i++)
+        if (S->ev[i].tick >= lo + SEQ_BAR)
+            S->ev[i].tick = (uint16_t)(S->ev[i].tick - SEQ_BAR);
+    if (S->bars > 1)
+        S->bars--;
+    if (seq_loop_bar >= S->bars)
+        seq_loop_bar = (uint8_t)(S->bars - 1u);
+    if (seq_step_tick >= seq_song_ticks())
+        seq_step_tick = 0;
+    if (cur >= seq_song_ticks())
+        cur = reg_lo();
+    seek(cur);
+    changed();
 }
 
 /* ------------------------------------------------------------ commands --- */
@@ -558,6 +743,8 @@ static void song_param(int p, int32_t v)
         S->bars = (uint8_t)fm_clampf((float)v, 1.0f, (float)SEQ_MAXBARS);
         if (seq_step_tick >= seq_song_ticks())
             seq_step_tick = 0;
+        if (seq_loop_bar >= S->bars)
+            seq_loop_bar = (uint8_t)(S->bars - 1u);
         break;
     case SP_QUANT:
         S->quant = (uint8_t)((uint32_t)v < SEQ_NQUANT ? v : 0);
@@ -572,7 +759,7 @@ static void live_on(int t, int note, int vel)
 {
     const seq_trk_t *k = &S->trk[t];
     out3(0x90u | k->chan, (uint32_t)out_note(k, note), (uint32_t)vel);
-    rec_on(t, note, vel);
+    rec_on(t, note);
 }
 
 static void live_off(int t, int note)
@@ -609,7 +796,7 @@ static void exec(const cmd_t *c)
         out3(st, c->b, c->c);
         if ((ty == 0x90u || ty == 0x80u) && (st & 15u) == S->trk[seq_sel].chan) {
             if (ty == 0x90u && c->c)
-                rec_on(seq_sel, c->b & 127, c->c & 127);
+                rec_on(seq_sel, c->b & 127);
             else
                 rec_off(c->b & 127);
         }
@@ -635,15 +822,14 @@ static void exec(const cmd_t *c)
             seq_step = 1;
             step_held[0] = step_held[1] = step_held[2] = step_held[3] = 0;
             step_any_note = 0;
-            if (seq_step_tick >= seq_song_ticks())
-                seq_step_tick = 0;
+            seq_step_tick = (uint16_t)reg_wrap(seq_step_tick);
         } else {
             seq_step = 0;
         }
         break;
     case SC_STEP_REST:
         if (seq_step)
-            seq_step_tick = (uint16_t)((seq_step_tick + step_len()) % seq_song_ticks());
+            seq_step_tick = (uint16_t)reg_wrap(seq_step_tick + step_len());
         break;
     case SC_STEP_BACK:
         if (seq_step)
@@ -669,7 +855,7 @@ static void exec(const cmd_t *c)
             tracks_off(-1);
             rec_flush();
             {                                   /* swap, word by word: undo again is redo */
-                uint32_t n = sizeof(song_t) / 4u, i;
+                uint32_t na = song_ram_bytes(S), nb = song_ram_bytes(&undo), n = ((na > nb ? na : nb) + 3u) / 4u, i;
                 uint32_t *a = (uint32_t *)S, *b = (uint32_t *)&undo;
                 for (i = 0; i < n; i++) {
                     uint32_t x = a[i];
@@ -677,6 +863,8 @@ static void exec(const cmd_t *c)
                     b[i] = x;
                 }
             }
+            if (seq_loop_bar >= S->bars)
+                seq_loop_bar = (uint8_t)(S->bars - 1u);
             seek(seq_playing ? cur : 0);
             spt = samples_per_tick();
             apply_all();
@@ -698,6 +886,33 @@ static void exec(const cmd_t *c)
         tracks_off(-1);
         gm_reset();
         apply_all();
+        break;
+    case SC_LOOP:
+        seq_loop = (uint8_t)(c->a != 0);
+        seq_loop_bar = (uint8_t)((uint32_t)c->w < S->bars ? (uint32_t)c->w : S->bars - 1u);
+        break;
+    case SC_CURSOR:
+        seq_step_tick = (uint16_t)reg_wrap((uint32_t)c->w < seq_song_ticks() ? (uint32_t)c->w : 0u);
+        break;
+    case SC_BAR_CLEAR:
+        snapshot();
+        bar_clear(t, (uint32_t)c->w);
+        break;
+    case SC_BAR_COPY:
+        bar_copy(t, (uint32_t)c->w);
+        break;
+    case SC_BAR_PASTE:
+        snapshot();
+        bar_paste(t, (uint32_t)c->w);
+        break;
+    case SC_BAR_DELETE:
+        snapshot();
+        bar_delete((uint32_t)c->w);
+        break;
+    case SC_STEP_DELETE:
+        snapshot();
+        tracks_off(t);
+        step_clear(t, reg_wrap(seq_step_tick), step_len());
         break;
     default:
         break;

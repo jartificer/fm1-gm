@@ -1,12 +1,19 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* FM1-GM sound engine (gm.h). One compilation unit, -O2 (tools/build.py O2_UNITS).
  *
+ * A sample player. Each note plays one zone of the wavetable (gm_wavetable.h, generated from the
+ * SoundFont assets/soundfont/fm1gm.sf2): its 4-bit ADPCM sample, decoded as it plays and
+ * interpolated linearly, through the zone's volume envelope (attack, hold, decay, sustain,
+ * release), low-pass filter with its modulation envelope, vibrato and tremolo.
+ *
  * The render works in chunks of up to GM_CHUNK frames: per chunk each voice works out its pitch,
  * envelopes and filter coefficients once, then runs a tight per-sample loop with the amplitude
  * ramped linearly across the chunk. */
 #include "gm.h"
 #include "fastmath.h"
-#include "gm_patches.h"
+#include "gm_names.h"
+#include "gm_wave.h"
+#include "gm_wavetable.h"
 
 volatile float gm_ch_level[GM_NCH];
 volatile uint8_t gm_voices_used, gm_drums_used;
@@ -14,30 +21,12 @@ volatile uint8_t gm_ch_prog[GM_NCH];
 volatile uint8_t gm_voice_max = GM_NVOICE_DEF;
 
 #define INV_SR (1.0f / GM_SR)
-#define SIN_N 1024
-static float sin_t[SIN_N + 1] GM_POOL;
+#define MASTER 1.5f                             /* the mix level: about as loud as the synthesized engine was */
 
-/* sine of x turns, any x > -8 (FM phases plus a modulation of a few turns) */
-static inline float sin_turns(float x)
-{
-    float u = (x + 8.0f) * (float)SIN_N;
-    int32_t i = (int32_t)u;
-    float fr = u - (float)i;
-    i &= SIN_N - 1;
-    return sin_t[i] + (sin_t[i + 1] - sin_t[i]) * fr;
-}
-
-static uint32_t rng_s = 0x1234567u;
-static inline float noise(void)                 /* white, -1 .. 1 */
-{
-    rng_s = rng_s * 1664525u + 1013904223u;
-    return (float)(int32_t)rng_s * (1.0f / 2147483648.0f);
-}
-
-static inline float tcode(uint32_t c) { return 0.001f * fm_exp2f((float)c * 0.1f); }   /* seconds */
-/* per-chunk factor of an exponential that falls 43 dB (x 1/148) in t seconds: e^(-5 n / (t sr)) */
-static inline float decay_k(float t, uint32_t n) { return fm_exp2f(-7.2134752f * (float)n * INV_SR / t); }
-static inline float note_hz(float note) { return 440.0f * fm_exp2f((note - 69.0f) * (1.0f / 12.0f)); }
+static inline float tsec(int32_t tc) { return fm_exp2f((float)tc * (1.0f / 1200.0f)); }   /* timecents -> s */
+static inline float cents_hz(float c) { return 8.1757989f * fm_exp2f(c * (1.0f / 1200.0f)); }
+/* per-chunk factor of a fall of 100 dB in t seconds (SoundFont decay and release) */
+static inline float fall_k(float t, uint32_t n) { return fm_exp2f(-16.609640f * (float)n * INV_SR / t); }
 
 /* ------------------------------------------------------------ channels --- */
 typedef struct {
@@ -82,38 +71,40 @@ static void pan_gains(int32_t pan, float *l, float *r)  /* 0 .. 127, equal power
 }
 
 /* --------------------------------------------------------------- voices --- */
-enum { ST_FREE, ST_ATT, ST_DEC, ST_REL };
+enum { ST_FREE, ST_ATT, ST_HOLD, ST_DEC, ST_REL };
 typedef struct {
     uint8_t st, ch, note, vel;
     uint8_t held, sus;                          /* key down; let go while the pedal was down */
-    uint8_t two;                                /* a second oscillator */
-    const gm_patch_t *p;
+    uint8_t drum, eos;                          /* a drum voice; its one-shot sample has ended */
+    const gmw_zone_t *z;
+    const uint8_t *data;
+    uint32_t pos, len, ls, le;                  /* the next point to decode; the sample's end and loop */
+    int32_t pred, idx, lpred, lidx;             /* the ADPCM decoder, and its state at the loop start */
+    float y0, y1, frac;                         /* the two points the output lies between, and where */
     uint32_t age;
-    float base;                                 /* the note, with the patch's octave */
-    float amp, a_inc, sus_l, tdec, trel;        /* amplitude envelope */
-    float ix, ix_to, tix;                       /* FM index, radians: now, where it goes, how fast */
-    float fe, tfe;                              /* filter envelope 1 -> 0 */
-    float pe, tpe;                              /* pitch envelope, semitones -> 0 */
-    float ph1, ph2, phm, fbz;                   /* phases (turns); the modulator's last output */
-    float vlfo, tlfo, t;                        /* vibrato / tremolo phases; seconds since the note */
+    float semi, ratio;                          /* pitch: semitones from the sample's own; its rate / GM_SR */
+    float amp, a_inc, th, sus_l, td, tr;        /* volume envelope: now, attack step a frame, hold left (s),
+                                                 * sustain level, decay and release (s to fall 100 dB) */
+    float fe, fa, fd, fs, fc, fenv, fk, fg;     /* filter: modulation envelope (now; attack, decay s;
+                                                 * sustain), cutoff and depth (cents), 1 / Q, gain */
+    float vib, vrate, vdel, vph;                /* vibrato: cents, Hz, delay (s), phase (turns) */
+    float trem, trate, tdel, tph;               /* tremolo: dB, Hz, delay (s), phase */
+    float t;                                    /* seconds since the note */
     float ic1, ic2;                             /* filter state */
-    float vgain;                                /* velocity x level */
+    float vgain, pl, pr;                        /* velocity x the zone's gain; a drum's own pan */
 } voice_t;
 static voice_t vo[GM_NVOICE] GM_POOL;
+static voice_t dr[GM_NDRUM] GM_POOL;
 static uint32_t age_ctr;
 
-/* drums */
-typedef struct {
-    uint8_t on, note;
-    const gm_drum_t *d;
-    float t, gain, pl, pr;
-    float tamp, tk, namp, nk;                   /* tone / noise envelopes and their per-chunk factors */
-    float pe, pk;                               /* pitch sweep 1 -> 0 */
-    float ph[6];
-    float g, k, ic1, ic2;                       /* filter */
-} drum_t;
-static drum_t dr[GM_NDRUM];
-static const float METAL_R[6] = {1.0f, 1.4827f, 1.8003f, 2.5460f, 2.6303f, 3.8967f};   /* TR-808 ratios */
+static const int16_t IMA_STEP[89] = {
+    7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80,
+    88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598,
+    658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327,
+    3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289,
+    16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767,
+};
+static const int8_t IMA_IDX[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
 
 /* reverb (Freeverb-style: four combs, two all-passes per side) */
 #define NCOMB 4
@@ -130,8 +121,6 @@ void gm_init(void)
 {
     int i;
     float *q;
-    for (i = 0; i <= SIN_N; i++)
-        sin_t[i] = fm_sin_turns((float)i / (float)SIN_N);
     for (i = 0, q = comb_buf; i < NCOMB; i++) {
         comb_p[i] = q;
         q += COMB_LEN[i];
@@ -149,7 +138,7 @@ void gm_panic(void)
     for (i = 0; i < GM_NVOICE; i++)
         vo[i].st = ST_FREE;
     for (i = 0; i < GM_NDRUM; i++)
-        dr[i].on = 0;
+        dr[i].st = ST_FREE;
     for (i = 0; i < (int)(sizeof comb_buf / sizeof comb_buf[0]); i++)
         comb_buf[i] = 0.0f;
     for (i = 0; i < (int)(sizeof ap_buf / sizeof ap_buf[0]); i++)
@@ -173,6 +162,17 @@ const char *gm_family_name(int p) { return GM_FAMILY[(p & 127) >> 3]; }
 const char *gm_drum_name(int n) { return n >= GM_DRUM_LO && n <= GM_DRUM_HI ? GM_DRUM_NAME[n - GM_DRUM_LO] : ""; }
 
 /* -------------------------------------------------------------- notes --- */
+static const gmw_zone_t *zone_for(int prog, int note)  /* the program's zone for the key (or the nearest) */
+{
+    uint32_t i, a = GMW_PROG[prog & 127], b = GMW_PROG[(prog & 127) + 1];
+    if (a >= b)
+        return 0;
+    for (i = a; i < b; i++)
+        if (note >= GMW_ZONE[i].lo && note <= GMW_ZONE[i].hi)
+            return &GMW_ZONE[i];
+    return note < GMW_ZONE[a].lo ? &GMW_ZONE[a] : &GMW_ZONE[b - 1];
+}
+
 static voice_t *voice_alloc(int c, int note)
 {
     int i, best = -1, nv = gm_voice_max;
@@ -201,47 +201,74 @@ static voice_t *voice_alloc(int c, int note)
     return &vo[best];
 }
 
-static void note_on(int c, int note, int vel)
+/* start (or restrike) v on zone z: the sample from its first point, the envelopes from the top */
+static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int vel, int drum)
 {
-    const gm_patch_t *p = &GM_PATCH[ch[c].prog & 127];
-    voice_t *v = voice_alloc(c, note);
-    float vn = (float)vel * (1.0f / 127.0f), ks = 1.0f;
-    int restrike = v->st != ST_FREE && v->ch == c && v->note == note;
-    if (p->flags & F_KS)
-        ks = fm_exp2f(-(float)(note - 60) * (1.0f / 24.0f));
-    v->p = p;
+    const gmw_smp_t *s = &GMW_SMP[z->smp];
+    float vn = (float)vel * (1.0f / 127.0f), q;
+    int32_t kd = 60 - note;
+    if (v->st == ST_FREE) {
+        v->amp = 0.0f;
+        v->y1 = 0.0f;
+        v->ic1 = v->ic2 = 0.0f;
+    }
+    v->z = z;
     v->ch = (uint8_t)c;
     v->note = (uint8_t)note;
     v->vel = (uint8_t)vel;
     v->held = 1;
     v->sus = 0;
+    v->drum = (uint8_t)drum;
+    v->eos = 0;
     v->age = ++age_ctr;
-    v->two = p->det || p->iv;
-    v->base = (float)(note + 12 * p->oct);
-    if (!restrike) {
-        v->amp = 0.0f;
-        v->ph1 = v->ph2 = v->phm = v->fbz = 0.0f;
-        v->ic1 = v->ic2 = 0.0f;
-        v->vlfo = 0.0f;
-        v->tlfo = 0.25f;                        /* tremolo starts at full level */
-    }
+    v->data = GMW_DATA + s->off;
+    v->pos = 0;
+    v->len = s->len;
+    v->ls = s->ls;
+    v->le = s->le ? s->le : 0xFFFFFFFFu;
+    v->pred = 0;
+    v->idx = s->idx0;
+    v->lpred = s->lpred;
+    v->lidx = s->lidx;
+    v->y0 = v->y1;                              /* from where a restruck voice was: no click */
+    v->frac = 1.0f;
+    v->semi = ((float)(note - z->root) * (float)z->kt + (float)z->tune) * 0.01f;
+    v->ratio = s->rate * INV_SR;
     v->st = ST_ATT;
-    v->a_inc = 1.0f / (tcode(p->a) * GM_SR);
-    v->sus_l = (float)p->s * 0.01f;
-    v->tdec = p->d ? tcode(p->d) * ks : 0.001f;
-    v->trel = tcode(p->r) * (ks > 1.0f ? 1.0f : ks);
-    /* the FM index: brighter when played harder */
-    v->ix = (float)p->idx * 0.1f * (0.55f + 0.45f * vn);
-    v->ix_to = v->ix * (float)p->isus * 0.01f;
-    v->tix = p->idec ? tcode(p->idec) * ks : 0.0f;
-    if (!p->idec)
-        v->ix = v->ix_to;
-    v->fe = 1.0f;
-    v->tfe = tcode(p->fdec);
-    v->pe = (float)p->pe;
-    v->tpe = tcode(p->pdec);
+    v->a_inc = 1.0f / (tsec(z->att) * GM_SR);
+    v->th = tsec(z->hold + z->khold * kd);
+    v->td = tsec(z->dec + z->kdec * kd);
+    v->sus_l = z->sus >= 960 ? 0.0f : fm_db2lin((float)z->sus * -0.1f);
+    v->tr = tsec(z->rel);
+    v->fc = (float)z->fc;
+    v->fenv = (float)z->fenv;
+    v->fe = 0.0f;
+    v->fa = tsec(z->fatt);
+    v->fd = tsec(z->fdec);
+    v->fs = 1.0f - (float)z->fsus * 0.001f;
+    q = fm_db2lin((float)z->q * 0.1f - 3.01f);  /* resonance, as FluidSynth: 0 cB is Q 0.707 */
+    v->fk = 1.0f / q;
+    v->fg = q > 1.0f ? fm_rsqrtf(q) : 1.0f;
+    v->vib = (float)z->vib;
+    v->vrate = z->vib ? cents_hz((float)z->vfreq) : 5.5f;   /* the mod wheel alone: 5.5 Hz */
+    v->vdel = tsec(z->vdel);
+    v->vph = 0.0f;
+    v->trem = (float)z->trem * 0.1f;
+    v->trate = cents_hz((float)z->tfreq);
+    v->tdel = tsec(z->tdel);
+    v->tph = 0.0f;
     v->t = 0.0f;
-    v->vgain = vn * (0.3f + 0.7f * vn) * (float)p->lvl * 0.01f;
+    v->vgain = vn * (0.3f + 0.7f * vn) * z->gain;
+    v->pl = v->pr = 1.0f;
+    if (drum)
+        pan_gains(64 + z->pan, &v->pl, &v->pr);
+}
+
+static void note_on(int c, int note, int vel)
+{
+    const gmw_zone_t *z = zone_for(ch[c].prog, note);
+    if (z)
+        voice_start(voice_alloc(c, note), z, c, note, vel, 0);
 }
 
 static void note_off(int c, int note)
@@ -268,7 +295,7 @@ void gm_shed(void)
     if (q >= 0) {
         vo[q].st = ST_REL;
         vo[q].held = vo[q].sus = 0;
-        vo[q].trel = 0.01f;
+        vo[q].tr = 0.02f;
     }
 }
 
@@ -292,58 +319,43 @@ static void chan_off(int c, int now)            /* all notes off (release), or a
         }
     if (c == GM_DRUM_CH && now)
         for (i = 0; i < GM_NDRUM; i++)
-            dr[i].on = 0;
+            dr[i].st = ST_FREE;
 }
 
 static void drum_hit(int note, int vel)
 {
-    const gm_drum_t *d;
-    drum_t *x = 0;
-    float vn = (float)vel * (1.0f / 127.0f), f;
+    const gmw_zone_t *z;
+    voice_t *x = 0;
     int i;
-    if (note < GM_DRUM_LO || note > GM_DRUM_HI)
+    if (note < GM_DRUM_LO || note > GM_DRUM_HI || GMW_DRUM[note - GM_DRUM_LO] < 0)
         return;
-    d = &GM_DRUM[note - GM_DRUM_LO];
+    z = &GMW_ZONE[GMW_DRUM[note - GM_DRUM_LO]];
     for (i = 0; i < GM_NDRUM; i++) {
-        if (dr[i].on && d->choke && dr[i].d->choke == d->choke)
-            dr[i].on = 0;                       /* the open hat stops when the closed one hits */
-        if (dr[i].on && dr[i].note == note)
+        if (dr[i].st == ST_FREE)
+            continue;
+        if (dr[i].note == note)
             x = &dr[i];                         /* the same drum again: that voice */
+        else if (z->excl && dr[i].z->excl == z->excl) {
+            dr[i].st = ST_REL;                  /* the open hat stops when the closed one hits */
+            dr[i].tr = 0.03f;
+        }
     }
     if (!x)
         for (i = 0; i < GM_NDRUM; i++)
-            if (!dr[i].on) {
+            if (dr[i].st == ST_FREE) {
                 x = &dr[i];
                 break;
             }
     if (!x) {                                   /* the quietest */
         float q = 1e9f;
         for (i = 0; i < GM_NDRUM; i++)
-            if (dr[i].tamp + dr[i].namp < q) {
-                q = dr[i].tamp + dr[i].namp;
+            if (dr[i].amp * dr[i].vgain < q) {
+                q = dr[i].amp * dr[i].vgain;
                 x = &dr[i];
             }
     }
-    x->on = 1;
-    x->note = (uint8_t)note;
-    x->d = d;
-    x->t = 0.0f;
-    x->gain = vn * (0.25f + 0.75f * vn);
-    pan_gains(64 + d->pan, &x->pl, &x->pr);
-    x->tamp = (float)d->tlvl * 0.01f;
-    x->namp = (float)d->nlvl * 0.01f;
-    x->tk = d->tdec ? tcode(d->tdec) : 0.001f;
-    x->nk = d->ndec ? tcode(d->ndec) : 0.001f;
-    x->pe = 1.0f;
-    x->pk = d->pdec ? tcode(d->pdec) : 0.001f;
-    for (i = 0; i < 6; i++)
-        x->ph[i] = 0.0f;
-    x->ic1 = x->ic2 = 0.0f;
-    f = d->nf ? (float)d->nf : 1000.0f;
-    if (f > 0.45f * GM_SR)
-        f = 0.45f * GM_SR;
-    x->g = fm_tanf(FM_PI * f * INV_SR);
-    x->k = 10.0f / (d->nq ? (float)d->nq : 7.0f);
+    voice_start(x, z, GM_DRUM_CH, note, vel, 1);
+    x->held = 0;                                /* the drums ring out by themselves */
 }
 
 /* ---------------------------------------------------------------- MIDI --- */
@@ -410,42 +422,37 @@ void gm_midi(uint32_t st, uint32_t d1, uint32_t d2)
 /* -------------------------------------------------------------- render --- */
 static float mix_l[GM_CHUNK], mix_r[GM_CHUNK], mix_rev[GM_CHUNK], vsrc[GM_CHUNK];
 
-static inline float saw_blep(float t, float inc)    /* a saw, -1 .. 1, polyBLEP at the wrap */
-{
-    float s = 2.0f * t - 1.0f, d;
-    if (t < inc) {
-        d = t / inc;
-        s -= d + d - d * d - 1.0f;
-    } else if (t > 1.0f - inc) {
-        d = (t - 1.0f) / inc;
-        s -= d * d + d + d + 1.0f;
-    }
-    return s;
-}
-
-/* one melodic voice for n frames, added to the mix; 0 when it has finished */
+/* one voice for n frames, added to the mix; 0 when it has finished */
 static int voice_render(voice_t *v, uint32_t n)
 {
-    const gm_patch_t *p = v->p;
+    const gmw_zone_t *z = v->z;
     const chan_t *c = &ch[v->ch];
-    float dt = (float)n * INV_SR, a0 = v->amp, a1, da, f, inc1, inc2 = 0.0f, incm, vib, ix, g = 0.0f, k = 0.0f;
-    float a1c = 0.0f, a2c = 0.0f, a3c = 0.0f, gl, gr, gain, trem = 1.0f, fb, o2;
+    float dt = (float)n * INV_SR, a0 = v->amp, a1, da, inc, semi, vib, gl, gr, gain, trem = 1.0f;
+    float a1c = 0.0f, a2c = 0.0f, a3c = 0.0f, k = 0.0f;
     uint32_t j;
-    int filt = p->cut != 0;
+    int filt = z->fc + (z->fenv > 0 ? z->fenv : 0) < 13000;
     /* amplitude */
     switch (v->st) {
     case ST_ATT:
         a1 = a0 + v->a_inc * (float)n;
         if (a1 >= 1.0f) {
             a1 = 1.0f;
-            v->st = ST_DEC;
+            v->st = ST_HOLD;
         }
         break;
+    case ST_HOLD:
+        a1 = 1.0f;
+        v->th -= dt;
+        if (v->th <= 0.0f)
+            v->st = ST_DEC;
+        break;
     case ST_DEC:
-        a1 = v->sus_l + (a0 - v->sus_l) * decay_k(v->tdec, n);
+        a1 = a0 * fall_k(v->td, n);
+        if (a1 < v->sus_l)
+            a1 = v->sus_l;
         break;
     default:
-        a1 = a0 * decay_k(v->trel, n);
+        a1 = a0 * fall_k(v->tr, n);
         break;
     }
     if ((v->st == ST_REL || (v->st == ST_DEC && v->sus_l == 0.0f)) && a1 < 3e-4f) {
@@ -454,161 +461,103 @@ static int voice_render(voice_t *v, uint32_t n)
     }
     v->amp = a1;
     da = (a1 - a0) / (float)n;
-    /* pitch: the note, bend, pitch envelope, vibrato (the patch's, faded in, and the mod wheel) */
-    vib = (float)p->vib;
-    if (!(p->flags & F_VIBNOW))
-        vib *= fm_clampf((v->t - 0.25f) * 2.0f, 0.0f, 1.0f);
-    vib += (float)c->mod * (50.0f / 127.0f);
-    v->vlfo += 5.5f * dt;
-    if (v->vlfo >= 1.0f)
-        v->vlfo -= 1.0f;
-    f = v->base + (float)c->bend * (float)c->bend_range * (1.0f / 8192.0f) + v->pe +
-        vib * 0.01f * fm_sin_turns(v->vlfo);
-    if (v->pe != 0.0f)
-        v->pe *= decay_k(v->tpe, n);
-    f = note_hz(f);
-    inc1 = f * (float)p->rc * 0.5f * INV_SR;
-    if (v->two)
-        inc2 = inc1 * fm_exp2f(((float)p->iv * 100.0f + (float)p->det) * (1.0f / 1200.0f));
-    incm = f * (float)p->rm * 0.5f * INV_SR;
-    if (inc1 > 0.45f)
-        inc1 = 0.45f;
-    if (inc2 > 0.45f)
-        inc2 = 0.45f;
-    /* the FM index */
-    if (v->tix > 0.0f)
-        v->ix = v->ix_to + (v->ix - v->ix_to) * decay_k(v->tix, n);
-    ix = v->ix * (1.0f / FM_TWO_PI);            /* in turns */
-    if (p->flags & F_IXAMP)
-        ix *= 0.3f + 0.7f * a1;
-    fb = (float)p->fb * (0.01f / FM_TWO_PI);
-    /* the filter */
+    /* pitch: the key, bend, vibrato (the zone's, after its delay, and the mod wheel) */
+    vib = (v->t >= v->vdel ? v->vib : 0.0f) + (float)c->mod * (50.0f / 127.0f);
+    v->vph += v->vrate * dt;
+    v->vph -= fm_floorf(v->vph);
+    semi = v->semi + (float)c->bend * (float)c->bend_range * (1.0f / 8192.0f);
+    if (vib != 0.0f)
+        semi += vib * 0.01f * fm_sin_turns(v->vph);
+    inc = v->ratio * fm_exp2f(semi * (1.0f / 12.0f));
+    if (inc > 8.0f)
+        inc = 8.0f;
+    /* the filter, with its modulation envelope (linear: attack, then decay to the sustain) */
     if (filt) {
-        float cn = (float)p->cut + (v->base - 60.0f) * 0.5f + (float)p->fenv * v->fe + ((float)v->vel - 64.0f) * 0.1f;
-        float fc = note_hz(cn), q;
-        v->fe *= decay_k(v->tfe, n);
+        float fc, g;
+        if (v->t < v->fa)
+            v->fe = v->t / v->fa;
+        else {
+            v->fe = 1.0f - (v->t - v->fa) / v->fd;
+            if (v->fe < v->fs)
+                v->fe = v->fs;
+        }
+        fc = cents_hz(v->fc + v->fenv * v->fe);
         if (fc > 0.42f * GM_SR)
             fc = 0.42f * GM_SR;
         if (fc < 20.0f)
             fc = 20.0f;
         g = fm_tanf(FM_PI * fc * INV_SR);
-        q = (float)p->res * 0.01f;
-        k = 2.0f - 1.9f * q;
+        k = v->fk;
         a1c = 1.0f / (1.0f + g * (g + k));
         a2c = g * a1c;
         a3c = g * a2c;
     }
     /* tremolo */
-    if (p->trem) {
-        v->tlfo += (float)p->trate * 0.1f * dt;
-        v->tlfo -= fm_floorf(v->tlfo);
-        trem = 1.0f - (float)p->trem * 0.005f * (1.0f - fm_sin_turns(v->tlfo));
+    if (v->trem != 0.0f && v->t >= v->tdel) {
+        v->tph += v->trate * dt;
+        v->tph -= fm_floorf(v->tph);
+        trem = fm_db2lin(-v->trem * fm_sin_turns(v->tph));
     }
     v->t += dt;
-    gain = v->vgain * chan_gain(c) * trem;
+    gain = v->vgain * chan_gain(c) * trem * MASTER * (filt ? v->fg : 1.0f);
     pan_gains(c->pan, &gl, &gr);
-    o2 = v->two ? (float)p->o2 * 0.01f : 0.0f;
-    {   /* the source into src[], one tight loop per kind; then filter, amplitude and the mix */
-        float ph1 = v->ph1, ph2 = v->ph2, phm = v->phm, fbz = v->fbz, ic1 = v->ic1, ic2 = v->ic2, amp = a0;
-        float norm = 1.0f / (1.0f + o2), rev = (float)c->rev * (1.0f / 127.0f), lv = 0.0f, gwl, gwr, gwv;
+    if (v->drum) {
+        gl *= v->pl * 1.41f;
+        gr *= v->pr * 1.41f;
+    }
+    {   /* the sample into src[]; then the filter, the amplitude and the mix */
+        float y0 = v->y0, y1 = v->y1, frac = v->frac, ic1 = v->ic1, ic2 = v->ic2, amp = a0;
+        float rev = (float)c->rev * (1.0f / 127.0f), gwl, gwr, gwv;
         float *src = vsrc;
-        switch (p->wave) {
-        case WV_FM:
-            if (o2 == 0.0f) {
-                for (j = 0; j < n; j++) {
-                    float m = sin_turns(phm + fbz * fb);
-                    fbz = m;
-                    src[j] = sin_turns(ph1 + m * ix);
-                    ph1 += inc1;
-                    ph1 -= (float)(ph1 >= 1.0f);
-                    phm += incm;
-                    phm -= fm_floorf(phm);
+        uint32_t pos = v->pos, len = v->len, ls = v->ls, le = v->le;
+        int32_t pred = v->pred, idx = v->idx;
+        const uint8_t *data = v->data;
+        for (j = 0; j < n; j++) {
+            frac += inc;
+            while (frac >= 1.0f) {              /* the next point: one ADPCM nibble */
+                uint32_t b, nb;
+                int32_t step, dq;
+                frac -= 1.0f;
+                y0 = y1;
+                if (pos == le) {
+                    pos = ls;
+                    pred = v->lpred;
+                    idx = v->lidx;
                 }
-            } else {
-                for (j = 0; j < n; j++) {
-                    float m = sin_turns(phm + fbz * fb);
-                    fbz = m;
-                    m *= ix;
-                    src[j] = (sin_turns(ph1 + m) + o2 * sin_turns(ph2 + m)) * norm;
-                    ph1 += inc1;
-                    ph1 -= (float)(ph1 >= 1.0f);
-                    ph2 += inc2;
-                    ph2 -= (float)(ph2 >= 1.0f);
-                    phm += incm;
-                    phm -= fm_floorf(phm);
+                if (pos >= len) {
+                    y1 = 0.0f;
+                    v->eos = 1;
+                    continue;
                 }
+                b = data[pos >> 1];
+                nb = pos & 1u ? b >> 4 : b & 15u;
+                pos++;
+                step = IMA_STEP[idx];
+                dq = step >> 3;
+                if (nb & 4u)
+                    dq += step;
+                if (nb & 2u)
+                    dq += step >> 1;
+                if (nb & 1u)
+                    dq += step >> 2;
+                pred += nb & 8u ? -dq : dq;
+                pred = pred > 32767 ? 32767 : pred < -32768 ? -32768 : pred;
+                idx += IMA_IDX[nb & 7u];
+                idx = idx < 0 ? 0 : idx > 88 ? 88 : idx;
+                y1 = (float)pred * (1.0f / 32768.0f);
             }
-            break;
-        case WV_SAW:
+            src[j] = y0 + (y1 - y0) * frac;
+        }
+        v->pos = pos;
+        v->pred = pred;
+        v->idx = idx;
+        if (filt)                               /* TPT state-variable low-pass */
             for (j = 0; j < n; j++) {
-                src[j] = saw_blep(ph1, inc1);
-                ph1 += inc1;
-                ph1 -= (float)(ph1 >= 1.0f);
+                float v3 = src[j] - ic2, v1 = a1c * ic1 + a2c * v3, v2 = ic2 + a2c * ic1 + a3c * v3;
+                ic1 = 2.0f * v1 - ic1;
+                ic2 = 2.0f * v2 - ic2;
+                src[j] = v2;
             }
-            if (o2 != 0.0f)
-                for (j = 0; j < n; j++) {
-                    src[j] = (src[j] + o2 * saw_blep(ph2, inc2)) * norm;
-                    ph2 += inc2;
-                    ph2 -= (float)(ph2 >= 1.0f);
-                }
-            break;
-        case WV_PULSE: {
-            float w = (float)p->rm * 0.01f, dc = (1.0f - 2.0f * w) * 0.5f, sh = 1.0f - w;
-            for (j = 0; j < n; j++) {
-                float t2 = ph1 + sh;
-                t2 -= (float)(t2 >= 1.0f);
-                src[j] = (saw_blep(ph1, inc1) - saw_blep(t2, inc1)) * 0.5f + dc;
-                ph1 += inc1;
-                ph1 -= (float)(ph1 >= 1.0f);
-            }
-            if (o2 != 0.0f)
-                for (j = 0; j < n; j++) {
-                    src[j] = (src[j] + o2 * 0.5f * saw_blep(ph2, inc2)) * norm;
-                    ph2 += inc2;
-                    ph2 -= (float)(ph2 >= 1.0f);
-                }
-            break;
-        }
-        default:
-            for (j = 0; j < n; j++)
-                src[j] = noise();
-            break;
-        }
-        if (p->flags & F_BREATH) {              /* soft noise: low-passed, about 4 kHz */
-            static float bz;
-            for (j = 0; j < n; j++) {
-                bz += 0.45f * (noise() - bz);
-                src[j] += bz * 0.09f;
-            }
-            bz = fm_flush(bz);
-        }
-        if (filt) {                             /* TPT state-variable filter */
-            if (p->flags & F_HP) {
-                for (j = 0; j < n; j++) {
-                    float x = src[j], v3 = x - ic2, v1 = a1c * ic1 + a2c * v3, v2 = ic2 + a2c * ic1 + a3c * v3;
-                    ic1 = 2.0f * v1 - ic1;
-                    ic2 = 2.0f * v2 - ic2;
-                    src[j] = x - k * v1 - v2;
-                }
-            } else if (p->flags & F_BP) {
-                for (j = 0; j < n; j++) {
-                    float v3 = src[j] - ic2, v1 = a1c * ic1 + a2c * v3, v2 = ic2 + a2c * ic1 + a3c * v3;
-                    ic1 = 2.0f * v1 - ic1;
-                    ic2 = 2.0f * v2 - ic2;
-                    src[j] = v1 * k;
-                }
-            } else {
-                for (j = 0; j < n; j++) {
-                    float v3 = src[j] - ic2, v1 = a1c * ic1 + a2c * v3, v2 = ic2 + a2c * ic1 + a3c * v3;
-                    ic1 = 2.0f * v1 - ic1;
-                    ic2 = 2.0f * v2 - ic2;
-                    src[j] = v2;
-                }
-            }
-        }
-        if (p->flags & F_DRIVE)
-            for (j = 0; j < n; j++)
-                src[j] = fm_tanhf(src[j] * 3.0f) * 0.6f;
         gwl = gain * gl;
         gwr = gain * gr;
         gwv = gain * rev;
@@ -620,107 +569,16 @@ static int voice_render(voice_t *v, uint32_t n)
             mix_r[j] += o * gwr;
             mix_rev[j] += o * gwv;
         }
-        lv = (a0 + a1) * 0.5f * gain * 0.6f;    /* the meter: the envelope, not the waveform */
-        v->ph1 = ph1;
-        v->ph2 = ph2;
-        v->phm = phm;
-        v->fbz = fbz;
+        v->y0 = y0;
+        v->y1 = y1;
+        v->frac = frac;
         v->ic1 = fm_flush(ic1);
         v->ic2 = fm_flush(ic2);
-        ch[v->ch].lvl += lv;
+        ch[v->ch].lvl += (a0 + a1) * 0.5f * gain * 0.6f;   /* the meter: the envelope, not the waveform */
     }
+    if (v->eos && v->y0 == 0.0f)                /* a one-shot that has played out */
+        v->st = ST_FREE;
     return v->st != ST_FREE;
-}
-
-static int drum_render(drum_t *x, uint32_t n)
-{
-    const gm_drum_t *d = x->d;
-    const chan_t *c = &ch[GM_DRUM_CH];
-    float dt = (float)n * INV_SR, t0 = x->tamp, n0 = x->namp, t1, n1, dta, dna, f, inc, gain, gl, gr, cl, cr;
-    float g = x->g, k = x->k, a1 = 1.0f / (1.0f + g * (g + k)), a2 = g * a1, a3 = g * a2, rev, lv = 0.0f;
-    float ic1 = x->ic1, ic2 = x->ic2;
-    uint32_t j, i;
-    int tone = d->tone, ftone = d->flags & D_FTONE, nm = d->nmode;
-    t1 = t0 * decay_k(x->tk, n);
-    n1 = n0 * decay_k(x->nk, n);
-    if (t1 < 2e-4f && n1 < 2e-4f) {
-        x->on = 0;
-        return 0;
-    }
-    dta = (t1 - t0) / (float)n;
-    dna = (n1 - n0) / (float)n;
-    f = (float)d->f1 + ((float)d->f0 - (float)d->f1) * x->pe;
-    x->pe *= decay_k(x->pk, n);
-    if (d->flags & D_WOBBLE)
-        f *= 1.0f + 0.04f * fm_sin_turns(x->t * 22.0f);
-    inc = f * INV_SR;
-    {   /* the noise's shape: clap bursts, rattle */
-        float gate = 1.0f;
-        if (d->flags & D_CLAP && x->t < 0.03f) {
-            float ph = x->t * 100.0f;
-            gate = 1.6f * (1.0f - (ph - fm_floorf(ph)));
-        } else if (d->flags & D_RATTLE) {
-            float ph = x->t * 35.0f;
-            gate = ph - fm_floorf(ph) < 0.4f ? 1.0f : 0.15f;
-        }
-        n0 *= gate;
-        dna *= gate;
-    }
-    gain = x->gain * chan_gain(c);
-    pan_gains(c->pan, &cl, &cr);                /* the channel's pan moves the whole kit */
-    gl = x->pl * cl * 1.41f;
-    gr = x->pr * cr * 1.41f;
-    rev = (float)c->rev * (1.0f / 127.0f);
-    for (j = 0; j < n; j++) {
-        float ts = 0.0f, ns = 0.0f, s, out;
-        if (tone == T_SINE) {
-            ts = sin_turns(x->ph[0]);
-            x->ph[0] += inc;
-            if (x->ph[0] >= 1.0f)
-                x->ph[0] -= 1.0f;
-        } else if (tone == T_METAL) {
-            for (i = 0; i < 6; i++) {
-                ts += x->ph[i] < 0.5f ? 0.25f : -0.25f;
-                x->ph[i] += inc * METAL_R[i];
-                if (x->ph[i] >= 1.0f)
-                    x->ph[i] -= 1.0f;
-            }
-        } else if (tone == T_SQ2) {
-            ts = (x->ph[0] < 0.5f ? 0.5f : -0.5f) + (x->ph[1] < 0.5f ? 0.5f : -0.5f);
-            x->ph[0] += inc;
-            x->ph[1] += inc * 1.5085f;
-            if (x->ph[0] >= 1.0f)
-                x->ph[0] -= 1.0f;
-            if (x->ph[1] >= 1.0f)
-                x->ph[1] -= 1.0f;
-        }
-        ts *= t0;
-        t0 += dta;
-        if (n0 > 0.0f)
-            ns = noise() * n0;
-        n0 += dna;
-        s = ftone ? ts + ns : ns;
-        if (nm != N_NONE) {
-            float v3 = s - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3;
-            ic1 = 2.0f * v1 - ic1;
-            ic2 = 2.0f * v2 - ic2;
-            s = nm == N_LP ? v2 : nm == N_BP ? v1 * k : s - k * v1 - v2;
-        }
-        if (!ftone)
-            s += ts;
-        out = s * gain;
-        mix_l[j] += out * gl;
-        mix_r[j] += out * gr;
-        mix_rev[j] += out * rev;
-        lv += fm_fabsf(out);
-    }
-    x->ic1 = fm_flush(ic1);
-    x->ic2 = fm_flush(ic2);
-    x->tamp = t1;
-    x->namp = n1;
-    x->t += dt;
-    ch[GM_DRUM_CH].lvl += lv / (float)n;
-    return 1;
 }
 
 void gm_render(float *l, float *r, uint32_t n)
@@ -736,8 +594,8 @@ void gm_render(float *l, float *r, uint32_t n)
         if (vo[i].st != ST_FREE)
             nv += (uint32_t)voice_render(&vo[i], n);
     for (i = 0; i < GM_NDRUM; i++)
-        if (dr[i].on)
-            nd += (uint32_t)drum_render(&dr[i], n);
+        if (dr[i].st != ST_FREE)
+            nd += (uint32_t)voice_render(&dr[i], n);
     for (i = 0; i < GM_NCH; i++) {              /* meters: fast up, slow down */
         float lv = ch[i].lvl * 3.0f, m = gm_ch_level[i];
         gm_ch_level[i] = lv > m ? lv : m * 0.995f;
