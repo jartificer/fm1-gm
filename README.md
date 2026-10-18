@@ -12,7 +12,7 @@ Custom firmware that turns the M-VAVE FM-1 into a General MIDI sound module and 
 
 It is built on [Felucca](https://github.com/hugelton/Felucca)'s FM-1 platform, through [X0X](https://github.com/charlesvestal/fm1-x0x) and [FoMni](https://github.com/charlesvestal/fm1-fomni). The sound engine, the sequencer, the song storage and the screens are new.
 
-> **Status: not yet tested on hardware.** Everything runs and is tested in the host simulator (`tests/run_tests.sh`), and CI builds the device package. Install it only if you are ready to use the recovery steps below.
+> **Status: tested on a real FM-1 by the author, and it works.** Everything also runs and is tested in the host simulator (`tests/run_tests.sh`). The firmware comes with no warranty: see [No warranty](#no-warranty) before you install it.
 
 ## The sounds
 
@@ -113,6 +113,10 @@ Mute and solo are on the other views. To add a bar at the end, turn up Bars in t
 - **Song format.** A song is stored like a stripped-down MIDI file: the song and track settings (133 bytes), then per track its notes as delta time, note and length, with MIDI's variable-length numbers, and the length left out when it repeats (like MIDI running status). That is 2 to 4 bytes a note; a step-recorded song averages about 2.
 - **Song storage.** The songs share every free sector of the data area, 0x97000–0xDFFFF apart from the panel calibration at 0xDC000: 71 sectors of 4 KiB, 4064 bytes of song each. A song takes as many sectors as it needs, so one small song is one sector and a long song can use most of the store. A save writes the new version to free sectors and only then lets go of the old one, so resaving a song needs room for it once more. Settings are at 0xFC000. The stock firmware's patches at 0xEA000–0xFBFFF (72 KB) and the update staging area at 0xE0000 are left untouched; the patch area could be given to songs too (about 25 % more room), at the cost of the stock firmware's saved patches.
 - **Package identity FM-1_600** (release builds FM-1_6XXYYZZ), apart from FoMni (FM-1_8…) and X0X (FM-1_9…).
+
+## No warranty
+
+FM1-GM is provided "as is", without warranty of any kind, express or implied, including the implied warranties of merchantability and fitness for a particular purpose. Installing custom firmware can leave a device unable to start ("bricked") and may void its warranty. You install it at your own risk: the author is not responsible for a bricked or damaged device, lost songs or data, or any other harm that comes from using it. This is the same disclaimer as sections 15 and 16 of the [GPL-3.0](LICENSE), which governs. Know the [recovery steps](#recovery) before you install.
 
 ## Installing
 
