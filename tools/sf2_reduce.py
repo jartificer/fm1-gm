@@ -22,6 +22,11 @@ only its attack and a loop after it. The loops are made to be seamless:
 - tuned: its pitch, measured across the loop, sits on its note (to the semitone the zone's tuning
   means).
 
+The standard instruments (STANDARD) take their loop (0.25 s or more) from wherever in the recording's
+first seconds it is steadiest, spliced on after the attack (splice_loop): a piano's tone changes for a
+second or two after the strike, and a loop of that change is heard as an echo at every pass. The rest
+keep the short loop just after the attack, at a lower rate, to save flash.
+
 A few programs have an attack and a loop of their own (TIMING); one mixes its layers into its sample
 (LAYERED). Where the recording ends in a short loop of its own before an attack and a loop fit, the
 whole recording is kept and its own loop holds.
@@ -91,9 +96,23 @@ BAND_FLAT = np.log(16.0)        # by at most 24 dB across the loop
 LATE = 0.15                    # a loop may start up to this (s) after its attack, where its level is smoother
 LATE_COST = 0.5                 # dB of roughness that starting LATE later must save
 XF_REF = 0.015                  # the crossfade (s) that least shows a mismatch, both as an echo and as a jump
+DEBUG = False
+SPLICE_LOOP = 0.25              # a loop this long (s) at least: a shorter one repeats fast enough to buzz
+SPLICE_MAX = 4.0                # a loop may be taken from as late as this (s) in the recording
+SPLICE_XF = 0.06                # and spliced on after the attack with a crossfade this long (s)
+SPLICE_GRID = 0.02              # the places tried, this far apart (s)
+STEADY_W = 0.08                 # the level is held steady over this (s)
+STEADY_MIN = 0.3                # dB of wobble that is held steady
+WOBBLE_COST = 3.0               # the score a dB of level wobble in the loop costs
+SPLICE_TRY = 4                  # the steadiest of them made into loops and compared
+MEM_COST = 14.0                 # the score a second of sample costs (dB of seam step): the flash goes to
+MEM_COST_EXOTIC = 40.0          # the standard instruments; the rest keep their short loop after the attack
+EXOTIC_RATE_MAX = 12000         # and a lower rate (not a one-shot, a bell, or a recording kept whole)
+STANDARD = (set(range(0, 8)) | set(range(16, 24)) | set(range(24, 46)) | {48, 49, 52, 53} |
+            set(range(56, 62)) | set(range(64, 76)))
 SEARCH = 0.03                   # the loop start is searched over this (s) after the attack
 RATE_MIN, RATE_MAX = 11025, 16000
-DRUM_RATE_MAX = 28000           # hi-hats and cymbals have half their energy above 11 kHz
+DRUM_RATE_MAX = 24000           # hi-hats and cymbals have half their energy above 11 kHz
 DRUM_MIN, DRUM_MAX = 0.06, 0.24  # a drum keeps until it is 36 dB down, within these (s)
 DRUM_LONG = 0.6                 # a drum that rings longer than this is looped after DRUM_ATT
 DRUM_ATT, DRUM_LOOP = 0.10, 0.20
@@ -178,12 +197,12 @@ def band_rate(x, rate, f0, cap):
     return min(want, cap, rate)
 
 
-def resample(x, rate, want):
-    """x at a rate of rate * p / q >= want, p / q a simple fraction"""
+def resample(x, rate, want, fine=False):
+    """x at a rate of rate * p / q >= want, p / q a simple fraction (fine: q up to 16, closer to want)"""
     if want >= rate:
         return x, rate, Fraction(1)
     best = None
-    for q in range(1, 9):
+    for q in range(1, 17 if fine else 9):
         for p in range(1, q + 1):
             fr = Fraction(p, q)
             if rate * fr >= want and (best is None or fr < best):
@@ -349,6 +368,100 @@ def make_loop(x, nr, f0, s0, loop_t, exact=False, bands=True):
             if seam_step(*alt[:3]) < seam_step(y, rate, loop) - 1.0:
                 best = alt
     return best
+
+
+def splice_loop(x, nr, f0, att, loop_t, mem=MEM_COST):
+    """the attack, then a loop from wherever in the recording it is steadiest and seams best (often well
+    after the attack: a piano's or a guitar's tone changes for a second or two, and a loop of that
+    change comes back to its start at every pass, heard as a retrigger or an echo), spliced on with a
+    crossfade and its level matched to the attack's end (the volume envelope does the fading)"""
+    a = int(round(att * nr))
+    w = max(int(0.025 * nr), 64)
+
+    def env_rough(c, n):
+        hop = max(int(nr * 0.01), 16)
+        k = n // hop
+        if k < 4:
+            return 0.0
+        db = 10 * np.log10(np.mean(x[c:c + k * hop].reshape(k, hop) ** 2, axis=1) + 1e-12)
+        t = np.arange(k)
+        return float(np.std(db - np.polyval(np.polyfit(t, db, 1), t)))
+
+    def drift(c, n):                                        # what flattening would have to take out
+        q = max(n // 4, 64)
+        return band_step(x[c:c + q], x[c + n - q:c + n], nr)
+    results = []
+    ks = (1, 1.5, 2) if mem <= MEM_COST else (1,)          # 1.5: two cycles of a 5-6 Hz vibrato
+    for lt in (k * max(loop_t, SPLICE_LOOP) for k in ks):
+        n = int(lt * nr)
+        pre = int(XF_SHARE * n)
+        hi = min(len(x) - int(1.4 * n) - int(SEARCH * nr) - 8, int(SPLICE_MAX * nr))
+        cands = list(range(a + pre, max(a + pre, hi), max(int(SPLICE_GRID * nr), 1)))
+        ranked = sorted(cands, key=lambda c: drift(c, n) + env_rough(c, n))[:SPLICE_TRY]
+        for c in sorted(set(ranked) | {a + pre}):
+            y, rate, (ls, le), rho = make_loop1(x, nr, f0, c - pre, lt)
+            n2, a2 = le - ls, int(round(a * rate / nr))
+            raw = drift(int(round(ls * nr / rate)), int(round(n2 * nr / rate)))
+            tx = int(SPLICE_XF * rate)
+            if ls - a2 <= tx + int(XF_SHARE * n2) + int(SEARCH * rate):     # no splice: as made
+                out, loop, junction = y, (ls, le), 0.0
+            else:
+                p = max(int(rate / f0), 1) if f0 else int(0.01 * rate)
+                b = y[ls - tx:ls]
+                best = None
+                for a3 in range(max(1, a2 - p), a2 + p + 1):          # in step with the loop's lead-in
+                    u = y[a3:a3 + tx]
+                    r = float(np.dot(u, b) / (np.sqrt(np.dot(u, u) * np.dot(b, b)) + 1e-12))
+                    if best is None or r > best[0]:
+                        best = (r, a3)
+                r, a3 = best
+                gl = np.sqrt(np.mean(y[a3 - w:a3] ** 2) / (np.mean(y[ls:ls + w] ** 2) + 1e-12))
+                t = (np.arange(tx) + 0.5) / tx
+                gg = 1.0 / np.sqrt((1 - t) ** 2 + t ** 2 + 2 * max(r, 0.0) * t * (1 - t))
+                trans = (1 - t) * gg * y[a3:a3 + tx] + t * gg * gl * b
+                out = np.concatenate([y[:a3], trans, gl * y[ls:le]])
+                loop = (a3 + tx, a3 + tx + n2)
+                junction = band_step(out[a3 - w:a3], out[loop[0]:loop[0] + w], rate)
+            score = (seam_step(out, rate, loop) + 10 * (1 - rho) + 0.5 * raw + 0.15 * junction +
+                     mem * len(out) / rate)
+            if wobble(out, rate, loop) > STEADY_MIN:
+                out = steady(out, rate, loop, f0 * rate / nr if f0 else None, tx)
+            score += WOBBLE_COST * wobble(out, rate, loop)
+            results.append((score + 100 * (n2 < 0.95 * SPLICE_LOOP * rate), out, rate, loop, rho, ls / rate))
+    _, out, rate, loop, rho, src = min(results, key=lambda r: r[0])
+    if DEBUG:
+        print(f"      splice: loop {(loop[1]-loop[0])/rate:.3f} s from {src:.2f} s of the recording")
+    return out, rate, loop, rho
+
+
+def wobble(y, rate, loop):
+    """how much (dB, a deviation) the loop's level moves as it plays: a loop of a slow beat or swell is
+    heard as a tremolo at the loop's rate"""
+    hop = max(int(0.025 * rate), 16)
+    u = np.tile(y[loop[0]:loop[1]], 2)
+    k = len(u) // hop
+    return float(np.std(10 * np.log10(np.mean(u[:k * hop].reshape(k, hop) ** 2, axis=1) + 1e-12)))
+
+
+def steady(y, rate, loop, f0, tx):
+    """the loop's slow swells and beats (a recording's chorus or rotary speaker, an ensemble's beating)
+    taken out of its level: what is left of them replays at the loop's rate, a tremolo. The level is
+    measured over whole periods, about STEADY_W long, round the loop as it wraps, and eased in over the
+    tx points before the loop"""
+    ls, le = loop
+    n = le - ls
+    p = rate / f0 if f0 else 0.01 * rate
+    w = min(max(int(round(max(1, round(STEADY_W * rate / p)) * p)), 16), n)
+    seg = y[ls:le]
+    c = np.concatenate([seg[n - w // 2:], seg, seg[:w - w // 2]]) ** 2
+    cs = np.concatenate([[0.0], np.cumsum(c)])
+    e = np.sqrt((cs[w:w + n] - cs[:n]) / w + 1e-12)
+    g = np.clip(np.sqrt(np.mean(seg ** 2)) / e, 0.5, 2.0)
+    out = y.copy()
+    out[ls:le] = seg * g
+    t = max(min(tx, ls), 1)
+    out[ls - t:ls] *= np.linspace(1.0, g[0], t, endpoint=False)
+    return out
 
 
 def seam_step(y, rate, loop):
@@ -517,7 +630,7 @@ def layered(sf, z, zs, key, f0, rate):
     return y * np.sqrt(np.mean(x ** 2) / (np.mean(y ** 2) + 1e-12)), cycles / fz, fz
 
 
-def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=True):
+def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=True, mem=MEM_COST):
     """the sample kept (floats), its rate, its loop (or None), generators it adds, the loop's match,
     the loop's pitch (Hz)"""
     x, rate, (ls0, le0), mixed = region_sample(sf, z, zs)
@@ -550,9 +663,13 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=T
         # of ours would replay the recording's end and its loop by turns, a flutter)
         att, loop_t, bands = ls0 / rate, STATIC_LOOP, False
     need = int((att + loop_t * (1 + XF_SHARE) + SEARCH + LATE + 0.05) * rate)
+    splice = bands and layer_key is None and not drum and mem <= MEM_COST
+    if splice:                                              # the loop may come from anywhere in it
+        need = max(need, int((SPLICE_MAX + 2.8 * loop_t + SEARCH + 0.05) * rate))
     if looped and layer_key is None:
         x = unroll(x, ls0, le0, need)
-    xr, nr, _ = resample(x[:need + 64], rate, want)
+    wl = min(want, EXOTIC_RATE_MAX) if mem > MEM_COST and bands else want   # a looped exotic sound: less top end
+    xr, nr, _ = resample(x[:need + 64], rate, wl, fine=bands)
     if f0 and layer_key is None:
         seg = xr[int(att * nr):int(att * nr) + int(0.1 * nr)]
         tune = g.get(G["coarseTune"], 0) * 100 + g.get(G["fineTune"], 0)
@@ -571,7 +688,10 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=T
         y, nr2, loop, rho = make_loop(xr, nr, 1 / loop_t, int(round(att * nr)), loop_t, exact=True, bands=False)
         fl = fz
     else:
-        y, nr2, loop, rho = make_loop(xr, nr, f0, int(round(att * nr)), loop_t, bands=bands)
+        if splice:
+            y, nr2, loop, rho = splice_loop(xr, nr, f0, att, loop_t, mem)
+        else:
+            y, nr2, loop, rho = make_loop(xr, nr, f0, int(round(att * nr)), loop_t, bands=bands)
         fl = None
         if f0:                                              # the sustain's pitch, across the whole loop
             ls, le = loop
@@ -620,11 +740,11 @@ def reduce(src, verbose=False):
     stats = []
     tuned = {}
 
-    def add_sample(z, zs, root, att, loop_t, pitched, drum, name, layer_key=None, bands=True):
+    def add_sample(z, zs, root, att, loop_t, pitched, drum, name, layer_key=None, bands=True, mem=MEM_COST):
         key = (z["sample"], root, att, loop_t, drum, layer_key, bands, tuple(sorted(
             (k, v) for k, v in z["gens"].items() if k in sf2.NOT_ADDITIVE or k in (G["coarseTune"], G["fineTune"]))))
         if key not in cache:
-            y, rate, loop, extra, rho, fl = process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key, bands)
+            y, rate, loop, extra, rho, fl = process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key, bands, mem)
             sm = sf.samples[z["sample"]]
             # the rate is whole Hz in a SoundFont: what a period-exact loop's hair of resampling leaves
             # over goes into the pitch correction
@@ -658,7 +778,8 @@ def reduce(src, verbose=False):
         root = root_of(sf, z)
         si, loop, extra, rho = add_sample(z, zs, root, att, loop_t, prog not in UNPITCHED, False,
                                           f"{prog:03d} {p.name}"[:15] + f" {root}", ck if prog in LAYERED else None,
-                                          prog not in TIMING)   # those with their own timing: as they were tuned by ear
+                                          prog not in TIMING,   # those with their own timing: as they were tuned by ear
+                                          MEM_COST if prog in STANDARD or prog in TIMING else MEM_COST_EXOTIC)
         gz = out_gens(z, root, loop, extra, (0, 127))
         gz[G["sampleID"]] = si
         instruments.append(sf2.Instrument(p.name, [sf2.Zone(gz)]))
