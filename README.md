@@ -28,7 +28,9 @@ The sounds are samples from the Fluid R3 GM SoundFont by Frank Wen (MIT License)
 
 - **One sample per instrument.** For each program it keeps the sample FluidR3 plays at the instrument's middle key (one velocity layer, mono), at the lowest sample rate its spectrum needs. The same sample plays across the whole keyboard, so an instrument sounds like itself in every register.
 - **The attack, then a seamless loop.** It keeps the sample's first 0.05–0.15 s (it depends on the family), then a loop:
-  - The loop is long, 0.12–0.25 s, so whatever still changes inside it is slow and not a buzz.
+  - For the standard instruments (pianos, organs, accordions, guitars, basses, strings, choirs, brass, reeds and flutes), the loop comes from wherever in the first 4 s of the recording the tone is steadiest. A piano's or a guitar's tone keeps changing for a second or two after the attack, and a loop taken from inside that change comes back to its start at every pass, which sounds like an echo or a retrigger. The loop is spliced on after the attack with a 60 ms crossfade, in step with the attack's waveform and at its level.
+  - The loop is at least 0.25 s long (0.25, 0.37 or 0.5 s are tried, the last two for a vibrato's whole cycles), so whatever still changes inside it is slow and not a buzz. Each extra second of sample counts against a loop, so the longer ones go only where they help. Slow swells and beats in the level (a drawbar organ's, an ensemble's) are evened out within the loop, or they would come back at the loop's rate, as a tremolo.
+  - The other instruments keep a shorter loop (0.12–0.25 s) just after the attack, at a lower sample rate (12 kHz at most), to leave flash for the firmware.
   - It holds a whole number of the note's periods exactly. The sample is resampled by a hair so that the periods come out to whole sample points, so each pass picks up exactly in step with the last.
   - The loop is tuned: its pitch is measured across the whole loop and the sample's tuning corrected so that it sits on its note. Some of FluidR3's samples are a few cents off (its 440 Hz synth saw is 13 cents flat).
   - Its length (within a quarter of the target) and start are searched for where the seam's two sides match best. This also catches the cycle of a vibrato or chorus recorded in the sample.
@@ -36,6 +38,7 @@ The sounds are samples from the Fluid R3 GM SoundFont by Frank Wen (MIT License)
   - Where a sound's level still swells or dips after its attack (choirs, some pads and leads), the loop may start up to 0.15 s later, where the level is smoother, if that makes the seam step less.
   - The seam is crossfaded with what comes just before the loop. Its length (7–30 % of the loop, at least 6 ms) is searched along with the loop: over two sides that don't quite match, a long crossfade sounds like a short echo (both heard at once), so most seams use a short one (about 10–20 ms) and only closely matching sides get a long one. The crossfade keeps the level steady however alike the two sides are: linear for a steady tone, equal power for noise.
 - **Instruments with their own timing.** Harmonica and Alto Sax start a little flat and slide up to pitch, so their loops start after the slide (and Alto Sax's holds a whole cycle of its vibrato). Slap Bass 1 keeps its first half second, while its tone changes after the slap. Contrabass has a longer loop (0.4 s) for its bowing. Fifth Sawtooth mixes FluidR3's four layers (a saw and a saw a fourth below, each as a pair a few cents apart), and its 0.8 s loop holds one whole slow beat between them.
+- **Honky-tonk Piano** plays the grand piano's sample twice a key, 18 cents apart, so the pair beats like a honky-tonk's two strings (FluidR3 detunes its two layers by only 5 cents).
 - **Short recordings.** When FluidR3's recording is shorter than an attack and a loop (Tuba, the synth saws and squares), the whole recording plays and then its own short loop holds, as FluidR3 plays it.
 - **Exceptions.** Sounds that die away within about half a second (xylophone, woodblock, pizzicato) and bells without a clear pitch (glockenspiel) keep their sample without a loop.
 
@@ -43,7 +46,7 @@ FluidR3's vibrato and tremolo are left out, which removes the wobble in the uppe
 
 The drum kit is FluidR3's standard kit, notes 35–81. Each drum keeps its sample until it has died away by 36 dB (at most a quarter second). Cymbals and other long drums are looped the same way and fade. Open and closed hi-hats choke each other, as do the other groups FluidR3 marks.
 
-The build stores the samples as 4-bit ADPCM, 411 KiB in all.
+The build stores the samples as 4-bit ADPCM, 414 KiB in all.
 
 A shared reverb follows CC91 (channel and track reverb send).
 

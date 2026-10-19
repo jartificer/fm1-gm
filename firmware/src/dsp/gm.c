@@ -78,6 +78,7 @@ typedef struct {
     uint8_t st, ch, note, vel;
     uint8_t held, sus;                          /* key down; let go while the pedal was down */
     uint8_t drum, eos;                          /* a drum voice; its one-shot sample has ended */
+    uint8_t layer;                              /* which of a key's voices (Honky-tonk's two strings) */
     const gmw_zone_t *z;
     const uint8_t *data;
     uint32_t pos, len, ls, le;                  /* the next point to decode; the sample's end and loop */
@@ -174,14 +175,14 @@ static const gmw_zone_t *zone_for(int prog, int note)  /* the program's zone for
     return note < GMW_ZONE[a].lo ? &GMW_ZONE[a] : &GMW_ZONE[b - 1];
 }
 
-static voice_t *voice_alloc(int c, int note)
+static voice_t *voice_alloc(int c, int note, int layer)
 {
     int i, best = -1, nv = gm_voice_max;
     float bl = 1e9f;
     if (nv < 8 || nv > GM_NVOICE)
         nv = GM_NVOICE_DEF;
     for (i = 0; i < GM_NVOICE; i++)             /* the same key again: restrike its voice */
-        if (vo[i].st != ST_FREE && vo[i].ch == c && vo[i].note == note)
+        if (vo[i].st != ST_FREE && vo[i].ch == c && vo[i].note == note && vo[i].layer == layer)
             return &vo[i];
     for (i = 0; i < nv; i++)
         if (vo[i].st == ST_FREE)
@@ -203,7 +204,7 @@ static voice_t *voice_alloc(int c, int note)
 }
 
 /* start (or restrike) v on zone z: the sample from its first point, the envelopes from the top */
-static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int vel, int drum)
+static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int vel, int drum, float cents)
 {
     const gmw_smp_t *s = &GMW_SMP[z->smp];
     float vn = (float)vel * (1.0f / 127.0f), q;
@@ -233,7 +234,7 @@ static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int ve
     v->lidx = s->lidx;
     v->y0 = v->y1;                              /* from where a restruck voice was: no click */
     v->frac = 1.0f;
-    v->semi = ((float)(note - z->root) * (float)z->kt + (float)z->tune) * 0.01f;
+    v->semi = ((float)(note - z->root) * (float)z->kt + (float)z->tune + cents) * 0.01f;
     v->ratio = s->rate * INV_SR;
     v->st = ST_ATT;
     v->a_inc = 1.0f / (tsec(z->att) * GM_SR);
@@ -258,11 +259,22 @@ static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int ve
         pan_gains(64 + z->pan, &v->pl, &v->pr);
 }
 
+/* Honky-tonk Piano: two strings a key, a little out of tune with each other (each this far off, in
+ * cents: about 3 Hz of beat at middle C), the piano's sample played twice */
+#define HONKY 3
+#define HONKY_CENTS 9.0f
+
 static void note_on(int c, int note, int vel)
 {
     const gmw_zone_t *z = zone_for(ch[c].prog, note);
-    if (z)
-        voice_start(voice_alloc(c, note), z, c, note, vel, 0);
+    int i, n = ch[c].prog == HONKY ? 2 : 1;
+    for (i = 0; z && i < n; i++) {
+        voice_t *v = voice_alloc(c, note, i);
+        voice_start(v, z, c, note, vel, 0, n == 1 ? 0.0f : i ? HONKY_CENTS : -HONKY_CENTS);
+        v->layer = (uint8_t)i;
+        if (n > 1)
+            v->vgain *= 0.71f;                  /* the pair as loud as one */
+    }
 }
 
 static void note_off(int c, int note)
@@ -348,7 +360,7 @@ static void drum_hit(int note, int vel)
                 x = &dr[i];
             }
     }
-    voice_start(x, z, GM_DRUM_CH, note, vel, 1);
+    voice_start(x, z, GM_DRUM_CH, note, vel, 1, 0.0f);
     x->held = 0;                                /* the drums ring out by themselves */
 }
 
