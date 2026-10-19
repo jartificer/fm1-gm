@@ -48,8 +48,8 @@ static void render_block(int32_t *o)                /* ALNK0: one half, measured
     om_dbg.last_us = us;
     if (us > om_dbg.max_us)
         om_dbg.max_us = us;
-    if (us * 100u > budget * 85u)                   /* late (Felucca's guard): a voice goes */
-        gm_shed();
+    if (!gm_load(us * 100u / budget) && us * 100u > budget * 85u)
+        gm_shed();                                  /* late (Felucca's guard) even so: a voice goes */
     om_dbg.in_audio = 0;
 }
 

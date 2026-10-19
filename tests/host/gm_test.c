@@ -256,6 +256,19 @@ static void test_polyphony_cost(void)
     printf("  worst case: %d voices + %d drums, %.1f us of host CPU per second of audio (%.2f%%)\n",
            gm_voices_used, gm_drums_used, us, us / 1e4);
     CHECK(peak < 1.0, "full polyphony clips (%.3f)", peak);
+    /* under load: linear interpolation for a while, then the sinc again once the load has stayed low */
+    CHECK(gm_load(90) == 1, "a heavy render did not switch to linear interpolation");
+    t0 = clock();
+    run(44100);
+    printf("  linear under load: %.1f us of host CPU per second of audio\n",
+           (double)(clock() - t0) * 1e6 / CLOCKS_PER_SEC);
+    CHECK(peak < 1.0, "full polyphony clips, linear (%.3f)", peak);
+    CHECK(gm_load(90) == 0, "switched to linear twice");
+    for (i = 0; i < 600; i++)
+        gm_load(20);
+    CHECK(gm_load(90) == 1, "still linear after 600 calm renders");
+    for (i = 0; i < 600; i++)
+        gm_load(20);
     post(SC_PANIC, 0, 0, 0, 0);
     for (p = 0; p < 5; p++)
         midi(0xB0 | (uint32_t)p, 121, 0);

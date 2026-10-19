@@ -6,7 +6,7 @@
 
 FluidR3 GM (Frank Wen, MIT License) is 141 MiB; the FM-1 has about 440 KiB of flash left after the
 firmware. For each GM program this keeps one sample, the one Fluid plays at the instrument's middle
-key (one velocity layer, mono), for the whole keyboard; at the lowest rate its spectrum needs; and
+key (one velocity layer, mono), for the whole keyboard; at one rate for all (RATE); and
 only its attack and a loop after it. The loops are made to be seamless:
 
 - long (0.12-0.25 s, by family), so what little a loop still changes is slow, not a buzz;
@@ -25,7 +25,7 @@ only its attack and a loop after it. The loops are made to be seamless:
 The standard instruments (STANDARD) take their loop (0.25 s or more) from wherever in the recording's
 first seconds it is steadiest, spliced on after the attack (splice_loop): a piano's tone changes for a
 second or two after the strike, and a loop of that change is heard as an echo at every pass. The rest
-keep the short loop just after the attack, at a lower rate, to save flash.
+keep the short loop just after the attack, to save flash.
 
 A few programs have an attack and a loop of their own (TIMING); one mixes its layers into its sample
 (LAYERED). Where the recording ends in a short loop of its own before an attack and a loop fit, the
@@ -35,7 +35,7 @@ Sounds that die away within about half a second keep their whole sample, with no
 inharmonic bell. The drum kit (bank 128, program 0) keeps notes 35..81, each trimmed (cymbals and
 other long drums looped the same way, and faded). FluidR3's vibrato and tremolo are dropped.
 
-The result is an ordinary SoundFont (16-bit, the reduced rates): play it in any SoundFont player.
+The result is an ordinary SoundFont (16-bit, at RATE): play it in any SoundFont player.
 tools/gen_wavetable.py turns it into the firmware's tables (4-bit ADPCM, about a quarter of its
 size). Needs numpy and scipy (this tool only; the firmware build does not).
 """
@@ -46,7 +46,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy.signal import resample as fft_resample
-from scipy.signal import resample_poly, welch
+from scipy.signal import resample_poly
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sf2  # noqa: E402
@@ -107,16 +107,13 @@ WOBBLE_COST = 3.0               # the score a dB of level wobble in the loop cos
 SPLICE_TRY = 4                  # the steadiest of them made into loops and compared
 MEM_COST = 14.0                 # the score a second of sample costs (dB of seam step): the flash goes to
 MEM_COST_EXOTIC = 40.0          # the standard instruments; the rest keep their short loop after the attack
-EXOTIC_RATE_MAX = 12000         # and a lower rate (not a one-shot, a bell, or a recording kept whole)
 STANDARD = (set(range(0, 8)) | set(range(16, 24)) | set(range(24, 46)) | {48, 49, 52, 53} |
             set(range(56, 62)) | set(range(64, 76)))
 SEARCH = 0.03                   # the loop start is searched over this (s) after the attack
-RATE_MIN, RATE_MAX = 11025, 16000
-DRUM_RATE_MAX = 24000           # hi-hats and cymbals have half their energy above 11 kHz
+RATE = 14700                    # every sample's rate (a third of 44.1 kHz): the same top end and noise for all
 DRUM_MIN, DRUM_MAX = 0.06, 0.24  # a drum keeps until it is 36 dB down, within these (s)
 DRUM_LONG = 0.6                 # a drum that rings longer than this is looped after DRUM_ATT
 DRUM_ATT, DRUM_LOOP = 0.10, 0.20
-DRUM_LONG_RATE = 20000          # a looped drum's rate, at most (its loop is noise: it needs length more than top end)
 
 
 def pcm_float(sm):
@@ -183,33 +180,12 @@ def root_of(sf, z):
     return r if r >= 0 else sf.samples[z["sample"]].root
 
 
-def band_rate(x, rate, f0, cap):
-    """the lowest rate that keeps 99.97 % of the energy of the first half second (and 5 harmonics)"""
-    seg = x[:rate // 2]
-    if len(seg) < 256:
-        seg = np.pad(seg, (0, 256 - len(seg)))
-    f, p = welch(seg, rate, nperseg=min(2048, len(seg)))
-    c = np.cumsum(p)
-    if c[-1] <= 0:
-        return RATE_MIN
-    fb = f[min(np.searchsorted(c, 0.9997 * c[-1]), len(f) - 1)]
-    want = max(2.2 * fb, RATE_MIN, 10 * f0 if f0 else 0)
-    return min(want, cap, rate)
-
-
-def resample(x, rate, want, fine=False):
-    """x at a rate of rate * p / q >= want, p / q a simple fraction (fine: q up to 16, closer to want)"""
-    if want >= rate:
-        return x, rate, Fraction(1)
-    best = None
-    for q in range(1, 17 if fine else 9):
-        for p in range(1, q + 1):
-            fr = Fraction(p, q)
-            if rate * fr >= want and (best is None or fr < best):
-                best = fr
-    if best == 1:
-        return x, rate, best
-    return resample_poly(x, best.numerator, best.denominator), int(round(rate * best)), best
+def resample(x, rate):
+    """x at RATE"""
+    fr = Fraction(RATE, rate)
+    if fr == 1:
+        return x, rate, fr
+    return resample_poly(x, fr.numerator, fr.denominator), int(round(rate * fr)), fr
 
 
 
@@ -641,17 +617,14 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=T
     looped = bool(g.get(G["sampleModes"], 0) & 1 and 0 <= ls0 < le0 <= len(x))
     extra = {} if drum and not mixed else {G["pan"]: 0}     # mono now: no pan (melodic: the channel pans)
     ring = ring_time(x, rate) if not looped else 1e9
-    want = band_rate(x, rate, f0, DRUM_RATE_MAX if drum else RATE_MAX)
     if drum:
         att, loop_t, f0 = DRUM_ATT, DRUM_LOOP, None
         long = ring > DRUM_LONG
-        if long:
-            want = min(want, DRUM_LONG_RATE)
     else:
         long = ring > ONE_SHOT
     if not long:                                            # dies away by itself: a one-shot
         keep = min(max(ring, DRUM_MIN) * 1.15, DRUM_MAX * 1.15 if drum else ONE_SHOT_KEEP)
-        xr, nr, _ = resample(x[:int(keep * rate) + 64], rate, want)
+        xr, nr, _ = resample(x[:int(keep * rate) + 64], rate)
         return cut(xr, int(keep * nr), nr), nr, None, extra, None, None
     if not f0 and not drum:
         loop_t = max(loop_t, NOISE_LOOP)
@@ -668,8 +641,7 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=T
         need = max(need, int((SPLICE_MAX + 2.8 * loop_t + SEARCH + 0.05) * rate))
     if looped and layer_key is None:
         x = unroll(x, ls0, le0, need)
-    wl = min(want, EXOTIC_RATE_MAX) if mem > MEM_COST and bands else want   # a looped exotic sound: less top end
-    xr, nr, _ = resample(x[:need + 64], rate, wl, fine=bands)
+    xr, nr, _ = resample(x[:need + 64], rate)
     if f0 and layer_key is None:
         seg = xr[int(att * nr):int(att * nr) + int(0.1 * nr)]
         tune = g.get(G["coarseTune"], 0) * 100 + g.get(G["fineTune"], 0)
@@ -682,7 +654,7 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=T
         resid, f0 = best
         if 1 - resid < 0.3:                                 # a bell: no period to loop, so it rings out
             keep = min(ring, BELL)
-            xr, nr, _ = resample(x[:int(keep * rate) + 64], rate, want)
+            xr, nr, _ = resample(x[:int(keep * rate) + 64], rate)
             return cut(xr, int(keep * nr), nr), nr, None, extra, None, None
     if layer_key is not None:                               # the mix repeats once a loop, exactly
         y, nr2, loop, rho = make_loop(xr, nr, 1 / loop_t, int(round(att * nr)), loop_t, exact=True, bands=False)
