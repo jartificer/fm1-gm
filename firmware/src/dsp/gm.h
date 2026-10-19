@@ -41,6 +41,8 @@ void gm_reset(void);                   /* GM reset: every channel to its default
 void gm_panic(void);                   /* everything quiet, now (the controllers stay) */
 void gm_midi(uint32_t st, uint32_t d1, uint32_t d2);   /* one channel message */
 void gm_shed(void);                    /* the render ran late: the quietest voice fades out fast */
+int gm_load(uint32_t pct);              /* the last render's share of its time (%): under load the voices
+                                         * interpolate linearly for a while; 1 if that just started */
 /* add n (<= GM_CHUNK) frames of the mix to l / r; reverb included */
 void gm_render(float *l, float *r, uint32_t n);
 

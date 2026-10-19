@@ -26,11 +26,11 @@ https://jartificer.github.io/fm1-gm/
 
 The sounds are samples from the Fluid R3 GM SoundFont by Frank Wen (MIT License). The full SoundFont is 141 MiB and the FM-1 has about 440 KiB of flash left after the firmware, so `tools/sf2_reduce.py` cuts it down to `assets/soundfont/fm1gm.sf2`, a normal SoundFont you can play in any SoundFont player.
 
-- **One sample per instrument.** For each program it keeps the sample FluidR3 plays at the instrument's middle key (one velocity layer, mono), at the lowest sample rate its spectrum needs. The same sample plays across the whole keyboard, so an instrument sounds like itself in every register.
+- **One sample per instrument.** For each program it keeps the sample FluidR3 plays at the instrument's middle key (one velocity layer, mono). Every sample, drums included, is at the same rate, 14.7 kHz (a third of 44.1 kHz), so every instrument has the same top end and the same noise floor. The same sample plays across the whole keyboard, so an instrument sounds like itself in every register.
 - **The attack, then a seamless loop.** It keeps the sample's first 0.05–0.15 s (it depends on the family), then a loop:
   - For the standard instruments (pianos, organs, accordions, guitars, basses, strings, choirs, brass, reeds and flutes), the loop comes from wherever in the first 4 s of the recording the tone is steadiest. A piano's or a guitar's tone keeps changing for a second or two after the attack, and a loop taken from inside that change comes back to its start at every pass, which sounds like an echo or a retrigger. The loop is spliced on after the attack with a 60 ms crossfade, in step with the attack's waveform and at its level.
   - The loop is at least 0.25 s long (0.25, 0.37 or 0.5 s are tried, the last two for a vibrato's whole cycles), so whatever still changes inside it is slow and not a buzz. Each extra second of sample counts against a loop, so the longer ones go only where they help. Slow swells and beats in the level (a drawbar organ's, an ensemble's) are evened out within the loop, or they would come back at the loop's rate, as a tremolo.
-  - The other instruments keep a shorter loop (0.12–0.25 s) just after the attack, at a lower sample rate (12 kHz at most), to leave flash for the firmware.
+  - The other instruments keep a shorter loop (0.12–0.25 s) just after the attack, to leave flash for the firmware.
   - It holds a whole number of the note's periods exactly. The sample is resampled by a hair so that the periods come out to whole sample points, so each pass picks up exactly in step with the last.
   - The loop is tuned: its pitch is measured across the whole loop and the sample's tuning corrected so that it sits on its note. Some of FluidR3's samples are a few cents off (its 440 Hz synth saw is 13 cents flat).
   - Its length (within a quarter of the target) and start are searched for where the seam's two sides match best. This also catches the cycle of a vibrato or chorus recorded in the sample.
@@ -46,7 +46,7 @@ FluidR3's vibrato and tremolo are left out, which removes the wobble in the uppe
 
 The drum kit is FluidR3's standard kit, notes 35–81. Each drum keeps its sample until it has died away by 36 dB (at most a quarter second). Cymbals and other long drums are looped the same way and fade. Open and closed hi-hats choke each other, as do the other groups FluidR3 marks.
 
-The build stores the samples as 4-bit ADPCM, 414 KiB in all.
+The build stores the samples as 4-bit ADPCM (59 kbit/s each), 424 KiB in all. The firmware plays them back through an 8-point windowed-sinc interpolator: at a sample's own pitch it is flat up to about 4.4 kHz, and it keeps the images of everything below that 50–60 dB down. A straight line between points, or a cubic, leaves those images only 17–19 dB down, which sounds like a fizz over the sound. When the audio gets close to running late (a render over 70 % of its time), every voice falls back to straight-line interpolation until the load has stayed low for 3 s. Only if a render is late even then does the quietest voice drop.
 
 A shared reverb follows CC91 (channel and track reverb send).
 

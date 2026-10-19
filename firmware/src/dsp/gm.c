@@ -3,8 +3,8 @@
  *
  * A sample player. Each note plays one zone of the wavetable (gm_wavetable.h, generated from the
  * SoundFont assets/soundfont/fm1gm.sf2): its 4-bit ADPCM sample, decoded as it plays and
- * interpolated linearly (above 1.5 points a frame, averaged: less aliasing), its loop replaying
- * exactly, through the zone's volume envelope (attack, hold, decay, sustain, release) and low-pass
+ * interpolated by an 8-point windowed sinc (linear under load) (above 1.5 points a frame, averaged: less aliasing),
+ * its loop replaying exactly, through the zone's volume envelope (attack, hold, decay, sustain, release) and low-pass
  * filter with its modulation envelope. One sample covers the whole keyboard; the pitch stays put
  * (no built-in vibrato or tremolo: the mod wheel adds vibrato).
  *
@@ -73,6 +73,65 @@ static void pan_gains(int32_t pan, float *l, float *r)  /* 0 .. 127, equal power
 }
 
 /* --------------------------------------------------------------- voices --- */
+/* the interpolation: a windowed sinc over NTAP points (Kaiser, beta 5, cut off at the sample's own
+ * Nyquist), its taps for NPH + 1 places between two points, interpolated between: flat to 0.3 of the
+ * sample's rate, and the images of what lies below that 50-60 dB down (a cubic leaves them 20 dB
+ * down, heard as a fizz over the sound) */
+#define NTAP 8
+#define NPH 32
+static float sinc_tab[NPH + 1][NTAP];
+/* under load (a render over LOAD_HI % of its time) every voice interpolates linearly, a third of the
+ * work, until the renders have stayed under LOAD_LO % for CALM renders (3 s): heard as a little fizz,
+ * not as a voice cut off (gm_shed stays for a render late even so) */
+#define LOAD_HI 70u
+#define LOAD_LO 45u
+#define CALM 517u
+static uint8_t lin_mode;
+static uint32_t calm;
+
+int gm_load(uint32_t pct)
+{
+    if (pct > LOAD_HI) {
+        calm = 0;
+        if (!lin_mode) {
+            lin_mode = 1;
+            return 1;
+        }
+    } else if (lin_mode && pct < LOAD_LO && ++calm >= CALM)
+        lin_mode = 0;
+    else if (pct >= LOAD_LO)
+        calm = 0;
+    return 0;
+}
+
+static float bessel_i0(float x)
+{
+    float sum = 1.0f, t = 1.0f;
+    int k;
+    for (k = 1; k < 24; k++) {
+        t *= (x * 0.5f / (float)k) * (x * 0.5f / (float)k);
+        sum += t;
+    }
+    return sum;
+}
+
+static void sinc_init(void)
+{
+    int p, i;
+    for (p = 0; p <= NPH; p++) {
+        float sum = 0.0f;
+        for (i = 0; i < NTAP; i++) {
+            float x = (float)(i - (NTAP / 2 - 1)) - (float)p / NPH, u = 2.0f * x / NTAP;
+            float w = u * u < 1.0f ? bessel_i0(5.0f * fm_sqrtf(1.0f - u * u)) / bessel_i0(5.0f) : 0.0f;
+            float sn = x == 0.0f ? 1.0f : fm_sinf(FM_PI * x) / (FM_PI * x);
+            sinc_tab[p][i] = sn * w;
+            sum += sn * w;
+        }
+        for (i = 0; i < NTAP; i++)
+            sinc_tab[p][i] /= sum;          /* each place passes a steady level as it is */
+    }
+}
+
 enum { ST_FREE, ST_ATT, ST_HOLD, ST_DEC, ST_REL };
 typedef struct {
     uint8_t st, ch, note, vel;
@@ -83,7 +142,9 @@ typedef struct {
     const uint8_t *data;
     uint32_t pos, len, ls, le;                  /* the next point to decode; the sample's end and loop */
     int32_t pred, idx, lpred, lidx;             /* the ADPCM decoder, and its state at the loop start */
-    float y0, y1, frac;                         /* the two points the output lies between, and where */
+    float hist[2 * NTAP];                       /* the last NTAP points, twice over (a ring read straight) */
+    float frac;                                 /* where the output lies between the middle two */
+    uint8_t hp;                                 /* the oldest point's place in hist */
     uint32_t age;
     float semi, ratio;                          /* pitch: semitones from the sample's own; its rate / GM_SR */
     float amp, a_inc, th, sus_l, td, tr;        /* volume envelope: now, attack step a frame, hold left (s),
@@ -123,6 +184,7 @@ void gm_init(void)
 {
     int i;
     float *q;
+    sinc_init();
     for (i = 0, q = comb_buf; i < NCOMB; i++) {
         comb_p[i] = q;
         q += COMB_LEN[i];
@@ -209,9 +271,12 @@ static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int ve
     const gmw_smp_t *s = &GMW_SMP[z->smp];
     float vn = (float)vel * (1.0f / 127.0f), q;
     int32_t kd = 60 - note;
+    int i;
     if (v->st == ST_FREE) {
         v->amp = 0.0f;
-        v->y1 = 0.0f;
+        for (i = 0; i < 2 * NTAP; i++)
+            v->hist[i] = 0.0f;
+        v->hp = 0;
         v->ic1 = v->ic2 = 0.0f;
     }
     v->z = z;
@@ -232,7 +297,11 @@ static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int ve
     v->idx = s->idx0;
     v->lpred = s->lpred;
     v->lidx = s->lidx;
-    v->y0 = v->y1;                              /* from where a restruck voice was: no click */
+    {                                           /* from where a restruck voice was: no click */
+        float y = v->hist[v->hp + NTAP / 2 - 1];
+        for (i = 0; i < 2 * NTAP; i++)
+            v->hist[i] = y;
+    }
     v->frac = 1.0f;
     v->semi = ((float)(note - z->root) * (float)z->kt + (float)z->tune + cents) * 0.01f;
     v->ratio = s->rate * INV_SR;
@@ -512,13 +581,15 @@ static int voice_render(voice_t *v, uint32_t n)
         gr *= v->pr * 1.41f;
     }
     {   /* the sample into src[]; then the filter, the amplitude and the mix */
-        float y0 = v->y0, y1 = v->y1, frac = v->frac, ic1 = v->ic1, ic2 = v->ic2, amp = a0;
+        float frac = v->frac, ic1 = v->ic1, ic2 = v->ic2, amp = a0, *hist = v->hist;
+        uint32_t hp = v->hp;
         float rev = (float)c->rev * (1.0f / 127.0f), gwl, gwr, gwv;
         float *src = vsrc;
         uint32_t pos = v->pos, len = v->len, ls = v->ls, le = v->le;
         int32_t pred = v->pred, idx = v->idx;
         const uint8_t *data = v->data;
         int box = inc >= 1.5f;                  /* above 1.5 points a frame: the mean of them (less aliasing) */
+        int lin = lin_mode;
         for (j = 0; j < n; j++) {
             float acc = 0.0f;
             uint32_t cnt = 0;
@@ -527,14 +598,14 @@ static int voice_render(voice_t *v, uint32_t n)
                 uint32_t b, nb;
                 int32_t step, dq;
                 frac -= 1.0f;
-                y0 = y1;
                 if (pos == le) {
                     pos = ls;
                     pred = v->lpred;
                     idx = v->lidx;
                 }
                 if (pos >= len) {
-                    y1 = 0.0f;
+                    hist[hp] = hist[hp + NTAP] = 0.0f;
+                    hp = hp + 1 == NTAP ? 0 : hp + 1;
                     v->eos = 1;
                     continue;
                 }
@@ -553,11 +624,28 @@ static int voice_render(voice_t *v, uint32_t n)
                 pred = pred > 32767 ? 32767 : pred < -32768 ? -32768 : pred;
                 idx += IMA_IDX[nb & 7u];
                 idx = idx < 0 ? 0 : idx > 88 ? 88 : idx;
-                y1 = (float)pred * (1.0f / 32768.0f);
-                acc += y1;
+                {
+                    float y = (float)pred * (1.0f / 32768.0f);
+                    hist[hp] = hist[hp + NTAP] = y;
+                    hp = hp + 1 == NTAP ? 0 : hp + 1;
+                    acc += y;
+                }
                 cnt++;
             }
-            src[j] = box && cnt > 1 ? acc * INV_N[cnt] : y0 + (y1 - y0) * frac;
+            if (box && cnt > 1)
+                src[j] = acc * INV_N[cnt];
+            else if (lin) {
+                const float *h = hist + hp + NTAP / 2 - 1;
+                src[j] = h[0] + (h[1] - h[0]) * frac;
+            } else {
+                float ph = frac * NPH, o = 0.0f;
+                int k = (int)ph, i;
+                const float *a = sinc_tab[k], *b = sinc_tab[k + 1 > NPH ? NPH : k + 1], *h = hist + hp;
+                ph -= (float)k;
+                for (i = 0; i < NTAP; i++)
+                    o += h[i] * (a[i] + (b[i] - a[i]) * ph);
+                src[j] = o;
+            }
         }
         v->pos = pos;
         v->pred = pred;
@@ -580,15 +668,19 @@ static int voice_render(voice_t *v, uint32_t n)
             mix_r[j] += o * gwr;
             mix_rev[j] += o * gwv;
         }
-        v->y0 = y0;
-        v->y1 = y1;
+        v->hp = (uint8_t)hp;
         v->frac = frac;
         v->ic1 = fm_flush(ic1);
         v->ic2 = fm_flush(ic2);
         ch[v->ch].lvl += (a0 + a1) * 0.5f * gain * 0.6f;   /* the meter: the envelope, not the waveform */
     }
-    if (v->eos && v->y0 == 0.0f)                /* a one-shot that has played out */
-        v->st = ST_FREE;
+    if (v->eos) {                               /* a one-shot that has played out */
+        int i, quiet = 1;
+        for (i = 0; i < NTAP; i++)
+            quiet &= v->hist[i] == 0.0f;
+        if (quiet)
+            v->st = ST_FREE;
+    }
     return v->st != ST_FREE;
 }
 
