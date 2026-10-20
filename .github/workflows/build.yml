@@ -16,6 +16,8 @@ jobs:
       AC79_SDK: ${{ github.workspace }}/.deps/ac79-sdk
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0              # the revision number is the commit count (tools/build.py)
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'

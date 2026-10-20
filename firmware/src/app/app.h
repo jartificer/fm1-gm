@@ -9,6 +9,9 @@
 #ifndef OM_VERSION                       /* a release build passes its own (tools/build.py --release) */
 #define OM_VERSION "DEV"
 #endif
+#ifndef OM_REV                           /* the build number on the boot screen (tools/build.py) */
+#define OM_REV ""
+#endif
 #define SET_MAGIC 0x54534D47u            /* "GMST" */
 #define SET_FORMAT 1u
 

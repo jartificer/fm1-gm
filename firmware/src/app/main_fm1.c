@@ -233,12 +233,16 @@ static void safe_main(void)
 static void splash(void)
 {
     lcd_fill(0, 0, 240, 240, K_BG);
-    cv_begin(240, 64, K_BG);
+    cv_begin(240, 84, K_BG);
     {
         int32_t w = text_w(&FONT_L, "FM1-GM");
         cv_text((240 - w) / 2, 0, &FONT_L, "FM1-GM", K_ACC);
         w = text_w(&FONT_S, "General MIDI sequencer");
         cv_text((240 - w) / 2, 42, &FONT_S, "General MIDI sequencer", K_DIM);
+        if (OM_REV[0]) {
+            w = text_w(&FONT_S, "REV " OM_REV);
+            cv_text((240 - w) / 2, 64, &FONT_S, "REV " OM_REV, K_DIM);
+        }
     }
     cv_blit(0, 92);
     lcd_sync();

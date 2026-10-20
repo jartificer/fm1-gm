@@ -52,6 +52,7 @@ SDK_SHA256 = {
 }
 
 PRODUCT = "FM-1_600"                # package identity; release builds are FM-1_6XXYYZZ (see main)
+REV = None                          # the boot screen's revision number (revision())
 VERSION = None                      # FELUCCA_VERSION for release builds (default: firmware/src/ui.c)
 
 
@@ -199,6 +200,21 @@ def build_loader():
 
 # ---- app
 
+def revision():
+    """the build number on the boot screen: the commit count of HEAD (every commit adds one, and main
+    only grows, so each new package numbers higher; branches never conflict over it), "+" when the
+    firmware sources differ from HEAD. None without the git history (a shallow clone counts wrong)."""
+    def git(*a):
+        r = subprocess.run(["git", *a], cwd=SRC, capture_output=True, text=True)
+        return r.stdout.strip() if r.returncode == 0 else None
+    if git("rev-parse", "--is-shallow-repository") != "false":
+        print("warning: no full git history: the package has no revision number")
+        return None
+    n = git("rev-list", "--count", "HEAD")
+    dirty = git("status", "--porcelain", "--", "firmware", "assets", "tools")
+    return n + ("+" if dirty else "") if n else None
+
+
 def build_app():
     flags = [*CFLAGS, *FPU, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen"]
     for flag in ("OM_CDC",):
@@ -208,6 +224,8 @@ def build_app():
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
     if VERSION:
         flags.append(f'-DOM_VERSION="{VERSION}"')
+    if REV:
+        flags.append(f'-DOM_REV="{REV}"')
     o2 = [f if f != "-Os" else "-O2" for f in flags]
     units = [("cc", "-c", FW / "crt0.S", "-o", OUT / "crt0.o"),
              ("cc", "-c", FW / "hal" / "fm1_vec.S", "-o", OUT / "fm1_vec.o"),
@@ -340,7 +358,7 @@ def mmio_check():
 
 
 def main():
-    global PRODUCT, VERSION
+    global PRODUCT, VERSION, REV
     ap = argparse.ArgumentParser()
     ap.add_argument("--release", metavar="X.Y[.Z]", help="release build: identity FM-1_6XXYYZZ, version string X.Y[.Z]")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
@@ -360,6 +378,7 @@ def main():
     for rel, sha in SDK_SHA256.items():          # fail early without the SDK
         if hashlib.sha256(fm1pkg_make.sdk_file(rel)).hexdigest() != sha:
             print(f"warning: SDK {rel} differs from AC79NN_SDK_V1.2.1; the package will not match the reference")
+    REV = revision()
     OUT.mkdir(parents=True, exist_ok=True)
     with ThreadPoolExecutor(2) as ex:
         gen, ldr = ex.submit(generate), ex.submit(build_loader)
@@ -381,7 +400,7 @@ def main():
     (OUT / name).write_bytes(pkg)
     print(f"app      {OUT / 'fm1gm.bin'}  {len(img)} B")
     print(f"loader   {LDR / 'ota.bin'}  {len(ota)} B")
-    print(f"package  {OUT / name}  {len(pkg)} B, identity {PRODUCT}")
+    print(f"package  {OUT / name}  {len(pkg)} B, identity {PRODUCT}, rev {REV or 'none'}")
     return 0
 
 
