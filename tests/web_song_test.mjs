@@ -6,6 +6,7 @@
 import {readFileSync} from "node:fs";
 import * as S from "../web/fm1song.js";
 import {SongLink, MEMORY, LinkError} from "../web/fm1link.js";
+import {Preview} from "../web/synth.js";
 
 let failed = 0;
 const ok = (cond, what) => {
@@ -157,6 +158,58 @@ const norm = s => ({...s, tracks: s.tracks.map(t => ({...t, notes: [...t.notes].
     await link.remove(5);
     ok(!(await link.list())[5].used, "delete: slot 6 is empty");
     ok((await link.hello()).free === 71, "delete: every sector free again");
+}
+
+// ------------------------------------------------------------ preview ---
+{
+    // a device of its own, run without a speaker: the song's notes through the firmware's engine
+    const {instance: pi} = await WebAssembly.instantiate(readFileSync(new URL("../web/fm1gm.wasm", import.meta.url)), {});
+    const s = S.newSong();
+    s.tempo = 120;
+    s.bars = 1;
+    s.tracks[0].notes.push({tick: 0, note: 60, len: 48}, {tick: 96, note: 64, len: 48});
+    s.tracks[9].notes.push({tick: 48, note: 38, len: 12});
+    const p = new Preview(() => s);
+    p.x = pi.exports;
+    p.x.web_boot(1);
+    p.x.web_run(300);
+    const run = ms => {                        // -> the RMS of what it played
+        p.x.web_audio_take(1 << 20);
+        let sum = 0, n = 0;
+        for (let i = 0; i < ms; i++) {
+            p.step();
+            p.x.web_run(1);
+            p.ms++;
+            const k = p.x.web_audio_take(4096), a = new Float32Array(p.x.memory.buffer, p.x.web_audio_buf(), k * 2);
+            for (const v of a) { sum += v * v; n++; }
+        }
+        return Math.sqrt(sum / Math.max(n, 1));
+    };
+    ok(run(200) < 1e-4, "preview: silent before Play");
+    p.allOff();
+    p.apply();
+    p.pos = -1e-9;
+    p.next = 0;
+    p.playing = true;
+    const notes = [];
+    const gm = p.x.web_gm;
+    p.midi = (st, d1, d2 = 0) => { if ((st & 0xF0) === 0x90) notes.push([p.ms, st & 15, d1]); gm(st, d1, d2); };
+    const loud = run(2100);
+    ok(loud > 1e-3, `preview: the song sounds (RMS ${loud.toFixed(4)})`);
+    ok(JSON.stringify(notes.slice(0, 3).map(n => n.slice(1))) === "[[0,60],[9,38],[0,64]]", "preview: its notes in order, drums on channel 10");
+    ok(notes.length === 4 && Math.abs(notes[3][0] - notes[0][0] - 2000) <= 1, "preview: it loops each bar (2 s at 120 BPM)");
+    s.tracks[0].transpose = 12;
+    p.changed();
+    notes.length = 0;
+    run(2000);
+    ok(notes.some(n => n[2] === 72), "preview: an edit is heard as it plays (transpose)");
+    s.tracks[0].mute = true;
+    notes.length = 0;
+    run(2000);
+    ok(notes.length === 1 && notes.every(n => n[1] === 9), "preview: a muted track goes quiet");
+    p.stop();
+    run(1500);
+    ok(run(300) < 1e-4, "preview: Stop silences it");
 }
 
 console.log(failed ? `${failed} FAILED` : "all ok");

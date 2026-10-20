@@ -284,6 +284,9 @@ WEB(web_midi_in) void web_midi_in(uint32_t st, uint32_t d1, uint32_t d2)
     if (mi_w - mi_r < MQ)
         min_q[mi_w++ % MQ] = cin | st << 8 | d1 << 16 | d2 << 24;
 }
+/* a channel message straight to the sound engine, past the UI and the sequencer: the song editor's
+ * preview (web/synth.js) plays the song through the firmware's own sounds this way */
+WEB(web_gm) void web_gm(uint32_t st, uint32_t d1, uint32_t d2) { gm_midi(st, d1, d2); }
 /* the next MIDI out packet, 0 = none */
 WEB(web_midi_out) uint32_t web_midi_out(void) { return mo_r == mo_w ? 0u : mout_q[mo_r++ % MQ]; }
 
