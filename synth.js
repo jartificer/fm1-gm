@@ -38,12 +38,18 @@ export class Preview {
         return this.loading;
     }
 
+    // everything but the sound itself, as the page loads: the engine, the audio context (paused until a
+    // tap: browsers allow no sound before one) and its output, so a tap has only to switch it on
+    prepare() {
+        if (!this.ctx) this.ctx = new AudioContext({sampleRate: RATE, latencyHint: "interactive"});
+        return (this.starting ||= this.open());
+    }
     // from a click or a key: browsers let the audio start only then, and Firefox (mobile above all) only
-    // while still inside that event, so the context is made and resumed before anything is awaited
+    // while still inside that event, so the context is resumed before anything is awaited
     async start() {
         if (!this.ctx) this.ctx = new AudioContext({sampleRate: RATE, latencyHint: "interactive"});
         const resumed = this.ctx.state !== "running" ? this.ctx.resume() : null;
-        await (this.starting ||= this.open());
+        await this.prepare();
         await resumed?.catch(() => {});            // refused outside a tap: running() waits for the next one
     }
     // until the audio runs and the speaker is taking it: on a phone the first tap's pointerdown may not
