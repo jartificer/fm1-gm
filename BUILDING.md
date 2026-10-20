@@ -30,6 +30,8 @@ Needs Linux x86-64, or Docker on macOS (each tool then runs in a linux/amd64 con
    ./build.sh --release 0.1      # build/fm1gm-0.1.fwsc, identity FM-1_6000100
    ```
 
+Every package carries a revision number, shown on the boot screen ("REV 47"): the number of commits in `git rev-list --count HEAD`, so each new commit builds a higher one, with a "+" when `firmware/`, `assets/` or `tools/` has uncommitted changes. It needs the full git history (a shallow clone builds without a number).
+
 The build checks the image before packaging: entry point, no calls from RAM code into flash, no soft-double routines (the FPU is single precision), the RAM and pool budgets, and that hardware registers are touched only from `firmware/hal/`.
 
 GitHub Actions (`.github/workflows/build.yml`) does all of this on every push and uploads the package as an artifact.
