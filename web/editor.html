@@ -87,8 +87,18 @@ table.trk td.cnt { font: 400 12.5px var(--f-mono); color: var(--ink-2); text-ali
 .tog.on.m { background: var(--bad); color: #fff; border-color: var(--bad); }
 .tog.on.s { background: var(--amber); color: #1b1f27; border-color: var(--amber); }
 /* ---------------------------------------------------------------- roll */
-.roll { position: relative; height: 460px; overflow: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--roll-bg); touch-action: none; }
+/* the roll scrolls under its own scroll bars: the browser's own are hidden, as on phones they cannot be
+   dragged (or are not shown at all) and a finger on the roll draws notes rather than scrolling */
+.rollbox { display: grid; grid-template-columns: minmax(0, 1fr) var(--sb); grid-template-rows: 460px var(--sb); --sb: 14px;
+  border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: var(--roll-alt); }
+.roll { position: relative; overflow: auto; background: var(--roll-bg); touch-action: none; scrollbar-width: none; outline-offset: -2px; }
+.roll::-webkit-scrollbar { display: none; }
 .roll canvas { position: sticky; left: 0; top: 0; display: block; }
+.sbar { position: relative; touch-action: none; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+.sbar div { position: absolute; border-radius: 999px; background: var(--roll-bar); }
+.sbar div:hover, .sbar div.drag { background: var(--ink-2); }
+.sbar.h div { top: 3px; bottom: 3px; } .sbar.v div { left: 3px; right: 3px; }
+@media (pointer: coarse) { .rollbox { --sb: 24px; } .sbar.h div { top: 5px; bottom: 5px; } .sbar.v div { left: 5px; right: 5px; } }
 .hint { font-size: 13px; }
 kbd { font: 500 12px var(--f-mono); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--bench); }
 /* ---------------------------------------------------------------- device */
@@ -107,7 +117,7 @@ kbd { font: 500 12px var(--f-mono); border: 1px solid var(--rule); border-bottom
 .space { height: 8px; border-radius: 4px; background: var(--rule); overflow: hidden; }
 .space div { height: 100%; background: var(--ink-2); }
 footer { font-size: 13px; color: var(--ink-2); }
-@media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } .slots { max-height: 360px; } .roll { height: 380px; } }
+@media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } .slots { max-height: 360px; } .rollbox { grid-template-rows: 380px var(--sb); } }
 </style>
 </head>
 <body>
@@ -160,8 +170,12 @@ footer { font-size: 13px; color: var(--ink-2); }
           <button id="clear" type="button">Clear track</button>
         </div>
       </div>
-      <div class="roll" id="roll" tabindex="0" aria-label="Piano roll of the selected track"><canvas id="cv"></canvas><div id="spacer"></div></div>
-      <p class="hint muted">Play (or <kbd>Space</kbd>) plays the song, looping, with the FM-1's own sounds; edits are heard as it plays. Click the ruler to choose where it starts. Click to add a note, drag it to move it, drag its right end to change its length. Right-click or double-click deletes. <kbd>Shift</kbd>-click selects more; <kbd>Del</kbd> deletes the selected notes, the arrow keys move them, <kbd>Ctrl</kbd>+<kbd>A</kbd> selects the track's notes. Notes past the song's end are kept but do not play (grey).</p>
+      <div class="rollbox">
+        <div class="roll" id="roll" tabindex="0" aria-label="Piano roll of the selected track"><canvas id="cv"></canvas><div id="spacer"></div></div>
+        <div class="sbar v" id="vbar" aria-hidden="true"><div></div></div>
+        <div class="sbar h" id="hbar" aria-hidden="true"><div></div></div>
+      </div>
+      <p class="hint muted">Play (or <kbd>Space</kbd>) plays the song, looping, with the FM-1's own sounds; edits are heard as it plays. Click the ruler to choose where it starts. Drag the bars along the right and bottom edges (or use the mouse wheel; <kbd>Shift</kbd> + wheel goes sideways) to scroll. Click to add a note, drag it to move it, drag its right end to change its length. Right-click or double-click deletes. <kbd>Shift</kbd>-click selects more; <kbd>Del</kbd> deletes the selected notes, the arrow keys move them, <kbd>Ctrl</kbd>+<kbd>A</kbd> selects the track's notes. Notes past the song's end are kept but do not play (grey).</p>
     </main>
 
     <aside class="panel" aria-label="The FM-1">
