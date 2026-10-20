@@ -609,7 +609,7 @@ static void button(int b, int held_long)
             if (ui.confirm != C_INIT) {
                 ui.confirm = C_INIT;
                 ui.confirm_until = plat_ms() + 4000u;
-                say("NEW SONG?", "HOLD SEL AGAIN");
+                say("NEW SONG?", "HOLD [SEL] AGAIN");
             } else {
                 ui.confirm = C_NONE;
                 keys_release();
@@ -617,14 +617,14 @@ static void button(int b, int held_long)
                 post(SC_GMRESET, 0, 0, 0, 0);
                 post(SC_SELECT, 0, 0, 0, 0);
                 seq_sel = 0;
-                say("NEW SONG", "ARP: UNDO");
+                say("NEW SONG", "[ARP] UNDO");
             }
         } else if (ui.view != V_SONGS) {
             set_view(V_SONGS);
         } else if (song_dirty() && ui.confirm != C_LOAD) {
             ui.confirm = C_LOAD;
             ui.confirm_until = plat_ms() + 4000u;
-            say("NOT SAVED!", "SEL: LOAD ANYWAY");
+            say("NOT SAVED", "[SEL] LOAD ANYWAY");
         } else {
             ui.confirm = C_NONE;
             request(P_LOAD, ui.slot_cur);
@@ -635,7 +635,7 @@ static void button(int b, int held_long)
         if (slot != set.song && slot_info[slot].used && ui.confirm != C_SAVE) {
             ui.confirm = C_SAVE;
             ui.confirm_until = plat_ms() + 4000u;
-            say("SLOT IN USE", "SAVE: OVERWRITE");
+            say("SLOT IN USE", "[SAVE] OVERWRITE");
         } else {
             ui.confirm = C_NONE;
             request(P_SAVE, slot);
@@ -698,7 +698,7 @@ static void button(int b, int held_long)
             } else if (ui.confirm != C_DEL) {
                 ui.confirm = C_DEL;
                 ui.confirm_until = plat_ms() + 4000u;
-                say("DELETE SONG?", "HOLD ARP AGAIN");
+                say("DELETE SONG?", "HOLD [ARP] AGAIN");
             } else {
                 ui.confirm = C_NONE;
                 request(P_DEL, ui.slot_cur);
@@ -855,6 +855,29 @@ static void text_fit(int32_t x, int32_t y, int32_t w, const felucca_font_t *f, c
     cv_text(x, y, f, b, c);
 }
 
+/* help: a [KEY] in it is the key's name inverted, in a box of the text's colour (XS: rows 1-13, B:
+ * 0-14, the capitals 2 px in). Returns the end x; with draw 0 it only measures. */
+static int32_t help_text(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c, int draw)
+{
+    char b[48];
+    while (*s) {
+        int key = *s == '[', n = 0;
+        int32_t w;
+        s += key;
+        while (*s && *s != (key ? ']' : '[') && n < 47)
+            b[n++] = *s++;
+        b[n] = 0;
+        s += key && *s == ']';
+        w = text_w(f, b) + 4 * key;
+        if (draw && key)
+            cv_round(x, y + 16 - f->h, w, 2 * f->h - 17, 2, c);
+        if (draw)
+            cv_text(x + 2 * key, y, f, b, key ? K_BG : c);
+        x += w;
+    }
+    return x;
+}
+
 static void pos_text(uint32_t tick, char *b)    /* "bar.beat" */
 {
     b = b + (itoa_s((int32_t)(tick / SEQ_BAR + 1u), b), 0);
@@ -918,8 +941,8 @@ static void draw_header(void)
     ui.sig[0] = h;
     cv_begin(240, HDR_H, K_BG);
     if (msg) {
-        int32_t x = cv_text(8, 6, &FONT_B, ui.msg[0], K_TEXT);
-        cv_text(x + 8, 6, &FONT_B, ui.msg[1], K_ACC);
+        int32_t x = help_text(8, 6, &FONT_B, ui.msg[0], K_TEXT, 1);
+        help_text(x + 8, 6, &FONT_B, ui.msg[1], K_ACC, 1);
     } else {
         int32_t x;
         t[0] = 'S';
@@ -991,6 +1014,7 @@ static uint32_t main_sig(void)
     return h;
 }
 
+#define SEQ_HELP "[ARP] rest  [LFO] back  [SEQ] done"
 /* SONG: the 16 tracks, two columns of eight; the loop's progress at the bottom */
 static void draw_song(void)
 {
@@ -1092,13 +1116,13 @@ static void draw_track(void)
         cv_rect(8 + (int32_t)(224u * p / len), 60, 1, 80, seq_step ? K_ACC : seq_rec ? K_RECC : K_PLAYC);
     }
     if (seq_step)
-        cv_text(10, 124, &FONT_XS, "ARP rest   LFO back   SEQ done", K_DIM);
+        help_text(10, 124, &FONT_XS, SEQ_HELP, K_DIM, 1);
 }
 
 /* BAR: one bar of the selected track, close up: the steps, the step selected, the notes */
-#define BAR_HELP1 "ENV del step (held: bar)  ARP undo"
-#define BAR_HELP2 "LFO copy (held: paste)  ARP held: clear"
-#define SONGS_HELP "SEL: load (held: new), SAVE: save, ARP held: del"
+#define BAR_HELP1 "[ENV] del step (held: bar)  [ARP] undo"
+#define BAR_HELP2 "[LFO] copy (held: paste)  [ARP] held: clear"
+#define SONGS_HELP "[SEL] load (held: new)  [SAVE] save  [ARP] held: del"
 static void draw_bar(void)
 {
     const seq_trk_t *k = sel_trk();
@@ -1159,8 +1183,8 @@ static void draw_bar(void)
     }
     if (seq_playing && !seq_counting && seq_tick >= b0 && seq_tick < b0 + SEQ_BAR)
         cv_rect(8 + (int32_t)(224u * (seq_tick - b0) / SEQ_BAR), 22, 1, 86, seq_rec ? K_RECC : K_PLAYC);
-    cv_text(6, 114, &FONT_XS, BAR_HELP1, K_DIM);
-    cv_text(6, 128, &FONT_XS, BAR_HELP2, K_DIM);
+    help_text(6, 114, &FONT_XS, BAR_HELP1, K_DIM, 1);
+    help_text(6, 128, &FONT_XS, BAR_HELP2, K_DIM, 1);
 }
 
 /* MIX: sixteen strips; the four the knobs move are marked */
@@ -1221,9 +1245,12 @@ static void draw_songs(void)
     itoa_s((int32_t)(plat_song_sectors() * PLAT_SECTOR_BYTES / 1024u), q);
     cat(q + str_len(q), " KB");
     cv_text(6, 114, &FONT_XS, b, K_DIM);
-    cv_text(4, 128, &FONT_XS, SONGS_HELP, K_DIM);    /* 4 px margins: the help is a little wider */
+    help_text(4, 128, &FONT_XS, SONGS_HELP, K_DIM, 1);    /* 4 px margins: the help is a little wider */
 }
 
+#define SETUP_HELP1 "[GLO] voices, click, lights, colours"
+#define SETUP_HELP2 "[GLO] MIDI settings"
+#define UPDATE_HELP "[OCT-] + [OCT+] held 5 s: update mode"
 static void draw_setup(void)
 {
     char b[40], *q;
@@ -1246,8 +1273,8 @@ static void draw_setup(void)
     itoa_s((int32_t)song_bytes(&seq_song), q);
     cat(q + str_len(q), " B");
     cv_text(8, 70, &FONT_S, b, K_DIM);
-    cv_text(8, 96, &FONT_XS, ui.kpage[V_SETUP] ? "GLO: MIDI settings" : "GLO: voices, click, lights, colours", K_DIM);
-    cv_text(8, 112, &FONT_XS, "OCT- + OCT+ held 5 s: update mode", K_DIM);
+    help_text(8, 96, &FONT_XS, ui.kpage[V_SETUP] ? SETUP_HELP2 : SETUP_HELP1, K_DIM, 1);
+    help_text(8, 112, &FONT_XS, UPDATE_HELP, K_DIM, 1);
 }
 
 static void draw_main(void)
@@ -1413,7 +1440,7 @@ void ui_input_only(void) { input(); }
  * lines of help, in the room the screen gives them. Prints what does not fit; returns how many. */
 static int fit1(const char *what, const felucca_font_t *f, const char *t, int32_t room)
 {
-    int32_t w = text_w(f, t);
+    int32_t w = help_text(0, 0, f, t, 0, 0);
     if (w <= room)
         return 0;
     printf("does not fit: %s \"%s\" %d px, room %d\n", what, t, (int)w, (int)room);
@@ -1447,6 +1474,11 @@ int ui_fit_check(void)
     bad += fit1("BAR help", &FONT_XS, BAR_HELP1, 228);
     bad += fit1("BAR help", &FONT_XS, BAR_HELP2, 228);
     bad += fit1("SONGS help", &FONT_XS, SONGS_HELP, 232);
+    bad += fit1("step help", &FONT_XS, SEQ_HELP, 226);
+    bad += fit1("SETUP help", &FONT_XS, SETUP_HELP1, 228);
+    bad += fit1("SETUP help", &FONT_XS, UPDATE_HELP, 228);
+    bad += fit1("message", &FONT_B, "NOT SAVED [SEL] LOAD ANYWAY", 224);
+    bad += fit1("message", &FONT_B, "DELETE SONG? HOLD [ARP] AGAIN", 224);
     bad += fit1("SONGS row", &FONT_XS, "128b 8192n", 116 - 22 - 10);
     bad += fit1("SETUP", &FONT_S, "CPU 100%   voices 48+16   xruns 9999", 232);
     bad += fit1("SETUP", &FONT_S, "song 8192 notes, 32768 B", 232);
