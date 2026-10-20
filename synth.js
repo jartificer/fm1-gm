@@ -38,21 +38,22 @@ export class Preview {
         return this.loading;
     }
 
-    async start() {                                // from a click: the audio may start only then
+    // from a click or a key: browsers let the audio start only then, and Firefox (mobile above all) only
+    // while still inside that event, so the context is made and resumed before anything is awaited
+    async start() {
+        if (!this.ctx) this.ctx = new AudioContext({sampleRate: RATE, latencyHint: "interactive"});
+        const resumed = this.ctx.state !== "running" ? this.ctx.resume() : null;
         await (this.starting ||= this.open());
-        if (this.ctx.state !== "running") await this.ctx.resume();
+        await resumed;
     }
     async open() {
-        await this.load();
-        const ctx = new AudioContext({sampleRate: RATE, latencyHint: "interactive"});
-        await ctx.audioWorklet.addModule(new URL("worklet.js", import.meta.url));
+        const ctx = this.ctx;
+        await Promise.all([this.load(), ctx.audioWorklet.addModule(new URL("worklet.js", import.meta.url))]);
         const node = new AudioWorkletNode(ctx, "fm1-out", {outputChannelCount: [2]});
         node.connect(ctx.destination);
         node.port.onmessage = e => { this.played = e.data; this.tick(); };
-        this.ctx = ctx;
         this.node = node;
         this.x.web_audio_take(1 << 20);
-        await ctx.resume();
         this.tick();
     }
 
