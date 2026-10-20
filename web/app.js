@@ -172,10 +172,20 @@ async function boot() {
         $("st-fw").textContent = "running";
         $("st-flash").textContent = emu.restored ? "kept from last time" : "new";
         requestAnimationFrame(frame);
+        bridge();
     } catch (e) {
         $("st-fw").textContent = "failed to load";
         $("overlay").innerHTML = `<p style="color:#eee;max-width:40ch;text-align:center">The emulator did not load (${e.message}). It needs a browser with WebAssembly, and the page served over http(s), not opened as a file.</p>`;
     }
+}
+// the song editor (editor.html) in another tab reaches the emulator's USB port over this channel
+function bridge() {
+    if (!("BroadcastChannel" in window)) return;
+    const bc = new BroadcastChannel("fm1gm-link");
+    bc.onmessage = e => {
+        if (e.data && e.data.from === "editor" && e.data.sx instanceof Uint8Array) emu.sysex(e.data.sx);
+    };
+    emu.on((what, p) => { if (what === "sysex") bc.postMessage({from: "emu", sx: p}); });
 }
 $("start").addEventListener("click", async () => {
     $("overlay").hidden = true;

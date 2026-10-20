@@ -47,6 +47,7 @@ export class Emulator {
         this.ms = 0;                                 // the device's time
         this.downAt = new Map();                     // control -> when it went down
         this.ups = [];                               // quick taps: [due, mask, isKey]
+        this.sxq = [];                               // SysEx waiting for the device (one at a time)
     }
 
     async load(url = "fm1gm.wasm") {
@@ -108,6 +109,7 @@ export class Emulator {
             const n = Math.max(0, Math.min(ms, due - this.ms));
             x.web_set_buttons(this.buttons);
             x.web_set_keys(this.keys);
+            this.sxPump();
             if (n) x.web_run(n);
             this.ms += n;
             ms -= n;
@@ -119,6 +121,18 @@ export class Emulator {
         x.web_set_buttons(this.buttons);
         x.web_set_keys(this.keys);
         for (let p; (p = x.web_midi_out());) for (const f of this.listeners) f("midiout", p);
+        this.sxPump();
+        const sn = x.web_sx_out_len();
+        if (sn) {
+            const out = new Uint8Array(x.memory.buffer, x.web_sx_out(), sn).slice();
+            x.web_sx_out_clear();
+            for (let i = 0; i < sn;) {                // F0 .. F7 each
+                const j = out.indexOf(0xF7, i);
+                if (j < 0) break;
+                for (const f of this.listeners) f("sysex", out.subarray(i, j + 1));
+                i = j + 1;
+            }
+        }
         const w = x.web_store_writes();
         if (w !== this.writes) {
             this.writes = w;
@@ -142,6 +156,21 @@ export class Emulator {
         const at = this.downAt.get(id) ?? -1e9;
         if (this.ms - at < TAP) { this.ups.push([at + TAP, bit, isKey]); return; }
         if (isKey) this.keys = (held & ~bit) >>> 0; else this.buttons = held & ~bit;
+    }
+    // a SysEx message (F0 .. F7) for the device, as from its USB port (the song editor's, link.c)
+    sysex(msg) {
+        if (msg[0] !== 0xF0 || msg.at(-1) !== 0xF7) return;
+        this.sxq.push(msg.slice(1, -1));
+        if (!this.audioOn) this.run(2);              // answer now, even with the page in the background
+    }
+    sxPump() {
+        const x = this.x;
+        while (this.sxq.length && !x.web_sx_busy()) {
+            const m = this.sxq.shift();
+            if (m.length > 640) continue;
+            new Uint8Array(x.memory.buffer, x.web_sx_in_buf(), m.length).set(m);
+            x.web_sx_in(m.length);
+        }
     }
     turn(e, n) { this.x.web_turn(ENCODERS.indexOf(e), n); }
     master(v) { this.x.web_set_master(Math.round(v)); }

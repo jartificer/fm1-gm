@@ -340,6 +340,7 @@ static void fm1_main(void)
                 enter_uboot("UBOOT");
             }
         }
+        link_service();                             /* the songs over SysEx (the web song editor) */
         ota_service();                              /* M-UPGRADE handshake (other SysEx is dropped) */
         if (usb.ota_req) {
             usb.ota_req = 0;

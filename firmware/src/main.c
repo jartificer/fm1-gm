@@ -127,4 +127,8 @@ static void ota_commit(const uint8_t *parm)
 #include "app/plat_fm1.c"
 #include "app/settings.c"
 #include "app/ui.c"
+static int link_rx(const uint8_t **p, uint32_t *n) { return ota_frame_get(p, n); }   /* usb.c's SysEx frame */
+static void link_rx_done(void) { ota_frame_done(); }
+static int link_tx(const uint8_t *p, uint32_t n) { return ota_wire_send(p, n); }
+#include "app/link.c"
 #include "app/main_fm1.c"
