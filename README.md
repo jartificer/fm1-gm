@@ -24,7 +24,7 @@ https://jartificer.github.io/fm1-gm/
 
 ## Song editor
 
-`web/editor.html` (linked from the emulator page) edits FM1-GM songs in the browser: the tempo, bars and quantize, each track's channel, program, volume, pan, reverb, velocity, transpose, mute and solo, and each track's notes in a piano roll. It works without an FM-1, on `.fm1song` files, which are the song's bytes exactly as the FM-1 keeps them in flash.
+`web/editor.html` (linked from the emulator page - https://jartificer.github.io/fm1-gm/editor.html ) edits FM1-GM songs in the browser: the tempo, bars and quantize, each track's channel, program, volume, pan, reverb, velocity, transpose, mute and solo, and each track's notes in a piano roll. It works without an FM-1, on `.fm1song` files, which are the song's bytes exactly as the FM-1 keeps them in flash.
 
 - **Preview:** Play (or Space) plays the song in a loop with the firmware's own sound engine and samples, the same WebAssembly build the emulator runs, so it sounds as the FM-1 would. Edits are heard as it plays, and a note sounds when you add it, click it or move it to another pitch. Click the ruler to choose where Play starts.
 - **On the FM-1:** with the FM-1 connected over USB (Chrome, Edge or Opera, which have Web MIDI with SysEx), Connect FM-1 lists its 64 slots. Open in editor reads a slot (or the song the FM-1 has in memory, saved or not); Write editor song here saves the editor's song to a slot, and the FM-1 switches to it (its song before is one press of ARP away); Delete empties a slot. With the emulator open in another tab, Use the emulator does the same with the emulator's songs. This needs FM1-GM from this version on: older versions do not answer the editor.
