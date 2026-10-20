@@ -4,6 +4,7 @@
 // emulator's, in another tab) through fm1link.js.
 import * as S from "./fm1song.js";
 import {MEMORY, findDevice, findEmulator} from "./fm1link.js";
+import {Preview} from "./synth.js";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -29,6 +30,7 @@ function edit() {
     redos.length = 0;
 }
 function changed() {
+    preview.changed();
     try { localStorage.setItem(DRAFT, snapshot()); } catch { /* private window: no draft */ }
     render();
 }
@@ -46,6 +48,13 @@ try {
     if (d) restore(d);
     if (!Array.isArray(song?.tracks) || song.tracks.length !== S.NTRK) throw new Error("not a song");
 } catch { song = S.newSong(); name = "untitled"; }
+
+// the preview: the firmware's sound engine playing the song (synth.js); cue: where Play starts
+const preview = new Preview(() => song);
+preview.load().catch(() => {});
+window.fm1preview = preview;                      // for the console
+let cue = 0;
+const sound = (t, notes) => { for (const n of notes.slice(0, 8)) preview.note(t, n).catch(() => {}); };
 
 const status = (msg, kind = "") => { const e = $("status"); e.textContent = msg; e.className = "msg " + kind; };
 
@@ -236,6 +245,18 @@ function draw() {
     }
     c.fillStyle = col.sheet;
     c.fillRect(0, 0, KW, RULER);
+    // the cue (where Play starts) and, playing, where the song is
+    const cx = tickX(cue);
+    if (cx >= KW) {
+        c.fillStyle = col.sel;
+        c.beginPath();
+        c.moveTo(cx - 5, 2); c.lineTo(cx + 5, 2); c.lineTo(cx, 10);
+        c.fill();
+    }
+    if (preview.playing) {
+        const x = tickX(preview.heard);
+        if (x >= KW) { c.fillStyle = col.sel; c.fillRect(Math.round(x), 0, 2, h); }
+    }
 }
 roll.addEventListener("scroll", draw);
 new ResizeObserver(() => { sizeRoll(); draw(); }).observe(roll);
@@ -277,6 +298,12 @@ let drag = null;
 
 cv.addEventListener("pointerdown", e => {
     const p = at(e);
+    if (p.x >= KW && p.y < RULER) {                // the ruler: the cue
+        cue = clamp(snapT(p.tick), 0, S.songTicks(song) - 1);
+        if (preview.playing) preview.play(cue);
+        draw();
+        return;
+    }
     if (p.x < KW || p.y < RULER || p.note < 0 || p.note > 127) return;
     roll.focus({preventScroll: true});
     if (e.button === 2) return;
@@ -285,6 +312,7 @@ cv.addEventListener("pointerdown", e => {
     if (n) {
         if (e.shiftKey) { picked.has(n) ? picked.delete(n) : picked.add(n); draw(); return; }
         if (!picked.has(n)) picked = new Set([n]);
+        sound(sel, [n.note]);
         const edge = tickX(n.tick + n.len) - p.x < 7;
         drag = {mode: edge ? "len" : "move", p0: p, start: [...picked].map(m => ({m, tick: m.tick, note: m.note, len: m.len})), undo: snapshot(), moved: false};
     } else {
@@ -295,6 +323,7 @@ cv.addEventListener("pointerdown", e => {
         n = {tick: clamp(tick, 0, S.MAXBARS * S.BAR - 1), note: p.note, len: newLen()};
         t.notes.push(n);
         picked = new Set([n]);
+        sound(sel, [n.note]);
         drag = {mode: "len", p0: p, start: [{m: n, tick: n.tick, note: n.note, len: n.len}], undo: null, moved: true, fresh: true};
     }
     cv.setPointerCapture(e.pointerId);
@@ -318,6 +347,10 @@ cv.addEventListener("pointermove", e => {
             const endT = Math.max(snapT(s.tick + s.len + dt), s.tick + 1);
             s.m.len = clamp(endT - s.tick, 1, 0xFFFF);
         }
+    }
+    if (drag.mode === "move" && dn !== (drag.dn ?? 0)) {   // a new pitch: hear it
+        drag.dn = dn;
+        sound(sel, drag.start.map(s => s.m.note));
     }
     draw();
 });
@@ -363,11 +396,38 @@ roll.addEventListener("keydown", e => {
         }
         dedupe();
         changed();
+        if (mv[1]) sound(sel, ps.map(n => n.note));
     }
     if (e.key === "Escape") { picked = new Set(); draw(); }
 });
 $("clear").addEventListener("click", () => arm($("clear"), "Click again to clear", () => remove([...song.tracks[sel].notes])));
 $("snap").addEventListener("change", draw);
+
+// play / stop: the button, or the space bar outside the fields
+async function playStop() {
+    if (preview.playing) {
+        preview.stop();
+    } else {
+        try {
+            await preview.play(cue < S.songTicks(song) ? cue : 0);
+            requestAnimationFrame(follow);
+        } catch (e) { status(`No sound: ${e.message}`, "bad"); }
+    }
+    $("play").textContent = preview.playing ? "Stop" : "Play";
+    $("play").setAttribute("aria-pressed", preview.playing);
+    draw();
+}
+function follow() {                              // redraw the playhead while it plays
+    if (!preview.playing) { draw(); return; }
+    draw();
+    requestAnimationFrame(follow);
+}
+$("play").addEventListener("click", playStop);
+document.addEventListener("keydown", e => {
+    if (e.key !== " " || e.repeat || e.target.matches("input, select, button, textarea")) return;
+    e.preventDefault();
+    playStop();
+});
 
 // --------------------------------------------------------- undo, files ---
 function undo() {

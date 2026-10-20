@@ -152,6 +152,7 @@ footer { font-size: 13px; color: var(--ink-2); }
       <div class="row between">
         <h2 id="roll-title">Track 1</h2>
         <div class="row">
+          <button id="play" type="button" class="go" aria-pressed="false" title="Play / stop (Space)">Play</button>
           <label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center">Snap <select id="snap"></select></label>
           <label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center">Length <select id="len"></select></label>
           <button id="zoomout" type="button" aria-label="Zoom out">−</button>
@@ -160,7 +161,7 @@ footer { font-size: 13px; color: var(--ink-2); }
         </div>
       </div>
       <div class="roll" id="roll" tabindex="0" aria-label="Piano roll of the selected track"><canvas id="cv"></canvas><div id="spacer"></div></div>
-      <p class="hint muted">Click to add a note, drag it to move it, drag its right end to change its length. Right-click or double-click deletes. <kbd>Shift</kbd>-click selects more; <kbd>Del</kbd> deletes the selected notes, the arrow keys move them, <kbd>Ctrl</kbd>+<kbd>A</kbd> selects the track's notes. Notes past the song's end are kept but do not play (grey).</p>
+      <p class="hint muted">Play (or <kbd>Space</kbd>) plays the song, looping, with the FM-1's own sounds; edits are heard as it plays. Click the ruler to choose where it starts. Click to add a note, drag it to move it, drag its right end to change its length. Right-click or double-click deletes. <kbd>Shift</kbd>-click selects more; <kbd>Del</kbd> deletes the selected notes, the arrow keys move them, <kbd>Ctrl</kbd>+<kbd>A</kbd> selects the track's notes. Notes past the song's end are kept but do not play (grey).</p>
     </main>
 
     <aside class="panel" aria-label="The FM-1">
