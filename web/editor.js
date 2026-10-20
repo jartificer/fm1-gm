@@ -53,6 +53,13 @@ try {
 const preview = new Preview(() => song);
 preview.load().catch(() => {});
 window.fm1preview = preview;                      // for the console
+// a touch's pointerdown may not start sound (the piano roll's clicks are pointerdowns), so the first tap,
+// click or key anywhere unlocks it
+const unlock = () => {
+    preview.start().catch(() => {});
+    for (const k of ["pointerup", "touchend", "click", "keydown"]) removeEventListener(k, unlock, true);
+};
+for (const k of ["pointerup", "touchend", "click", "keydown"]) addEventListener(k, unlock, true);
 let cue = 0;
 const sound = (t, notes) => { for (const n of notes.slice(0, 8)) preview.note(t, n).catch(() => {}); };
 
