@@ -568,6 +568,35 @@ static void pending(void)
     ui.pend = P_NONE;
 }
 
+/* songs over USB (link.c, the web song editor) */
+int ui_song_dirty(void) { return song_dirty(); }
+
+void ui_stop(void)                              /* before a song comes in */
+{
+    request(P_NONE, 0);
+}
+
+void ui_song_replaced(int slot)                 /* the song in memory came over USB; slot >= 0: saved there */
+{
+    char t[12];
+    if (slot >= 0) {
+        set.song = (uint8_t)slot;
+        ui.set_dirty = 1;
+        ui.saved_changes = seq_changes;
+        itoa2((uint32_t)slot + 1u, cat(t, "SAVED "));
+    }
+    post(SC_GMRESET, 0, 0, 0, 0);
+    post(SC_SELECT, 0, 0, 0, 0);
+    seq_sel = 0;
+    say("SONG FROM USB", slot >= 0 ? t : "NOT SAVED");
+}
+
+void ui_song_deleted(int slot)
+{
+    if (slot == set.song)                       /* the song stays here, now not saved anywhere */
+        ui.saved_changes = seq_changes - 1u;
+}
+
 static void button(int b, int held_long)
 {
     switch (b) {

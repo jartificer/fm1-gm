@@ -254,6 +254,20 @@ static void snapshot(void)                      /* the undo copy: before a recor
 
 static void changed(void) { seq_changes++; }
 
+int seq_import(int (*get)(void))
+{
+    copy_song(&undo, S);
+    if (song_parse(S, get) != 0) {
+        copy_song(S, &undo);
+        seq_undo_ok = 0;
+        return -1;
+    }
+    seq_undo_ok = 1;
+    seq_full = 0;
+    changed();
+    return 0;
+}
+
 /* ------------------------------------------------------------- output --- */
 static void out3(uint32_t st, uint32_t d1, uint32_t d2)   /* the engine, and MIDI out when it is on */
 {

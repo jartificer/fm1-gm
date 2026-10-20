@@ -36,12 +36,12 @@ GitHub Actions (`.github/workflows/build.yml`) does all of this on every push an
 
 ## The web page
 
-`web/` is a static site: `index.html`, `app.js` (the panel and the page), `emu.js` (runs the emulator), `worklet.js` (its audio out), `fm1ota.js` (the installer, a port of `tools/fm1_install.py`), and two built files kept in the repository so the site needs no build step to serve:
+`web/` is a static site: `index.html`, `app.js` (the panel and the page), `emu.js` (runs the emulator), `worklet.js` (its audio out), `fm1ota.js` (the installer, a port of `tools/fm1_install.py`), the song editor (`editor.html`, `editor.js`, with `fm1song.js` for the song format and MIDI export and `fm1link.js` for the songs over SysEx, which reaches the emulator in another tab over a BroadcastChannel), and two built files kept in the repository so the site needs no build step to serve:
 
 - `web/fm1gm.wasm`: `sh host/build_web.sh`. Needs clang and wasm-ld (LLVM 13 or later, `--target=wasm32`); no Emscripten and no libc.
 - `web/fm1gm.fwsc`: the device package, copied from `build/fm1gm.fwsc` after `./build.sh`. Update `web/build.txt` with the commit it was built from.
 
-`tests/web_install_test.mjs` (Node 18 or later, run by `tests/run_tests.sh`) tests the installer against a simulated FM-1.
+`tests/web_install_test.mjs` (Node 18 or later, run by `tests/run_tests.sh`) tests the installer against a simulated FM-1, and `tests/web_song_test.mjs` the editor's song format, MIDI export and SysEx protocol against the firmware in `web/fm1gm.wasm`.
 
 ## Layout
 
@@ -50,7 +50,7 @@ GitHub Actions (`.github/workflows/build.yml`) does all of this on every push an
 - `firmware/src/dsp/gm.c`: the GM engine, a sample player; `gm_wave.h` the wavetable's types, `gm_names.h` the GM names.
 - `assets/soundfont/fm1gm.sf2`: the instruments and drums, one sample per program with its attack and a seamless loop. The build turns it into `build/gen/gm_wavetable.h` (`tools/gen_wavetable.py`, 4-bit ADPCM, Python standard library only). The SoundFont itself is made from FluidR3_GM.sf2 by `tools/sf2_reduce.py` (needs numpy and scipy): `python3 tools/sf2_reduce.py -v FluidR3_GM.sf2 assets/soundfont/fm1gm.sf2` (with `-v` it prints each program's sample length and loop, and how well the loop's seam matched, 1 being a perfect match). Its settings (the key whose sample is kept, attack and loop lengths, sample rates) are at the top of the script. The app image must stay within the 581,564-byte app slot; the wavetable takes about 420 KB of it.
 - `firmware/src/dsp/seq.c`: the sequencer, run from the audio render; the UI talks to it through a command ring.
-- `firmware/src/app/`: the platform layer, settings and song slots, and the UI. The song byte format is `song_stream` / `song_parse` in `firmware/src/dsp/seq.c`.
+- `firmware/src/app/`: the platform layer, settings and song slots, the UI, and `link.c` (the songs over SysEx, for the web song editor). The song byte format is `song_stream` / `song_parse` in `firmware/src/dsp/seq.c`.
 - `firmware/src/storage.c`: the A/B flash store for the settings and panel (FoMni's), and the song store: every other data sector, shared by the 64 slots, each save a new version in free sectors.
 - `host/gm_host.c`: the app on the host, driven by scenario scripts.
 - `host/gm_web.c`: the app as WebAssembly for the web page, driven by `web/emu.js`.

@@ -161,6 +161,29 @@ uint32_t plat_xruns(void) { return 0; }
 #include "../firmware/src/app/settings.c"
 #include "../firmware/src/app/ui.c"
 
+/* SysEx for the songs (link.c, the web song editor): one message in at a time, as usb.c keeps it;
+ * the answers wait in sx_out until the page takes them */
+static uint8_t sx_in[640], sx_out[16384];
+static uint32_t sx_in_n, sx_out_n;
+static int link_rx(const uint8_t **p, uint32_t *n)
+{
+    if (!sx_in_n)
+        return 0;
+    *p = sx_in;
+    *n = sx_in_n;
+    return 1;
+}
+static void link_rx_done(void) { sx_in_n = 0; }
+static int link_tx(const uint8_t *p, uint32_t n)
+{
+    if (sx_out_n + n > sizeof sx_out)
+        return -1;
+    memcpy(sx_out + sx_out_n, p, n);
+    sx_out_n += n;
+    return 0;
+}
+#include "../firmware/src/app/link.c"
+
 /* ------------------------------------------------------------ audio --- */
 /* rendered frames wait here until the page takes them (web_audio_take) */
 #define AQ 16384u                        /* frames, a power of two */
@@ -206,6 +229,8 @@ WEB(web_run) void web_run(uint32_t ms)
                 aq_r = aq_w - AQ;
             audio_due_x256 += 256u * 256u * 1000u / 44100u;
         }
+        link_service();
+        sx_in_n = 0;                         /* not the songs': dropped */
         if (now_ms >= ui_due) {
             ui_due = now_ms + 16;
             ui_frame();
@@ -266,3 +291,20 @@ WEB(web_cpu) uint32_t web_cpu(void) { return cpu_pct; }
 WEB(web_set_cpu) void web_set_cpu(uint32_t p) { cpu_pct = p; }
 WEB(web_view) int web_view(void) { return ui.view; }
 WEB(web_playing) int web_playing(void) { return seq_playing; }
+
+/* a SysEx message from the page: the bytes between F0 and F7 written to web_sx_in_buf first. 0: one is
+ * still waiting (send it again later) */
+WEB(web_sx_in_buf) uint8_t *web_sx_in_buf(void) { return sx_in; }
+WEB(web_sx_in) int web_sx_in(uint32_t n)
+{
+    if (sx_in_n || !n || n > sizeof sx_in)
+        return 0;
+    sx_in_n = n;
+    return 1;
+}
+WEB(web_sx_busy) int web_sx_busy(void) { return sx_in_n != 0; }
+/* the SysEx messages sent (F0 .. F7 each, one after another), web_sx_out_len bytes; web_sx_out_clear
+ * once taken */
+WEB(web_sx_out) uint8_t *web_sx_out(void) { return sx_out; }
+WEB(web_sx_out_len) uint32_t web_sx_out_len(void) { return sx_out_n; }
+WEB(web_sx_out_clear) void web_sx_out_clear(void) { sx_out_n = 0; }

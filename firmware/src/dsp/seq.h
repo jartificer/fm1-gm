@@ -133,6 +133,9 @@ uint32_t song_stream(const song_t *s, uint8_t *dst, uint32_t from, uint32_t n);
 /* song s from a stream, get() its next byte (-1 at the end, < -1 an error): 0, or -1 (s is undefined) */
 int song_parse(song_t *s, int (*get)(void));
 static inline uint32_t song_bytes(const song_t *s) { return song_stream(s, 0, 0, 0); }
+/* the song from a stream (as song_parse) in place of the song in memory, the one before kept as the undo
+ * copy (SC_UNDO brings it back); stopped and with seq_lock set. 0, or -1: not a song (nothing changed) */
+int seq_import(int (*get)(void));
 uint32_t seq_song_ticks(void);
 /* the render (audio ISR): n stereo frames, 24-bit in int32; gain Q12 */
 void seq_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12);

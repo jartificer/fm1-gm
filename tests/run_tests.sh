@@ -44,6 +44,7 @@ fi
 run installer python3 tests/install_test.py
 if command -v node >/dev/null 2>&1; then
     run web-installer node tests/web_install_test.mjs
+    run web-songs node tests/web_song_test.mjs
 else
     echo "  skip web-installer (needs node)"
 fi

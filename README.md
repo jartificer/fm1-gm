@@ -22,6 +22,15 @@ You can use the following website to test out the firmware in your browser. On C
 
 https://jartificer.github.io/fm1-gm/
 
+## Song editor
+
+`web/editor.html` (linked from the emulator page) edits FM1-GM songs in the browser: the tempo, bars and quantize, each track's channel, program, volume, pan, reverb, velocity, transpose, mute and solo, and each track's notes in a piano roll. It works without an FM-1, on `.fm1song` files, which are the song's bytes exactly as the FM-1 keeps them in flash.
+
+- **On the FM-1:** with the FM-1 connected over USB (Chrome, Edge or Opera, which have Web MIDI with SysEx), Connect FM-1 lists its 64 slots. Open in editor reads a slot (or the song the FM-1 has in memory, saved or not); Write editor song here saves the editor's song to a slot, and the FM-1 switches to it (its song before is one press of ARP away); Delete empties a slot. With the emulator open in another tab, Use the emulator does the same with the emulator's songs. This needs FM1-GM from this version on: older versions do not answer the editor.
+- **MIDI:** Export MIDI writes a Standard MIDI File (type 1, 48 ticks a quarter note) of one pass through the song: GM System On, the tempo, then a track for each track with notes, with its program, volume, pan and reverb, its transpose applied and its velocity on every note. Notes past the song's end are left out, as the FM-1 does not play them. MIDI files cannot be imported.
+
+The editor and the FM-1 talk SysEx (`F0 7D 46 47 ...`, 7D being MIDI's ID for non-commercial use): the protocol is described at the top of `firmware/src/app/link.c`, and `web/fm1link.js` is its host side.
+
 ## The sounds
 
 The sounds are samples from the Fluid R3 GM SoundFont by Frank Wen (MIT License). The full SoundFont is 141 MiB and the FM-1 has about 440 KiB of flash left after the firmware, so `tools/sf2_reduce.py` cuts it down to `assets/soundfont/fm1gm.sf2`, a normal SoundFont you can play in any SoundFont player.
@@ -150,7 +159,7 @@ After two failed starts in a row the firmware comes up in a safe mode with USB o
 
 ## In the browser
 
-`web/` is a page with the firmware running in the browser and the installer. The emulator is the app, the sequencer and the sound engine compiled to WebAssembly from the same sources (`host/gm_web.c`, built by `host/build_web.sh`); songs you save are kept in the browser. The installer finds the FM-1 over Web MIDI (it needs SysEx permission) and installs the package that comes with the page, or one you choose.
+`web/` is a page with the firmware running in the browser and the installer, and the song editor (`editor.html`). The emulator is the app, the sequencer and the sound engine compiled to WebAssembly from the same sources (`host/gm_web.c`, built by `host/build_web.sh`); songs you save are kept in the browser. The installer finds the FM-1 over Web MIDI (it needs SysEx permission) and installs the package that comes with the page, or one you choose.
 
 To use it on your own machine:
 

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FM1-GM Song Editor</title>
+<meta name="description" content="Edit FM1-GM songs in the browser, move them to and from an FM-1 over USB, and export them as MIDI.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* The editor: the song's settings and its 16 tracks on top, the selected track's piano roll under them,
+   the FM-1's 64 slots on the right (under everything on a phone). Same bench and ink as the emulator. */
+:root {
+  --bench: #e9ebee; --sheet: #f7f8fa; --ink: #1b1f27; --ink-2: #5a6272; --rule: #cfd4dc;
+  --amber: #c66a00; --ok: #1f8a4c; --bad: #c0362c; --focus: #3a78ff;
+  --roll-bg: #fbfbfc; --roll-alt: #eef0f3; --roll-line: #dde1e7; --roll-bar: #a9b0bc;
+  --note: #c66a00; --note-sel: #3a78ff; --note-out: #b7bcc6; --key-w: #ffffff; --key-b: #3a3f49;
+  --f-panel: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bench: #101217; --sheet: #191c23; --ink: #e4e8f0; --ink-2: #9aa3b4; --rule: #2c313c;
+    --amber: #ffac40; --ok: #54d67c; --bad: #ff6b5e; --focus: #6d9bff;
+    --roll-bg: #14171d; --roll-alt: #1a1e25; --roll-line: #242934; --roll-bar: #3d4452;
+    --note: #ffac40; --note-sel: #6d9bff; --note-out: #4a505c; --key-w: #d9dde5; --key-b: #2a2e36;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bench: #101217; --sheet: #191c23; --ink: #e4e8f0; --ink-2: #9aa3b4; --rule: #2c313c;
+  --amber: #ffac40; --ok: #54d67c; --bad: #ff6b5e; --focus: #6d9bff;
+  --roll-bg: #14171d; --roll-alt: #1a1e25; --roll-line: #242934; --roll-bar: #3d4452;
+  --note: #ffac40; --note-sel: #6d9bff; --note-out: #4a505c; --key-w: #d9dde5; --key-b: #2a2e36;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bench); color: var(--ink); font: 400 15px/1.5 var(--f-body);
+  padding: 20px max(16px, env(safe-area-inset-right, 0px)) 32px max(16px, env(safe-area-inset-left, 0px));
+}
+a { color: inherit; text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 1400px; margin: 0 auto; display: grid; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+h1 { font: 700 30px/1.1 var(--f-panel); letter-spacing: .01em; margin: 0; }
+h1 small { font: 600 15px var(--f-panel); color: var(--ink-2); letter-spacing: .08em; text-transform: uppercase; margin-left: 10px; }
+h2 { font: 700 19px var(--f-panel); letter-spacing: .02em; margin: 0; }
+.muted { color: var(--ink-2); }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.row { display: flex; gap: 8px 10px; flex-wrap: wrap; align-items: center; }
+.row.between { justify-content: space-between; }
+button, select, input {
+  font: 500 14px var(--f-body); color: var(--ink); background: var(--bench); border: 1px solid var(--rule);
+  border-radius: 8px; padding: 6px 10px; min-height: 34px;
+}
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--ink-2); }
+button.go { background: var(--ink); color: var(--sheet); border-color: var(--ink); font-weight: 600; }
+button.armed { border-color: var(--bad); color: var(--bad); }
+button:disabled { opacity: .45; cursor: default; }
+input[type=number] { width: 72px; font-family: var(--f-mono); font-size: 13px; }
+label.f { display: grid; gap: 2px; font: 600 11.5px var(--f-panel); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.facts { font: 400 13px var(--f-mono); color: var(--ink-2); display: flex; gap: 14px; flex-wrap: wrap; }
+.facts b { color: var(--ink); font-weight: 500; }
+.facts .bad, .msg.bad { color: var(--bad); }
+.msg { font-size: 14px; min-height: 1.5em; }
+.msg.ok { color: var(--ok); }
+/* ---------------------------------------------------------------- tracks */
+.tablewrap { overflow-x: auto; margin: 0 -4px; }
+table.trk { border-collapse: collapse; width: 100%; min-width: 820px; font-size: 13.5px; }
+table.trk th { font: 600 11px var(--f-panel); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); text-align: left; padding: 0 4px 4px; }
+table.trk td { padding: 2px 4px; border-top: 1px solid var(--rule); }
+table.trk tr.sel td { background: color-mix(in srgb, var(--amber) 14%, transparent); }
+table.trk tr { cursor: pointer; }
+table.trk select, table.trk input { min-height: 28px; padding: 2px 6px; font-size: 13px; }
+table.trk input[type=number] { width: 58px; }
+table.trk td.n { font: 500 13px var(--f-mono); width: 30px; }
+table.trk td.cnt { font: 400 12.5px var(--f-mono); color: var(--ink-2); text-align: right; }
+.tog { min-width: 30px; padding: 2px 6px; font: 700 12px var(--f-panel); }
+.tog.on.m { background: var(--bad); color: #fff; border-color: var(--bad); }
+.tog.on.s { background: var(--amber); color: #1b1f27; border-color: var(--amber); }
+/* ---------------------------------------------------------------- roll */
+.roll { position: relative; height: 460px; overflow: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--roll-bg); touch-action: none; }
+.roll canvas { position: sticky; left: 0; top: 0; display: block; }
+.hint { font-size: 13px; }
+kbd { font: 500 12px var(--f-mono); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--bench); }
+/* ---------------------------------------------------------------- device */
+.slots { max-height: 520px; overflow: auto; border: 1px solid var(--rule); border-radius: 10px; }
+.slot { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: baseline; padding: 6px 10px; border-top: 1px solid var(--rule); cursor: pointer; font-size: 13.5px; }
+.slot:first-child { border-top: 0; }
+.slot .n { font: 500 13px var(--f-mono); color: var(--ink-2); }
+.slot .d { font: 400 12.5px var(--f-mono); color: var(--ink-2); text-align: right; }
+.slot.empty .t { color: var(--ink-2); }
+.slot.sel { background: color-mix(in srgb, var(--amber) 16%, transparent); }
+.slot .cur { font: 600 11px var(--f-panel); letter-spacing: .08em; text-transform: uppercase; color: var(--ok); margin-left: 6px; }
+.pill { display: inline-block; font: 600 12px var(--f-panel); letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.ok { color: var(--ok); } .pill.bad { color: var(--bad); } .pill.wait { color: var(--amber); }
+.progress { height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; }
+.progress div { height: 100%; width: 0; background: var(--amber); }
+.space { height: 8px; border-radius: 4px; background: var(--rule); overflow: hidden; }
+.space div { height: 100%; background: var(--ink-2); }
+footer { font-size: 13px; color: var(--ink-2); }
+@media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } .slots { max-height: 360px; } .roll { height: 380px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>FM1-GM<small>song editor</small></h1>
+    <div class="row"><a href="index.html">Emulator &amp; installer</a></div>
+  </header>
+
+  <div class="layout">
+    <main class="panel" aria-label="The song">
+      <div class="row between">
+        <div class="row">
+          <button id="new" type="button">New</button>
+          <button id="open" type="button">Open file…</button>
+          <input type="file" id="file" accept=".fm1song,application/octet-stream" hidden>
+          <button id="save" type="button" class="go">Save .fm1song</button>
+          <button id="midi" type="button">Export MIDI</button>
+          <label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="skipmuted" style="min-height:0"> leave out muted tracks</label>
+        </div>
+        <div class="row">
+          <button id="undo" type="button" title="Undo (Ctrl+Z)">Undo</button>
+          <button id="redo" type="button" title="Redo (Ctrl+Shift+Z)">Redo</button>
+        </div>
+      </div>
+
+      <div class="row" style="align-items:end">
+        <label class="f">Name<input id="name" type="text" style="width:190px" spellcheck="false"></label>
+        <label class="f">Tempo<input id="tempo" type="number" min="30" max="300"></label>
+        <label class="f">Bars<input id="bars" type="number" min="1" max="128"></label>
+        <label class="f">Quantize (recording)<select id="quant"></select></label>
+        <div class="facts" id="facts" style="margin-left:auto"></div>
+      </div>
+
+      <div class="tablewrap">
+        <table class="trk" id="tracks">
+          <thead><tr><th>#</th><th>Channel</th><th>Program</th><th>Vol</th><th>Pan</th><th>Reverb</th><th>Velocity</th><th>Transpose</th><th></th><th>Notes</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="row between">
+        <h2 id="roll-title">Track 1</h2>
+        <div class="row">
+          <label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center">Snap <select id="snap"></select></label>
+          <label class="muted" style="font-size:13px;display:flex;gap:6px;align-items:center">Length <select id="len"></select></label>
+          <button id="zoomout" type="button" aria-label="Zoom out">−</button>
+          <button id="zoomin" type="button" aria-label="Zoom in">+</button>
+          <button id="clear" type="button">Clear track</button>
+        </div>
+      </div>
+      <div class="roll" id="roll" tabindex="0" aria-label="Piano roll of the selected track"><canvas id="cv"></canvas><div id="spacer"></div></div>
+      <p class="hint muted">Click to add a note, drag it to move it, drag its right end to change its length. Right-click or double-click deletes. <kbd>Shift</kbd>-click selects more; <kbd>Del</kbd> deletes the selected notes, the arrow keys move them, <kbd>Ctrl</kbd>+<kbd>A</kbd> selects the track's notes. Notes past the song's end are kept but do not play (grey).</p>
+    </main>
+
+    <aside class="panel" aria-label="The FM-1">
+      <h2>On the FM-1</h2>
+      <p class="muted" id="dev-note" style="margin:0;font-size:14px">Connect an FM-1 running FM1-GM with a USB data cable (Chrome, Edge or Opera on a computer), or open the <a href="index.html" target="_blank">emulator</a> in another tab.</p>
+      <div class="row">
+        <button id="connect" type="button" class="go">Connect FM-1</button>
+        <button id="emu" type="button">Use the emulator</button>
+      </div>
+      <div id="dev" class="msg"></div>
+      <div id="devbox" hidden>
+        <div class="row between" style="font-size:13px"><span class="muted" id="space-text"></span><button id="refresh" type="button">Refresh</button></div>
+        <div class="space" style="margin:6px 0 10px"><div id="space"></div></div>
+        <div class="slots" id="slots" role="listbox" aria-label="Song slots"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="dev-open" type="button" disabled>Open in editor</button>
+          <button id="dev-write" type="button" disabled>Write editor song here</button>
+          <button id="dev-del" type="button" disabled>Delete</button>
+        </div>
+        <div class="progress" id="progress" hidden style="margin-top:10px"><div id="bar"></div></div>
+        <p class="muted" style="font-size:13px;margin:10px 0 0">Writing to a slot saves the song there and the FM-1 switches to it. Its song before stays one press of ARP away (undo). "Song in memory" is what the FM-1 is playing now, saved or not.</p>
+      </div>
+    </aside>
+  </div>
+  <div id="status" class="msg" role="status"></div>
+  <footer>FM1-GM is free software under the GPL-3.0, provided as is with no warranty. .fm1song files are the FM-1's own song bytes; songs with more than 8192 notes or settings out of range cannot go to the FM-1.</footer>
+</div>
+<script type="module" src="editor.js"></script>
+</body>
+</html>
