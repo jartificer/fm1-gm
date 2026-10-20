@@ -51,7 +51,7 @@ try {
 
 // the preview: the firmware's sound engine playing the song (synth.js); cue: where Play starts
 const preview = new Preview(() => song);
-preview.load().catch(() => {});
+preview.prepare().catch(() => {});              // ready before the first tap, which only switches it on
 window.fm1preview = preview;                      // for the console
 // a touch's pointerdown may not start sound (the piano roll's clicks are pointerdowns), so the first tap,
 // click or key anywhere unlocks it
