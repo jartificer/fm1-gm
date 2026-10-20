@@ -44,7 +44,21 @@ export class Preview {
         if (!this.ctx) this.ctx = new AudioContext({sampleRate: RATE, latencyHint: "interactive"});
         const resumed = this.ctx.state !== "running" ? this.ctx.resume() : null;
         await (this.starting ||= this.open());
-        await resumed;
+        await resumed?.catch(() => {});            // refused outside a tap: running() waits for the next one
+    }
+    // until the audio runs and the speaker is taking it: on a phone the first tap's pointerdown may not
+    // start it (its pointerup will), and a note sent before the output is up can be lost
+    running(ms = 3000) {
+        const ready = () => this.ctx.state === "running" && this.played > 0;
+        if (ready()) return Promise.resolve(true);
+        return new Promise(done => {
+            const t0 = performance.now(), wait = () => {
+                if (ready()) done(true);
+                else if (performance.now() - t0 > ms) done(false);
+                else setTimeout(wait, 10);
+            };
+            wait();
+        });
     }
     async open() {
         const ctx = this.ctx;
@@ -137,6 +151,7 @@ export class Preview {
 
     async play(from = 0) {
         await this.start();
+        await this.running();
         this.allOff();
         this.apply();
         this.pos = from - 1e-9;
@@ -158,6 +173,7 @@ export class Preview {
     // one note of track t, now (a click in the piano roll)
     async note(t, note) {
         await this.start();
+        if (!await this.running()) return;
         if (!this.playing) this.apply();
         this.noteOn(t, note, S.PPQN);
     }
