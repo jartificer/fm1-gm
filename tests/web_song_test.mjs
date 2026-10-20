@@ -99,19 +99,66 @@ const norm = s => ({...s, tracks: s.tracks.map(t => ({...t, notes: [...t.notes].
             vlq();
             let st = m[i];
             if (st === 0xFF) { const t = m[i + 1]; i += 2; const l = vlq(); i += l; if (t === 0x2F) ends++; continue; }
-            if (st === 0xF0) { i++; i += vlq(); continue; }
+            if (st === 0xF0) { i++; const l = vlq(); i += l; continue; }
             if (st & 0x80) { run = st; i++; } else st = run;
             if ((st & 0xF0) === 0x90 && m[i + 1]) ons++;
             i += (st & 0xF0) === 0xC0 || (st & 0xF0) === 0xD0 ? 1 : 2;
         }
         o = end;
     }
-    const inSong = s.tracks.reduce((n, t) => n + t.notes.filter(v => v.tick < s.bars * S.BAR).length, 0);
+    const inSong = s.tracks.reduce((n, t) => n + t.notes.filter(v => v.tick < s.bars * S.BAR &&
+        (t.chan !== S.DRUM_CH || S.drumName(v.note))).length, 0);
     ok(o === m.length && ends === ntrk, "midi: every track is whole and ends");
     ok(ons === inSong, `midi: a note-on for each note in the song (${ons})`);
     const solo = demo(4);
     solo.tracks[5].solo = true;
     ok((S.songToMidi(solo, {skipMuted: true})[11]) === 2, "midi: with a solo and skipMuted, the soloed track only");
+}
+
+// the note-ons of a MIDI file: [channel, key, velocity, tick], and its program changes: [channel, program]
+function midiEvents(m) {
+    const ons = [], progs = [];
+    let o = 14;
+    for (let k = 0, ntrk = m[10] << 8 | m[11]; k < ntrk; k++) {
+        const end = o + 8 + (m[o + 4] << 24 | m[o + 5] << 16 | m[o + 6] << 8 | m[o + 7]);
+        let i = o + 8, run = 0, at = 0;
+        const vlq = () => { let v = 0, c; do { c = m[i++]; v = v << 7 | (c & 127); } while (c & 128); return v; };
+        while (i < end) {
+            at += vlq();
+            let st = m[i];
+            if (st === 0xFF || st === 0xF0) { i += st === 0xFF ? 2 : 1; const l = vlq(); i += l; continue; }
+            if (st & 0x80) { run = st; i++; } else st = run;
+            if ((st & 0xF0) === 0x90 && m[i + 1]) ons.push([st & 15, m[i], m[i + 1], at]);
+            if ((st & 0xF0) === 0xC0) progs.push([st & 15, m[i]]);
+            i += (st & 0xF0) === 0xC0 || (st & 0xF0) === 0xD0 ? 1 : 2;
+        }
+        o = end;
+    }
+    return {ons, progs};
+}
+{
+    // the drums: track 10 is on channel 10 (MIDI channel index 9) by default; its notes are the GM kit's
+    const s = S.newSong();
+    const d = s.tracks[9];
+    d.vel = 90;
+    d.transpose = 7;                           // the FM-1 ignores a drum track's transpose; so must the file
+    d.notes.push({tick: 0, note: 36, len: 12}, {tick: 48, note: 38, len: 12}, {tick: 96, note: 42, len: 6},
+        {tick: 144, note: 81, len: 6}, {tick: 150, note: 20, len: 6});   // 20: not in the kit, not played
+    s.tracks[0].transpose = 7;
+    s.tracks[0].notes.push({tick: 0, note: 60, len: 48});
+    let {ons, progs} = midiEvents(S.songToMidi(s));
+    const drums = ons.filter(e => e[0] === 9).map(e => e[1]);
+    ok(JSON.stringify(drums) === "[36,38,42,81]", "midi: track 10's drums on channel 10, GM numbers, not transposed");
+    ok(ons.filter(e => e[0] === 9).every(e => e[2] === 90), "midi: the drums at the track's velocity");
+    ok(ons.some(e => e[0] === 0 && e[1] === 67), "midi: a melodic track is transposed");
+    ok(!progs.some(p => p[0] === 9), "midi: no program change on the drum channel");
+    // another track set to channel 10 is drums too; track 10 set to another channel is not
+    s.tracks[9].chan = 2;
+    s.tracks[4].chan = 9;
+    s.tracks[4].notes.push({tick: 0, note: 49, len: 12});
+    ({ons} = midiEvents(S.songToMidi(s)));
+    ok(ons.some(e => e[0] === 9 && e[1] === 49), "midi: any track on channel 10 is drums");
+    ok(ons.some(e => e[0] === 2 && e[1] === 43), "midi: track 10 on channel 3 plays as an instrument (transposed)");
 }
 
 // ------------------------------------------------------- over SysEx ---
