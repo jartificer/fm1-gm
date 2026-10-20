@@ -53,13 +53,15 @@ try {
 const preview = new Preview(() => song);
 preview.prepare().catch(() => {});              // ready before the first tap, which only switches it on
 window.fm1preview = preview;                      // for the console
-// a touch's pointerdown may not start sound (the piano roll's clicks are pointerdowns), so the first tap,
-// click or key anywhere unlocks it
+// a touch's pointerdown may not start sound (the piano roll's clicks are pointerdowns), so every tap, click
+// or key tries until it is on. Not just the first event: Firefox for Android counts a touch only from its
+// touchend, which comes after its pointerup
+const UNLOCK = ["pointerup", "touchend", "click", "keydown"];
 const unlock = () => {
+    if (preview.ctx?.state === "running") { for (const k of UNLOCK) removeEventListener(k, unlock, true); return; }
     preview.start().catch(() => {});
-    for (const k of ["pointerup", "touchend", "click", "keydown"]) removeEventListener(k, unlock, true);
 };
-for (const k of ["pointerup", "touchend", "click", "keydown"]) addEventListener(k, unlock, true);
+for (const k of UNLOCK) addEventListener(k, unlock, true);
 let cue = 0;
 const sound = (t, notes) => { for (const n of notes.slice(0, 8)) preview.note(t, n).catch(() => {}); };
 
