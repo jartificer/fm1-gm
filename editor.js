@@ -184,7 +184,9 @@ function sizeRoll() {
 const tickX = tick => KW + tick * ppt - roll.scrollLeft;
 const noteY = note => RULER + (127 - note) * RH - roll.scrollTop;
 
+let fitBars = () => {};                          // the scroll bars, set up below
 function draw() {
+    fitBars();
     const dpr = window.devicePixelRatio || 1, w = cv.width / dpr, h = cv.height / dpr;
     const c = ctx, t = song.tracks[sel], drums = t.chan === S.DRUM_CH, end = S.songTicks(song);
     const col = {bg: css("--roll-bg"), alt: css("--roll-alt"), line: css("--roll-line"), bar: css("--roll-bar"),
@@ -266,6 +268,41 @@ function draw() {
     }
 }
 roll.addEventListener("scroll", draw);
+
+// the scroll bars (editor.html says why the roll has its own): drag a thumb, or tap beside it to page
+const bars = [[$("hbar"), "Left", "Width", "clientX"], [$("vbar"), "Top", "Height", "clientY"]].map(([bar, side, size, at]) => {
+    const thumb = bar.firstElementChild, pos = side.toLowerCase(), len = size.toLowerCase();
+    const range = () => roll["scroll" + size] - roll["client" + size];
+    const fit = () => {
+        const track = bar["client" + size], r = range();
+        const t = r > 0 ? Math.max(28, track * roll["client" + size] / roll["scroll" + size]) : track;
+        thumb.style[len] = t + "px";
+        thumb.style[pos] = (r > 0 ? (track - t) * roll["scroll" + side] / r : 0) + "px";
+        return [track - t, r];
+    };
+    let grab = null;                               // [pointer position, scroll position] when the thumb was taken
+    bar.addEventListener("pointerdown", e => {
+        e.preventDefault();
+        if (e.target === thumb) {
+            grab = [e[at], roll["scroll" + side]];
+            thumb.classList.add("drag");
+            bar.setPointerCapture(e.pointerId);
+        } else {                                   // a page towards where the bar was tapped
+            const dir = e[at] < thumb.getBoundingClientRect()[pos] ? -1 : 1;
+            roll["scroll" + side] += dir * roll["client" + size] * 0.9;
+        }
+    });
+    bar.addEventListener("pointermove", e => {
+        if (!grab) return;
+        const [free, r] = fit();
+        if (free > 0) roll["scroll" + side] = grab[1] + (e[at] - grab[0]) * r / free;
+    });
+    const drop = () => { grab = null; thumb.classList.remove("drag"); };
+    bar.addEventListener("pointerup", drop);
+    bar.addEventListener("pointercancel", drop);
+    return fit;
+});
+fitBars = () => bars.forEach(f => f());
 new ResizeObserver(() => { sizeRoll(); draw(); }).observe(roll);
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
 
