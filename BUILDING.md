@@ -38,7 +38,7 @@ GitHub Actions (`.github/workflows/build.yml`) does all of this on every push an
 
 ## The web page
 
-`web/` is a static site: `index.html`, `app.js` (the panel and the page), `emu.js` (runs the emulator), `worklet.js` (its audio out), `fm1ota.js` (the installer, a port of `tools/fm1_install.py`), the song editor (`editor.html`, `editor.js`, with `fm1song.js` for the song format and MIDI export and `fm1link.js` for the songs over SysEx, which reaches the emulator in another tab over a BroadcastChannel), and two built files kept in the repository so the site needs no build step to serve:
+`web/` is a static site: `index.html`, `app.js` (the panel and the page), `emu.js` (runs the emulator), `worklet.js` (its audio out), `fm1ota.js` (the installer, a port of `tools/fm1_install.py`), the song editor (`editor.html`, `editor.js`, with `fm1song.js` for the song format and MIDI export and `fm1link.js` for the songs over SysEx, `synth.js` for the preview, which plays the song through `fm1gm.wasm`, which reaches the emulator in another tab over a BroadcastChannel), and two built files kept in the repository so the site needs no build step to serve:
 
 - `web/fm1gm.wasm`: `sh host/build_web.sh`. Needs clang and wasm-ld (LLVM 13 or later, `--target=wasm32`); no Emscripten and no libc.
 - `web/fm1gm.fwsc`: the device package, copied from `build/fm1gm.fwsc` after `./build.sh`. Update `web/build.txt` with the commit it was built from.

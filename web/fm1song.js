@@ -157,8 +157,10 @@ export function parseSong(bytes) {
 // A Standard MIDI File (type 1, 48 ticks a quarter note) of one pass through the song, as the FM-1
 // plays it: a tempo and GM-on track, then a track for each track with notes, on its channel, with its
 // program, volume, pan and reverb (from the lowest track on a channel, as the FM-1 sets them), its
-// transpose applied, and every note at the track's velocity. Notes past the song's end are left out
-// (the FM-1 does not play them); muted tracks are left out when skipMuted (and only soloed ones, when
+// transpose applied, and every note at the track's velocity. A track on channel 10 is the drums, as on the
+// FM-1: its notes are already GM percussion numbers (35 Kick 2 .. 81 Open Triangle, the FM-1's kit), so
+// they go out on MIDI channel 10 as they are, never transposed, and no program change is sent. Notes past
+// the song's end, and drum notes outside the kit, are left out (the FM-1 does not play them); muted tracks are left out when skipMuted (and only soloed ones, when
 // any is).
 export function songToMidi(song, {name = "FM1-GM song", skipMuted = false} = {}) {
     const end = songTicks(song), solo = song.tracks.some(t => t.solo);
@@ -188,10 +190,10 @@ export function songToMidi(song, {name = "FM1-GM song", skipMuted = false} = {})
     const owner = new Map();                    // channel -> the lowest track on it
     song.tracks.forEach((t, i) => { if (!owner.has(t.chan)) owner.set(t.chan, i); });
     song.tracks.forEach((t, i) => {
-        const plays = solo ? t.solo : !t.mute;
-        const notes = t.notes.filter(n => n.tick < end);
+        const plays = solo ? t.solo : !t.mute, c = t.chan;
+        const notes = t.notes.filter(n => n.tick < end && (c !== DRUM_CH || drumName(n.note)));
         if (!notes.length || (skipMuted && !plays)) return;
-        const c = t.chan, evs = [[0, 0, text(3, `${i + 1} ${c === DRUM_CH ? "Drums" : GM_NAMES[t.prog]}`)]];
+        const evs = [[0, 0, text(3, `${i + 1} ${c === DRUM_CH ? "Drums" : GM_NAMES[t.prog]}`)]];
         if (owner.get(c) === i) {
             if (c !== DRUM_CH) evs.push([0, 1, [0xC0 | c, t.prog]]);
             evs.push([0, 2, [0xB0 | c, 7, t.vol]], [0, 3, [0xB0 | c, 10, t.pan]], [0, 4, [0xB0 | c, 91, t.rev]]);
