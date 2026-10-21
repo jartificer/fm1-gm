@@ -6,7 +6,7 @@
  * interpolated by an 8-point windowed sinc (linear under load) (above 1.5 points a frame, averaged: less aliasing),
  * its loop replaying exactly, through the zone's volume envelope (attack, hold, decay, sustain, release) and low-pass
  * filter with its modulation envelope. One sample covers the whole keyboard; the pitch stays put
- * (no built-in vibrato or tremolo: the mod wheel adds vibrato).
+ * (no built-in vibrato: the mod wheel adds it; a zone's tremolo where the SoundFont has one).
  *
  * The render works in chunks of up to GM_CHUNK frames: per chunk each voice works out its pitch,
  * envelopes and filter coefficients once, then runs a tight per-sample loop with the amplitude
@@ -23,7 +23,8 @@ volatile uint8_t gm_ch_prog[GM_NCH];
 volatile uint8_t gm_voice_max = GM_NVOICE_DEF;
 
 #define INV_SR (1.0f / GM_SR)
-#define MASTER 1.5f                             /* the mix level: about as loud as the synthesized engine was */
+#define MASTER (1.5f * 3.1623f)                 /* the mix level: about as loud as the synthesized engine was
+                                                 * (x 10 dB: the SoundFont's zones are 10 dB down, for room to even them out) */
 
 static inline float tsec(int32_t tc) { return fm_exp2f((float)tc * (1.0f / 1200.0f)); }   /* timecents -> s */
 static inline float cents_hz(float c) { return 8.1757989f * fm_exp2f(c * (1.0f / 1200.0f)); }
@@ -77,6 +78,7 @@ static void pan_gains(int32_t pan, float *l, float *r)  /* 0 .. 127, equal power
  * Nyquist), its taps for NPH + 1 places between two points, interpolated between: flat to 0.3 of the
  * sample's rate, and the images of what lies below that 50-60 dB down (a cubic leaves them 20 dB
  * down, heard as a fizz over the sound) */
+#define TREM_DELAY 0.2f                         /* a zone's tremolo starts this long (s) into the note */
 #define NTAP 8
 #define NPH 32
 static float sinc_tab[NPH + 1][NTAP];
@@ -575,6 +577,9 @@ static int voice_render(voice_t *v, uint32_t n)
     }
     v->t += dt;
     gain = v->vgain * chan_gain(c) * MASTER * (filt ? v->fg : 1.0f);
+    if (z->trem && v->t > TREM_DELAY)           /* the zone's tremolo (Tremolo Strings' bowing) */
+        gain *= fm_db2lin((float)(z->trem >> 4) * 0.5f *
+                          fm_sin_turns((v->t - TREM_DELAY) * (float)(z->trem & 15u) * 2.0f));
     pan_gains(c->pan, &gl, &gr);
     if (v->drum) {
         gl *= v->pl * 1.41f;

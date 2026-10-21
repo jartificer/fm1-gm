@@ -40,6 +40,7 @@ tools/gen_wavetable.py turns it into the firmware's tables (4-bit ADPCM, about a
 size). Needs numpy and scipy (this tool only; the firmware build does not).
 """
 import argparse
+import json
 import sys
 from fractions import Fraction
 from pathlib import Path
@@ -75,12 +76,23 @@ FAMILY = [
     (60, 0.12, 0.15),           # percussive
     (60, 0.15, 0.25),           # sound effects
 ]
-CENTRE = {43: 40, 58: 40, 70: 48, 72: 84, 73: 72, 47: 48}   # Contrabass, Tuba, Bassoon, Piccolo, Flute, Timpani
+# Contrabass, Tuba, Bassoon, Piccolo, Flute, Timpani, Fiddle (Bassoon's and Fiddle's: the longer recordings)
+CENTRE = {43: 40, 58: 40, 70: 54, 72: 84, 73: 72, 47: 48, 110: 56}
 # programs whose recording wants an attack and a loop (s) of its own: Harmonica and Alto Sax start a
-# little flat and slide up to pitch (a loop there replays the slide), Slap Bass 1 changes its tone for
-# half a second after the slap, Contrabass bows on with a slow swell, and Alto Sax's vibrato wants a
+# little flat and slide up to pitch (a loop there replays the slide), Contrabass bows on with a slow
+# swell, and Alto Sax's vibrato wants a
 # whole cycle; Fifth Sawtooth's loop holds one beat of its detuned layers (LAYERED)
-TIMING = {22: (0.17, 0.15), 36: (0.45, 0.20), 43: (0.15, 0.40), 65: (0.28, 0.22), 86: (0.05, 0.80)}
+TIMING = {22: (0.17, 0.15), 43: (0.15, 0.40), 65: (0.28, 0.22), 86: (0.05, 0.80)}
+# programs whose spliced loop (splice_loop) is taken no earlier than this in the recording (s), and is at
+# least this long (s): a plucked or slapped bass still rings with its pick or slap for a while (a loop
+# there is heard as an echo at every pass), and a reed's, a voice's or a fiddle's vibrato and bowing
+# want a longer loop than a quarter of a second, or the repeat is heard
+SPLICE = {34: (0.8, 0.4), 36: (0.8, 0.4), 37: (0.8, 0.4), 54: (0.0, 0.4), 62: (0.0, 0.5), 63: (0.0, 0.5),
+          68: (0.0, 0.6), 69: (0.0, 0.45), 70: (0.0, 0.6), 110: (0.0, 0.6)}
+# programs whose recorded vibrato is made shallower, by this share (devibrato): Alto Sax's is deeper than
+# Tenor's and Baritone's, Violin's than Viola's and Cello's, and Fiddle (Violin's recordings, at another key)
+# wants hardly any
+DEVIBRATO = {40: 0.6, 65: 0.4, 110: 0.85}
 LAYERED = {86}                  # programs whose layers (on the centre key) are mixed into their sample
 STATIC_LOOP = 0.04              # the loop when the recording is over before a loop of its own fits (s)
 UNPITCHED = {119, 120, 121, 122, 124, 125, 126, 127}   # GM programs whose loops are noise, not periods
@@ -97,6 +109,8 @@ LATE = 0.15                    # a loop may start up to this (s) after its attac
 LATE_COST = 0.5                 # dB of roughness that starting LATE later must save
 XF_REF = 0.015                  # the crossfade (s) that least shows a mismatch, both as an echo and as a jump
 DEBUG = False
+LEVELS = Path(__file__).resolve().parents[1] / "assets" / "soundfont" / "fm1gm_levels.json"   # dB louder, each
+LEVEL_ROOM = 10.0               # dB: every zone this much quieter, and as much louder by its level (above)
 SPLICE_LOOP = 0.25              # a loop this long (s) at least: a shorter one repeats fast enough to buzz
 SPLICE_MAX = 4.0                # a loop may be taken from as late as this (s) in the recording
 SPLICE_XF = 0.06                # and spliced on after the attack with a crossfade this long (s)
@@ -108,7 +122,7 @@ SPLICE_TRY = 4                  # the steadiest of them made into loops and comp
 MEM_COST = 14.0                 # the score a second of sample costs (dB of seam step): the flash goes to
 MEM_COST_EXOTIC = 40.0          # the standard instruments; the rest keep their short loop after the attack
 STANDARD = (set(range(0, 8)) | set(range(16, 24)) | set(range(24, 46)) | {48, 49, 52, 53} |
-            set(range(56, 62)) | set(range(64, 76)))
+            set(range(56, 64)) | set(range(64, 76)) | {54, 110})
 SEARCH = 0.03                   # the loop start is searched over this (s) after the attack
 RATE = 14700                    # every sample's rate (a third of 44.1 kHz): the same top end and noise for all
 DRUM_MIN, DRUM_MAX = 0.06, 0.24  # a drum keeps until it is 36 dB down, within these (s)
@@ -346,11 +360,13 @@ def make_loop(x, nr, f0, s0, loop_t, exact=False, bands=True):
     return best
 
 
-def splice_loop(x, nr, f0, att, loop_t, mem=MEM_COST):
+def splice_loop(x, nr, f0, att, loop_t, mem=MEM_COST, src_min=0.0, own=None):
     """the attack, then a loop from wherever in the recording it is steadiest and seams best (often well
     after the attack: a piano's or a guitar's tone changes for a second or two, and a loop of that
     change comes back to its start at every pass, heard as a retrigger or an echo), spliced on with a
-    crossfade and its level matched to the attack's end (the volume envelope does the fading)"""
+    crossfade and its level matched to the attack's end (the volume envelope does the fading). own: the
+    recording's own loop (points at nr): past its end the recording only repeats it, so a loop of ours
+    longer than that one is taken from before its end, or it would repeat as often as the short one"""
     a = int(round(att * nr))
     w = max(int(0.025 * nr), 64)
 
@@ -368,13 +384,22 @@ def splice_loop(x, nr, f0, att, loop_t, mem=MEM_COST):
         return band_step(x[c:c + q], x[c + n - q:c + n], nr)
     results = []
     ks = (1, 1.5, 2) if mem <= MEM_COST else (1,)          # 1.5: two cycles of a 5-6 Hz vibrato
-    for lt in (k * max(loop_t, SPLICE_LOOP) for k in ks):
+    lts = [k * max(loop_t, SPLICE_LOOP) for k in ks]
+    if own and own[1] - own[0] < lts[0] * nr:
+        # the longest loop that fits before the recording's own loop ends (make_loop1 may make it a
+        # quarter longer), if the loops asked for do not
+        fit = (own[1] - max(a, src_min * nr) - SEARCH * nr) / (XF_SHARE + 1.25) / nr
+        lts = [lt for lt in lts if lt <= fit] or ([fit] if fit >= SPLICE_LOOP else lts[:1])
+    for lt in lts:
         n = int(lt * nr)
         pre = int(XF_SHARE * n)
         hi = min(len(x) - int(1.4 * n) - int(SEARCH * nr) - 8, int(SPLICE_MAX * nr))
-        cands = list(range(a + pre, max(a + pre, hi), max(int(SPLICE_GRID * nr), 1)))
+        if own and own[1] - own[0] < n:
+            hi = min(hi, int(own[1] - 1.25 * n) - int(SEARCH * nr))
+        lo = max(a + pre, int(src_min * nr))
+        cands = list(range(lo, max(lo, hi), max(int(SPLICE_GRID * nr), 1)))
         ranked = sorted(cands, key=lambda c: drift(c, n) + env_rough(c, n))[:SPLICE_TRY]
-        for c in sorted(set(ranked) | {a + pre}):
+        for c in sorted(set(ranked) | {lo}):
             y, rate, (ls, le), rho = make_loop1(x, nr, f0, c - pre, lt)
             n2, a2 = le - ls, int(round(a * rate / nr))
             raw = drift(int(round(ls * nr / rate)), int(round(n2 * nr / rate)))
@@ -403,7 +428,7 @@ def splice_loop(x, nr, f0, att, loop_t, mem=MEM_COST):
             if wobble(out, rate, loop) > STEADY_MIN:
                 out = steady(out, rate, loop, f0 * rate / nr if f0 else None, tx)
             score += WOBBLE_COST * wobble(out, rate, loop)
-            results.append((score + 100 * (n2 < 0.95 * SPLICE_LOOP * rate), out, rate, loop, rho, ls / rate))
+            results.append((score + 100 * (n2 < 0.95 * lts[0] * rate), out, rate, loop, rho, ls / rate))
     _, out, rate, loop, rho, src = min(results, key=lambda r: r[0])
     if DEBUG:
         print(f"      splice: loop {(loop[1]-loop[0])/rate:.3f} s from {src:.2f} s of the recording")
@@ -521,6 +546,62 @@ def make_loop1(x, nr, f0, s0, loop_t, exact=False, bands=True):
     return y, rate, (s, s + n), rho
 
 
+def devibrato(y, rate, loop, f0, amount):
+    """the loop's recorded vibrato made shallower by amount (a share): the loop read slower where it is
+    sharp and faster where flat, by amount of how far it is off its mean pitch (tracked in 60 ms windows,
+    round the loop as it wraps; the loop keeps its length and its seam), and its bands' levels held
+    steadier (band_steady)"""
+    ls, le = loop
+    n = le - ls
+    hop = max(int(0.005 * rate), 1)
+    w = int(0.06 * rate)
+    u3 = np.tile(y[ls:le], 3)
+    d = np.log2([refine_cps(u3[n + i - w // 2:n + i + w - w // 2], f0 / rate, 8) for i in range(0, n, hop)]) * 1200
+    k = np.hanning(11)[1:-1]
+    k /= k.sum()
+    d = np.convolve(np.concatenate([d[-4:], d, d[:4]]), k, "valid")
+    d -= d.mean()
+    dd = np.interp(np.arange(n), np.concatenate([np.arange(len(d)) * hop, [n]]), np.concatenate([d, d[:1]]))
+    t = np.concatenate([[0.0], np.cumsum(2 ** (amount * dd / 1200))])     # when each point is reached
+    t *= n / t[-1]
+    up = 8
+    hi = resample_poly(u3, up, 1)
+    out = np.interp((np.interp(np.arange(n), t, np.arange(n + 1)) + n) * up, np.arange(len(hi)), hi)
+    return band_steady(np.concatenate([y[:ls], out]), rate, loop, f0, amount)
+
+
+def band_steady(y, rate, loop, f0, amount, win=0.03):
+    """the loop's octave bands each held nearer its own mean level, by amount (a share; over windows of
+    whole periods about win long, round the loop as it wraps): a bowed or blown vibrato also swings the
+    harmonics' levels as they pass the body's resonances, heard as vibrato even with the pitch steady.
+    The bands' gains are eased in over the 30 ms before the loop"""
+    ls, le = loop
+    n = le - ls
+    t = min(int(0.03 * rate), ls)
+    u = y[ls:le]
+    pre = y[ls - t:le]
+    edges = [0.0] + [BAND_LO * 2 ** i for i in range(16) if BAND_LO * 2 ** i < rate / 2] + [rate]
+
+    def bands(seg):
+        X = np.fft.rfft(seg)
+        lf = np.log2(np.maximum(np.fft.rfftfreq(len(seg), 1.0 / rate), 1.0))
+
+        def up(e):
+            return np.ones_like(lf) if e <= 0 else np.clip(0.5 - 0.5 * np.cos(np.pi * np.clip(lf - np.log2(e) + 0.5, 0, 1)), 0, 1)
+        return [np.fft.irfft(X * (up(edges[i]) - (up(edges[i + 1]) if edges[i + 1] < rate else 0)), len(seg))
+                for i in range(len(edges) - 1)]
+    p = rate / f0
+    w = min(max(int(round(max(1, round(win * rate / p)) * p)), 8), n)
+    out, lead = np.zeros(n), y[ls - t:ls].copy()
+    for b, bp in zip(bands(u), bands(pre)):
+        c = np.concatenate([b[n - w // 2:], b, b[:w - w // 2]]) ** 2
+        cs = np.concatenate([[0.0], np.cumsum(c)])
+        g = np.clip((np.sqrt(np.mean(b ** 2)) / np.sqrt((cs[w:w + n] - cs[:n]) / w + 1e-12)) ** amount, 0.5, 2.0)
+        out += b * g
+        lead += bp[:t] * (np.linspace(1.0, g[0], t, endpoint=False) - 1.0)
+    return np.concatenate([y[:ls - t], lead, out])
+
+
 def unroll(x, ls, le, need):
     """a looped sample played on to need points"""
     if len(x) >= need or not 0 <= ls < le <= len(x):
@@ -606,7 +687,8 @@ def layered(sf, z, zs, key, f0, rate):
     return y * np.sqrt(np.mean(x ** 2) / (np.mean(y ** 2) + 1e-12)), cycles / fz, fz
 
 
-def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=True, mem=MEM_COST):
+def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=True, mem=MEM_COST, src_min=None,
+            devib=0.0):
     """the sample kept (floats), its rate, its loop (or None), generators it adds, the loop's match,
     the loop's pitch (Hz)"""
     x, rate, (ls0, le0), _ = region_sample(sf, z, zs)
@@ -632,7 +714,8 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=T
         loop_t = max(loop_t, NOISE_LOOP)
     if layer_key is not None:
         x, loop_t, fz = layered(sf, z, zs, layer_key, f0, rate)
-    elif looped and le0 - ls0 < 0.5 * loop_t * rate and ls0 < (att + 0.75 * loop_t) * rate:
+    elif looped and le0 - ls0 < 0.5 * min(loop_t, SPLICE_LOOP) * rate and \
+            ls0 < (att + 0.75 * min(loop_t, SPLICE_LOOP)) * rate:
         # the recording is over (into a short loop of its own) before a loop of ours fits after the
         # attack: the whole recording is the attack, and its own loop holds, as FluidR3 plays it (a loop
         # of ours would replay the recording's end and its loop by turns, a flutter)
@@ -663,10 +746,16 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=T
         fl = fz
     else:
         if splice:
-            y, nr2, loop, rho = splice_loop(xr, nr, f0, att, loop_t, mem)
+            own = (ls0 * nr / rate, le0 * nr / rate) if looped and src_min is not None else None
+            y, nr2, loop, rho = splice_loop(xr, nr, f0, att, loop_t, mem, src_min or 0.0, own)
         else:
             y, nr2, loop, rho = make_loop(xr, nr, f0, int(round(att * nr)), loop_t, bands=bands)
         fl = None
+        if f0 and devib:
+            fd = refine_cps(y[loop[0]:loop[1]], f0 / nr2, 8) * nr2
+            if DEBUG:
+                print(f"      devibrato at {fd:.1f} Hz (f0 {f0:.1f})")
+            y = devibrato(y, nr2, loop, fd, devib)
         if f0:                                              # the sustain's pitch, across the whole loop
             ls, le = loop
             fl = refine_cps(y[ls:le], f0 / nr2, 8) * nr2
@@ -677,9 +766,10 @@ def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=T
     return y, nr2, loop, extra, rho, fl
 
 
-def out_gens(z, root, loop, extra, key):
+def out_gens(z, root, loop, extra, key, tremolo=False):
+    drop = DROP - TREMOLO_GENS if tremolo else DROP
     keep = {k: v for k, v in z["gens"].items() if k not in sf2.NOT_ADDITIVE and k not in sf2.RANGE and
-            k != G["instrument"] and sf2.DEFAULTS.get(k, 0) != v and k not in DROP}
+            k != G["instrument"] and sf2.DEFAULTS.get(k, 0) != v and k not in drop}
     for k in (G["exclusiveClass"],):
         if k in z["gens"]:
             keep[k] = z["gens"][k]
@@ -695,9 +785,12 @@ def out_gens(z, root, loop, extra, key):
     return keep
 
 
-# FluidR3's vibrato and tremolo: gone (a note's pitch and level stay put; the mod wheel still adds vibrato)
+# FluidR3's vibrato and tremolo: gone (a note's pitch and level stay put; the mod wheel still adds vibrato),
+# but for the programs whose tremolo is what they are (TREMOLO: Tremolo Strings plays Strings' sample)
 DROP = {G[n] for n in ("vibLfoToPitch", "modLfoToPitch", "modLfoToVolume", "modLfoToFilterFc", "delayVibLFO",
                        "freqVibLFO", "delayModLFO", "freqModLFO")}
+TREMOLO = {44}
+TREMOLO_GENS = {G["modLfoToVolume"], G["freqModLFO"], G["delayModLFO"]}
 
 
 def centre_zone(sf, zs, key):
@@ -713,12 +806,21 @@ def reduce(src, verbose=False):
     samples, cache, instruments, out_presets = [], {}, [], []
     stats = []
     tuned = {}
+    levels = json.loads(LEVELS.read_text()) if LEVELS.exists() else {}
 
-    def add_sample(z, zs, root, att, loop_t, pitched, drum, name, layer_key=None, bands=True, mem=MEM_COST):
-        key = (z["sample"], root, att, loop_t, drum, layer_key, bands, tuple(sorted(
+    def level(gz, what):
+        # as loud as in FluidR3 (tools/gm_levels.py: dB louder), from LEVEL_ROOM down (an attenuation can
+        # only take away: gm.c's mix level gives the room back)
+        d = max(-LEVEL_ROOM, min(LEVEL_ROOM, levels.get(what, 0.0)))
+        gz[G["initialAttenuation"]] = max(0, gz.get(G["initialAttenuation"], 0) + int(round((LEVEL_ROOM - d) * 25)))
+
+    def add_sample(z, zs, root, att, loop_t, pitched, drum, name, layer_key=None, bands=True, mem=MEM_COST,
+                   src_min=None, devib=0.0):
+        key = (z["sample"], root, att, loop_t, drum, layer_key, bands, src_min, devib, tuple(sorted(
             (k, v) for k, v in z["gens"].items() if k in sf2.NOT_ADDITIVE or k in (G["coarseTune"], G["fineTune"]))))
         if key not in cache:
-            y, rate, loop, extra, rho, fl = process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key, bands, mem)
+            y, rate, loop, extra, rho, fl = process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key, bands, mem,
+                                                    src_min, devib)
             sm = sf.samples[z["sample"]]
             # the rate is whole Hz in a SoundFont: what a period-exact loop's hair of resampling leaves
             # over goes into the pitch correction
@@ -744,6 +846,7 @@ def reduce(src, verbose=False):
         ck, att, loop_t = FAMILY[prog >> 3]
         ck = CENTRE.get(prog, ck)
         att, loop_t = TIMING.get(prog, (att, loop_t))
+        src_min, loop_t = SPLICE.get(prog, (None, loop_t))
         p = presets[(0, prog)]
         zs = sf2.zones(sf, p)
         for z in zs:
@@ -753,8 +856,10 @@ def reduce(src, verbose=False):
         si, loop, extra, rho = add_sample(z, zs, root, att, loop_t, prog not in UNPITCHED, False,
                                           f"{prog:03d} {p.name}"[:15] + f" {root}", ck if prog in LAYERED else None,
                                           prog not in TIMING,   # those with their own timing: as they were tuned by ear
-                                          MEM_COST if prog in STANDARD or prog in TIMING else MEM_COST_EXOTIC)
-        gz = out_gens(z, root, loop, extra, (0, 127))
+                                          MEM_COST if prog in STANDARD or prog in TIMING else MEM_COST_EXOTIC,
+                                          src_min, DEVIBRATO.get(prog, 0.0))
+        gz = out_gens(z, root, loop, extra, (0, 127), prog in TREMOLO)
+        level(gz, str(prog))
         gz[G["sampleID"]] = si
         instruments.append(sf2.Instrument(p.name, [sf2.Zone(gz)]))
         out_presets.append(sf2.Preset(p.name, prog, 0, [sf2.Zone({G["instrument"]: len(instruments) - 1})]))
@@ -773,6 +878,7 @@ def reduce(src, verbose=False):
         root = root_of(sf, z)
         si, loop, extra, rho = add_sample(z, here, root, 0.0, 0.0, False, True, f"Drum {note}")
         gz = out_gens(z, root, loop, extra, (note, note))
+        level(gz, f"drum {note}")
         gz[G["sampleID"]] = si
         zones.append(sf2.Zone(gz))
         stats.append((note, f"drum {note}", len(samples[si].pcm) // 2, loop, rho, samples[si].rate, None))
