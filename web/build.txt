@@ -1,1 +1,1 @@
-package built from main at 755b3ae (REV 54); emulator from claude/web-song-editor-kon1ui at 73c6e87
+Package and emulator built from claude/center-drum-pan-q8lhiz at 6951a65 (REV 75)

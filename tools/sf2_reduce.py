@@ -609,13 +609,15 @@ def layered(sf, z, zs, key, f0, rate):
 def process(sf, z, zs, root, att, loop_t, pitched, drum, layer_key=None, bands=True, mem=MEM_COST):
     """the sample kept (floats), its rate, its loop (or None), generators it adds, the loop's match,
     the loop's pitch (Hz)"""
-    x, rate, (ls0, le0), mixed = region_sample(sf, z, zs)
+    x, rate, (ls0, le0), _ = region_sample(sf, z, zs)
     g = z["gens"]
     # the sample's own pitch: its root key, less the correction a player adds; or, when the zone's
     # tuning corrects the sample (FluidR3's trumpet is an E played as a C), that
     f0 = 440.0 * 2 ** ((root - 69) / 12 - sf.samples[z["sample"]].corr / 1200) if pitched else None
     looped = bool(g.get(G["sampleModes"], 0) & 1 and 0 <= ls0 < le0 <= len(x))
-    extra = {} if drum and not mixed else {G["pan"]: 0}     # mono now: no pan (melodic: the channel pans)
+    # mono now: no pan (the channel pans). FluidR3's drums are stereo pairs, each side panned hard
+    # (-500 / +500); where the pair does not mix, the one side kept would sound from one ear only
+    extra = {G["pan"]: 0}
     ring = ring_time(x, rate) if not looped else 1e9
     if drum:
         att, loop_t, f0 = DRUM_ATT, DRUM_LOOP, None

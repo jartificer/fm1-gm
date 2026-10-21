@@ -41,7 +41,7 @@ void seq_midi_out(uint32_t st, uint32_t d1, uint32_t d2)
 }
 
 static int32_t buf[2 * 256];
-static double peak, sumsq;
+static double peak, sumsq, sumsq_lr[2];
 static long nsamp;
 static FILE *wav;
 
@@ -83,6 +83,7 @@ static void run(uint32_t frames)                /* the render, 256 frames at a t
             if (fabs(v) > peak)
                 peak = fabs(v);
             sumsq += v * v;
+            sumsq_lr[i & 1] += v * v;
             nsamp++;
             if (wav) {
                 int16_t s = (int16_t)(buf[i] >> 8);
@@ -95,7 +96,7 @@ static void run(uint32_t frames)                /* the render, 256 frames at a t
 }
 static void meter_reset(void)
 {
-    peak = sumsq = 0;
+    peak = sumsq = sumsq_lr[0] = sumsq_lr[1] = 0;
     nsamp = 0;
 }
 static double rms(void) { return nsamp ? sqrt(sumsq / (double)nsamp) : 0; }
@@ -155,6 +156,9 @@ static void test_drums(const char *dir)
         midi(0x99, (uint32_t)n, 110);
         run(44100 / 3);
         CHECK(peak > 0.01 && peak < 1.0, "drum %d (%s): peak %.3f", n, gm_drum_name(n), peak);
+        /* in the middle, at the channel's centre pan: as loud in either ear (within 1 dB) */
+        CHECK(fabs(10 * log10((sumsq_lr[0] + 1e-12) / (sumsq_lr[1] + 1e-12))) < 1.0, "drum %d (%s): left %.4f, right %.4f",
+              n, gm_drum_name(n), sqrt(sumsq_lr[0]), sqrt(sumsq_lr[1]));
     }
     run(44100 * 4);
     meter_reset();
