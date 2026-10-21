@@ -7,7 +7,8 @@
  * every audible track's notes at that tick. The loop end cuts what still sounds.
  * Recording: a note's start is the tick nearest the moment it was played, quantized; it is written
  * when it ends (its length known), so it lands behind the playback position and does not play
- * twice; a note quantized ahead of the position is stepped over for this pass.
+ * twice; a note quantized ahead of the position is stepped over for this pass. A key pressed in
+ * the count-in and still held when recording begins starts at the top.
  * The loop is the song, or one bar (SC_LOOP): playback, recording and the step cursor wrap in it. */
 #include "seq.h"
 #include "fastmath.h"
@@ -574,14 +575,20 @@ static void rec_on(int t, int note)
         step_any_note = 1;
         return;
     }
-    if (!seq_rec || !seq_playing || preroll)
+    if (!seq_rec || !seq_playing)
         return;
+    p->on = 1;
+    p->trk = (uint8_t)t;
+    if (preroll) {                              /* during the count-in: at the top, if still held then */
+        p->tick = (uint16_t)reg_lo();
+        p->abs = 0;
+        p->frac = 0.0f;
+        return;
+    }
     now_pos(&tick, &abs, &frac);
     r = tick + (frac >= 0.5f);
     if (q > 1u)
         r = (r + q / 2u) / q * q;
-    p->on = 1;
-    p->trk = (uint8_t)t;
     p->tick = (uint16_t)reg_wrap(r);
     p->abs = abs;
     p->frac = frac;
@@ -603,6 +610,8 @@ static void rec_off(int note)
     if (!p->on)
         return;
     p->on = 0;
+    if (preroll)                                /* let go before recording began */
+        return;
     now_pos(&tick, &abs, &frac);
     d = (float)(abs - p->abs) + (frac - p->frac);
     len = d < 1.0f ? 1u : (uint32_t)(d + 0.5f);
