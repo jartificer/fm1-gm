@@ -2,7 +2,7 @@
 
 Custom firmware that turns the M-VAVE FM-1 into a General MIDI sound module and 16-track sequencer.
 
-![FM1-GM in the web emulator: a white FM-1 panel in the Song view, with the Bar, Track, Mix, Songs and Setup screens and the LIGHT colour scheme](docs/fm1gm-collage.png)
+![FM1-GM: the logo above a white FM-1 panel, with thumbnails for 128 sampled GM sounds, the 16-track sequencer, 64 song slots, the web song editor, the browser emulator and the 5 colour themes](docs/fm1gm-promo.png)
 
 - **128 General MIDI programs** (the full GM1 sound set, fixed, not editable) and a **GM drum kit** (notes 35–81) on channel 10.
 - **16 tracks, each on any of the 16 MIDI channels**, with program, volume, pan, reverb, transpose and velocity per track.
