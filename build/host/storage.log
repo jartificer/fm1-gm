@@ -1,0 +1,37 @@
+empty flash loads nothing                      ok
+save A                                         ok
+load returns A                                 ok
+save B                                         ok
+load returns B (newer seq)                     ok
+torn save keeps B                              ok
+header not written keeps B                     ok
+save A again                                   ok
+load returns A                                 ok
+both copies corrupt -> nothing                 ok
+other objects untouched                        ok
+settings save/load                             ok
+CRC-32 is zlib's (check value 0xCBF43926)      ok
+newer copy rotten -> the older one loads       ok
+save over the rotten copy                      ok
+... loads the new data                         ok
+both headers broken -> nothing                 ok
+songs: an empty store                          ok
+a small song saves                             ok
+... in one sector                              ok
+a song of three sectors                        ok
+an empty song (0 bytes)                        ok
+after a reboot: all three                      ok
+a resave replaces it                           ok
+... and frees the old sectors                  ok
+torn saves keep the song before                ok
+a rotten song is gone, the others stay         ok
+delete                                         ok
+... stays deleted (no older copy comes back)   ok
+64 small songs fit                             ok
+one too big for what is free is refused        ok
+one that just fits                             ok
+one song in (almost) the whole store           ok
+... loads                                      ok
+wear is spread over the sectors                ok
+objects, songs in the data areas, no overlaps  ok
+storage test passed

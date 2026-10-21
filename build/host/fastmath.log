@@ -1,0 +1,11 @@
+  exp2f    max err 9.61e-08 (bound 3e-07)
+  expf     max err 1.2e-07 (bound 6e-07)
+  log2f    max err 3.87e-06 (bound 4e-06)
+  log2f@1  max err 1.34e-07 (bound 3e-07)
+  powf     max err 1.19e-06 (bound 1e-05)
+  tanhf    max err 8.85e-08 (bound 3e-07)
+  sin/cos  max err 5.74e-07 (bound 1e-06)
+  sin[-pi,pi] max err 5.15e-07 (bound 6e-07)
+  tanf     max err 2.47e-07 (bound 1e-06)
+  sqrtf    max err 1.8e-07 (bound 3e-07)
+fastmath: ok

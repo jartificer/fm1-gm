@@ -1,0 +1,5 @@
+  worst case: 16 voices + 2 drums, 16140.0 us of host CPU per second of audio (1.61%)
+  linear under load: 11688.0 us of host CPU per second of audio
+full song: 8192 notes, 16535 B in flash (2.02 B a note)
+song in RAM: 204 B header + 6 B a note, 49356 B full
+gm_test: all passed

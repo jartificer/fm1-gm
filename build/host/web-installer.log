@@ -1,0 +1,22 @@
+pack7 / unpack7 round trip                                       ok
+response: header, address, data, checksum                        ok
+productOf / logicalImage (synthetic)                             ok
+productOf: a 12-character identity                               ok
+install: running -> loader -> Felucca (11 reads)                 ok
+install: device already in update mode -> finishes the write     ok
+no FM-1 port -> not found, nothing probed                        ok
+unplugged in step 1 -> 'lost', nothing written                   ok
+unplugged during the write -> 'lost'                             ok
+loader stops answering -> 'stopped' after the idle time          ok
+read past the package -> 'badreq'                                ok
+another identity after the restart -> 'mismatch'                 ok
+another model -> 'model', nothing sent                           ok
+no loader after step 1 -> 'noloader'                             ok
+package without the loader marker -> refused                     ok
+... accepted with force                                          ok
+not a package -> refused                                         ok
+Open -> stock V15: armed (length, SHA-256), then installed       ok
+Open -> one of ours: refused, nothing sent (stock first)         ok
+web/fm1gm.fwsc: FM-1_600, with the Felucca loader                ok
+web/fm1gm.fwsc: installs on the simulated FM-1                   ok
+web install tests passed

@@ -1,0 +1,26 @@
+  ok sel == 9
+  ok chan10 == 10
+  ok view == 1
+  ok step == 1
+  ok trknev10 == 4
+  ok step_tick == 48
+  ok step_tick == 60
+  ok step_tick == 48
+  ok step == 0
+  ok trknev10 == 0
+  ok trknev10 == 4
+  ok trknev10 == 0
+  ok trknev10 == 4
+  ok sel == 0
+  ok prog1 == 5
+  ok prog1 == 24
+  ok vol1 == 80
+  ok mute1 == 1
+  ok mute1 == 0
+  ok chan1 == 3
+  ok poly == 20
+  ok view == 3
+  ok voices == 1 (>0)
+  ok oct == 1
+  ok oct == -1
+host: 5686 ms simulated, 126 blits, render 0.1% of real time (host CPU)

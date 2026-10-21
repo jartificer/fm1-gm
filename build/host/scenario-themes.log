@@ -1,0 +1,13 @@
+  ok view == 4
+  ok theme == 0
+  ok theme == 1
+  ok fit == 0
+  ok theme == 2
+  ok theme == 3
+  ok theme == 4
+  ok theme == 4
+  ok fit == 0
+  ok theme == 4
+  ok theme == 0
+  ok fit == 0
+host: 6780 ms simulated, 48 blits, render 0.1% of real time (host CPU)
