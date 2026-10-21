@@ -492,6 +492,41 @@ static void test_bars(void)
     run(256);
 }
 
+/* the count-in: a key still held when recording begins starts at the top; one let go before, not at all */
+static void test_countin(void)
+{
+    double spt = SPT(120);
+    int s;
+    seq_cfg.countin = 1;
+    post(SC_SELECT, 4, 0, 0, 0);
+    post(SC_SONG, SP_QUANT, 0, 0, 4);
+    post(SC_REC, 1, 0, 0, 0);
+    post(SC_PLAY, 0, 0, 0, 0);
+    run(256);
+    CHECK(seq_counting, "no count-in");
+    run((uint32_t)(spt * (SEQ_BAR - 40)));
+    post(SC_NOTE_ON, 4, 62, 100, 0);            /* pressed and let go in the count-in */
+    run((uint32_t)(spt * 10));
+    post(SC_NOTE_OFF, 4, 62, 0, 0);
+    run((uint32_t)(spt * 24));
+    post(SC_NOTE_ON, 4, 60, 100, 0);            /* pressed ~6 ticks early, held over the top */
+    run((uint32_t)(spt * 6));
+    CHECK(!seq_counting, "still counting in");
+    run((uint32_t)(spt * 24));
+    post(SC_NOTE_OFF, 4, 60, 0, 0);
+    run(256);
+    s = trk_first(4);
+    CHECK(seq_song.trk[4].nev == 1, "count-in: %d notes, expected 1", seq_song.trk[4].nev);
+    if (seq_song.trk[4].nev == 1)
+        CHECK(seq_song.ev[s].note == 60 && seq_song.ev[s].tick == 0 && abs((int)seq_song.ev[s].len - 24) <= 2,
+              "count-in: note %d at %d, length %d", seq_song.ev[s].note, seq_song.ev[s].tick, seq_song.ev[s].len);
+    post(SC_STOP, 0, 0, 0, 0);
+    post(SC_REC, 0, 0, 0, 0);
+    post(SC_ERASE, 4, 0, 0, 0);
+    run(256);
+    seq_cfg.countin = 0;
+}
+
 static void test_full(void)
 {
     int i;
@@ -546,6 +581,7 @@ int main(int argc, char **argv)
     test_record_play();
     test_step();
     test_bars();
+    test_countin();
     test_full();
     printf("song in RAM: %u B header + %u B a note, %u B full\n", (unsigned)SONG_HEAD_BYTES,
            (unsigned)sizeof(seq_ev_t), (unsigned)sizeof(song_t));
