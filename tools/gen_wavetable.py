@@ -101,6 +101,10 @@ def main():
         if (i, looped) in smp_of:
             return smp_of[(i, looped)]
         s = sf.samples[i]
+        same = (s.pcm, s.loop if looped else None, s.rate)  # the same points as one already in: shared
+        if same in smp_of:
+            smp_of[(i, looped)] = smp_of[same]
+            return smp_of[same]
         pts = [int.from_bytes(s.pcm[j:j + 2], "little", signed=True) for j in range(0, len(s.pcm), 2)]
         loop = s.loop if looped and 0 <= s.loop[0] < s.loop[1] <= len(pts) else None
         if loop:
@@ -114,7 +118,7 @@ def main():
             data.append(nib[j] | ((nib[j + 1] if j + 1 < len(nib) else 0) << 4))
         smp_rows.append((off, len(nib), loop[0] if loop else 0, loop[1] if loop else 0, lpred, lidx, idx0, s.rate,
                          s.name))
-        smp_of[(i, looped)] = (len(smp_rows) - 1, peak / 32000.0)
+        smp_of[(i, looped)] = smp_of[same] = (len(smp_rows) - 1, peak / 32000.0)
         return smp_of[(i, looped)]
 
     zones = []
@@ -130,7 +134,10 @@ def main():
         # SoundFont players (EMU's, FluidSynth) apply 40 % of initialAttenuation; so does this
         gain = scale * 10 ** (-0.4 * g.get(G["initialAttenuation"], 0) / 200)
         pan = g.get(G["pan"], 0) if drum else 0
-        zones.append(dict(
+        # a tremolo (the modulation LFO to the volume): depth in 0.5 dB steps, rate in 2 Hz steps, a nibble each
+        tdb, thz = abs(g.get(G["modLfoToVolume"], 0)) / 10, 8.176 * 2 ** (g.get(G["freqModLFO"], 0) / 1200)
+        trem = min(15, round(tdb * 2)) << 4 | max(1, min(15, round(thz / 2))) if round(tdb * 2) else 0
+        zones.append(dict(trem=trem,
             smp=si, lo=z["key"][0], hi=z["key"][1], root=root, excl=g.get(G["exclusiveClass"], 0) if drum else 0,
             pan=max(-64, min(63, round(pan * 64 / 500))), tune=tune, kt=g.get(G["scaleTuning"], 100),
             gain=gain, att=tc(g.get(G["attackVolEnv"], -12000)), hold=tc(g.get(G["holdVolEnv"], -12000)),
@@ -171,7 +178,7 @@ def main():
     for off, n, ls, le, lp, li, i0, rate, name in smp_rows:
         w.append(f"    {{{off}u, {n}u, {ls}u, {le}u, {lp}, {li}, {i0}, {rate}.0f}},   /* {name} */")
     w += ["};", "", f"static const gmw_zone_t GMW_ZONE[{len(zones)}] = {{"]
-    keys = ["smp", "lo", "hi", "root", "excl", "pan", "tune", "kt", "att", "hold", "dec", "sus", "rel", "kdec",
+    keys = ["smp", "lo", "hi", "root", "excl", "pan", "trem", "tune", "kt", "att", "hold", "dec", "sus", "rel", "kdec",
             "khold", "fc", "q", "fenv", "fatt", "fdec", "fsus"]
     w.append("    /* " + ", ".join(keys) + ", gain */")
     for z in zones:

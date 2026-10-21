@@ -22,6 +22,7 @@ typedef struct {
     uint16_t smp;
     uint8_t lo, hi, root, excl;    /* key range; root key; drums: exclusive class (a hit cuts the others) */
     int8_t pan;                    /* drums: -64 .. 63 */
+    uint8_t trem;                  /* tremolo: depth (0.5 dB steps, high nibble), rate (2 Hz steps, low); 0: none */
     int16_t tune;                  /* cents */
     int16_t kt;                    /* key tracking, cents per key (100: normal) */
     int16_t att, hold, dec, sus, rel;   /* volume envelope: timecents (dec, rel: to fall 100 dB); sus: cB */
