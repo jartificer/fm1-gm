@@ -1,0 +1,2586 @@
+
+build/loader/loader.elf:	file format ELF32-pi32v2
+
+Disassembly of section .text:
+_start:
+ 1c0a800:    04 88             	goto 16 <_start+0x12 : 1c0a812 >
+ 1c0a802:    46 45             	if (r6 == 0) goto -246 <firmware/loader/loader.c+0x1C0A70E : 1c0a70e >
+ 1c0a804:    4c 55             	r4 = b[r4+-11] (u)
+ 1c0a806:    43 43             	if (r3 == 0) goto -250 <firmware/loader/loader.c+0x1C0A70E : 1c0a70e >
+ 1c0a808:    41 2d             	r1 = 13
+ 1c0a80a:    4c 4f             	r4 = b[r4+15] (u)
+ 1c0a80c:    41 44             	if (r1 == 0) goto -248 <firmware/loader/loader.c+0x1C0A716 : 1c0a716 >
+ 1c0a80e:    45 52             	if (r5 == 0) goto -220 <firmware/loader/loader.c+0x1C0A734 : 1c0a734 >
+ 1c0a810:    2d 31             	r13 = [sp+196]
+ 1c0a812:    60 00             	cli
+ 1c0a814:    ee ff 00 00 c7 01 	sp = 29818880
+ 1c0a81a:    ed ff 00 20 c7 01 	ssp = 29827072
+ 1c0a820:    80 ea eb 08       	call 4566 <ldr_cstart : 1c0b9fa >
+ 1c0a824:    f7 9f             	goto -2 <_start+0x24 : 1c0a824 >
+
+
+fm1__p33_xfer:
+ 1c0a826:    c1 ff 08 3e 01 00 	r1 = 81416 <firmware/loader/loader.c+0x13E08 : 13e08 >
+ 1c0a82c:    90 61             	[r1+4] = r0
+ 1c0a82e:    00 ef 10 10       	[r1+0] |= 0x10
+ 1c0a832:    10 60             	r0 = [r1+0] 
+ 1c0a834:    c0 ff 60 79 fe ff 	r0 = 4294867296 <_sstack_top+0xFE375960 : fffe7960 >
+ 1c0a83a:    12 60             	r2 = [r1+0] 
+ 1c0a83c:    52 e8 07 08       	if ((r2 & 2) == 0) goto 14 <fm1__p33_xfer+0x28 : 1c0a84e >
+ 1c0a840:    c0 21             	r0 += 1
+ 1c0a842:    f0 5b             	if (r0 != 0) goto -10 <fm1__p33_xfer+0x14 : 1c0a83a >
+ 1c0a844:    c0 ff 50 c6 c0 01 	r0 = 29410896 <fm1_p33_timeouts : 1c0c650 >
+ 1c0a84a:    c0 eb 01 00       	[r0+0] += 1
+ 1c0a84e:    10 61             	r0 = [r1+4] 
+ 1c0a850:    80 00             	rts
+
+
+fm1__p33_op:
+ 1c0a852:    76 04             	[--sp] = {rets, r6-r4}
+ 1c0a854:    c5 ff 08 3e 01 00 	r5 = 81416 <firmware/loader/loader.c+0x13E08 : 13e08 >
+ 1c0a85a:    23 d6             	r3 = r2  #
+ 1c0a85c:    56 60             		 r6 = [r5+0] 
+ 1c0a85e:    14 16             	r4 = r1
+ 1c0a860:    24 ea 00 ec       	if ((r4 & 0x8000) == 0) {
+ 1c0a864:    71 e1 80 6f       		r1 = r6 & 0xFFFFFEFF
+ 1c0a868:    d1 60             		[r5+0] = r1
+ 1c0a86a:    51 60             		r1 = [r5+0] 
+ 1c0a86c:    31 20             		r1 |= 1
+                               	} else {
+ 1c0a86e:    41 e0 01 01       		r1 = 257 <firmware/loader/loader.c+0x100 : 100 >
+ 1c0a872:    61 19             		r1 |= r6
+                               	}
+ 1c0a874:    b1 f1 08 44       	r1 = uextra(r4, p:8, l:2)  #
+ 1c0a878:    d1 60             		 [r5+0] = r1
+ 1c0a87a:    a1 e1 ec 02       	r1 <= insert(r0, p:5, l:27)
+ 1c0a87e:    10 17             	r0 = r1.b0 (u)
+ 1c0a880:    bf ea d1 ff       	call -94 <fm1__p33_xfer : 1c0a826 >
+ 1c0a884:    40 17             	r0 = r4.b0 (u)
+ 1c0a886:    bf ea ce ff       	call -100 <fm1__p33_xfer : 1c0a826 >
+ 1c0a88a:    30 16             	r0 = r3
+ 1c0a88c:    bf ea cb ff       	call -106 <fm1__p33_xfer : 1c0a826 >
+ 1c0a890:    40 e0 fe fe       	r0 = -258 <_sstack_top+0xFFFFFFFFFE38DEFE : fffffffffffffefe >
+ 1c0a894:    64 e8 02 50       	[r5+0] &= r0
+ 1c0a898:    56 04             	{pc, r6-r4} = [sp++]
+
+
+sie_wr:
+ 1c0a89a:    60 e0 8c 2b       	r2 = 0x11800
+ 1c0a89e:    23 60             	r3 = [r2+0] 
+ 1c0a8a0:    53 e8 1e 10       	if ((r3 & 4) == 0) goto 60 <sie_wr+0x46 : 1c0a8e0 >
+ 1c0a8a4:    00 a8             	r0 = r0 << 8
+ 1c0a8a6:    c3 ff 00 ff ff 00 	r3 = 16776960 <firmware/loader/loader.c+0xFFFF00 : ffff00 >
+ 1c0a8ac:    b0 19             	r0 &= r3
+ 1c0a8ae:    11 17             	r1 = r1.b0 (u)
+ 1c0a8b0:    10 19             	r0 |= r1
+ 1c0a8b2:    a0 61             	[r2+4] = r0
+ 1c0a8b4:    20 00             	csync
+ 1c0a8b6:    41 e0 e0 b1       	r1 = -20000 <_sstack_top+0xFFFFFFFFFE3891E0 : ffffffffffffb1e0 >
+ 1c0a8ba:    c0 ff 20 f2 c0 01 	r0 = 29422112 <sx_collect : 1c0f220 >
+ 1c0a8c0:    23 61             	r3 = [r2+4] 
+ 1c0a8c2:    bb 17             	r3 = r3.l (s)
+ 1c0a8c4:    83 fd 0d 00       	ifs (r3 < 0) goto 26 <sie_wr+0x48 : 1c0a8e2 >
+ 1c0a8c8:    c1 21             	r1 += 1
+ 1c0a8ca:    f1 5a             	if (r1 != 0) goto -12 <sie_wr+0x26 : 1c0a8c0 >
+ 1c0a8cc:    d0 ec 0c 1b       	r1 = [r0+188]
+ 1c0a8d0:    c1 21             	r1 += 1
+ 1c0a8d2:    d0 ec 0d 1b       	[r0+188] = r1
+ 1c0a8d6:    31 e9 33 40       	if (r1 >= 51) {
+ 1c0a8da:    41 20             		r1 = 0
+ 1c0a8dc:    52 ee 08 19       		b[r0+152] = r1
+                               	}
+ 1c0a8e0:    80 00             	rts
+ 1c0a8e2:    41 20             	r1 = 0
+ 1c0a8e4:    d0 ec 0d 1b       	[r0+188] = r1
+ 1c0a8e8:    80 00             	rts
+
+
+usb_start:
+ 1c0a8ea:    76 04             	[--sp] = {rets, r6-r4}
+ 1c0a8ec:    c4 ff 20 f2 c0 01 	r4 = 29422112 <sx_collect : 1c0f220 >
+ 1c0a8f2:    40 20             	r0 = 0
+ 1c0a8f4:    d0 ec 4d 0b       	[r4+188] = r0
+ 1c0a8f8:    60 e0 8c 5b       	r5 = 0x11800
+ 1c0a8fc:    d0 60             	[r5+0] = r0
+ 1c0a8fe:    60 f0 a2 0a       	r0 = 0x51000  #
+ 1c0a902:    d0 61             		 [r5+4] = r0
+ 1c0a904:    40 ea 0c 00       	[r0+0] = 0xC
+ 1c0a908:    41 39             	r1 = 25
+ 1c0a90a:    32 e1 04 50       	r2 = r5 + -4092
+ 1c0a90e:    23 60             	r3 = [r2+0] 
+ 1c0a910:    26 60             	r6 = [r2+0] 
+ 1c0a912:    ee 1e             	r6 = r6 - r3
+ 1c0a914:    e6 a6             	r6 = r6 >> 6
+ 1c0a916:    a6 f9 fb ef       	if (r6 < 375) goto -10 <usb_start+0x26 : 1c0a910 >
+ 1c0a91a:    01 ea f8 ff       	if (--r1 != 0) goto -16 <usb_start+0x24 : 1c0a90e >
+ 1c0a91e:    31 e1 0c 28       	r1 = r2 + -2036
+ 1c0a922:    c0 ef 03 10       	[r1+0] &= 0xFFFFFFFC
+ 1c0a926:    c1 ff 54 c6 c0 01 	r1 = 29410900 <ep0buf : 1c0c654 >
+ 1c0a92c:    43 f0 08 46       	r3 = 17928  # <firmware/loader/loader.c+0x4608 : 4608 >
+ 1c0a930:    d1 66             		 [r5+24] = r1
+ 1c0a932:    42 20             	r2 = 0
+ 1c0a934:    d8 ec 2b 13       	[r2+r3<<2] = r1
+ 1c0a938:    c2 28             	r2 += 8
+ 1c0a93a:    82 f8 fb 31       	if (r2 != 24) goto -10 <usb_start+0x4A : 1c0a934 >
+ 1c0a93e:    d1 6f             	[r5+60] = r1
+ 1c0a940:    00 ef c0 0e       	[r0+0] |= 0x600
+ 1c0a944:    c0 ef 00 0e       	[r0+0] &= 0xFFFFF7FF
+ 1c0a948:    00 ef 80 0d       	[r0+0] |= 0x1000
+ 1c0a94c:    41 e0 ca bf       	r1 = -16438 <_sstack_top+0xFFFFFFFFFE389FCA : ffffffffffffbfca >
+ 1c0a950:    64 e8 02 51       	[r5+0] &= r1
+ 1c0a954:    41 20             	r1 = 0
+ 1c0a956:    d1 61             	[r5+4] = r1
+ 1c0a958:    00 ef 01 50       	[r5+0] |= 0x1
+ 1c0a95c:    c0 ef f0 00       	[r0+0] &= 0xFFFFFF0F
+ 1c0a960:    00 ef 40 00       	[r0+0] |= 0x40
+ 1c0a964:    00 ef 3c 50       	[r5+0] |= 0x3C
+ 1c0a968:    40 21             	r0 = 1
+ 1c0a96a:    59 20             	r1 = 96
+ 1c0a96c:    46 21             	r6 = 1
+ 1c0a96e:    bf ea 94 ff       	call -216 <sie_wr : 1c0a89a >
+ 1c0a972:    40 2b             	r0 = 11
+ 1c0a974:    41 27             	r1 = 7
+ 1c0a976:    bf ea 90 ff       	call -224 <sie_wr : 1c0a89a >
+ 1c0a97a:    40 27             	r0 = 7
+ 1c0a97c:    41 21             	r1 = 1
+ 1c0a97e:    bf ea 8c ff       	call -232 <sie_wr : 1c0a89a >
+ 1c0a982:    40 28             	r0 = 8
+ 1c0a984:    41 20             	r1 = 0
+ 1c0a986:    bf ea 88 ff       	call -240 <sie_wr : 1c0a89a >
+ 1c0a98a:    40 29             	r0 = 9
+ 1c0a98c:    41 20             	r1 = 0
+ 1c0a98e:    bf ea 84 ff       	call -248 <sie_wr : 1c0a89a >
+ 1c0a992:    40 2a             	r0 = 10
+ 1c0a994:    41 20             	r1 = 0
+ 1c0a996:    bf ea 80 ff       	call -256 <sie_wr : 1c0a89a >
+ 1c0a99a:    c0 ef 78 58       	[r5+0] &= 0xFF07FFFF
+ 1c0a99e:    d0 ec 4c 0b       	r0 = [r4+188]
+ 1c0a9a2:    30 e9 03 00       	if (r0 >= 3) {
+ 1c0a9a6:    46 20             		r6 = 0
+                               	}
+ 1c0a9a8:    52 ee 48 69       	b[r4+152] = r6
+ 1c0a9ac:    56 04             	{pc, r6-r4} = [sp++]
+
+
+sie_rd:
+ 1c0a9ae:    74 04             	[--sp] = {rets, r4}
+ 1c0a9b0:    60 e0 8c 2b       	r2 = 0x11800
+ 1c0a9b4:    01 d6             	r1 = r0  #
+ 1c0a9b6:    23 60             		 r3 = [r2+0] 
+ 1c0a9b8:    40 20             	r0 = 0
+ 1c0a9ba:    53 e8 22 10       	if ((r3 & 4) == 0) goto 68 <sie_rd+0x54 : 1c0aa02 >
+ 1c0a9be:    11 a8             	r1 = r1 << 8
+ 1c0a9c0:    c3 ff 00 bf ff 00 	r3 = 16760576 <firmware/loader/loader.c+0xFFBF00 : ffbf00 >
+ 1c0a9c6:    b1 19             	r1 &= r3
+ 1c0a9c8:    31 2e             	r1 |= 16384
+ 1c0a9ca:    a1 61             	[r2+4] = r1
+ 1c0a9cc:    20 00             	csync
+ 1c0a9ce:    43 e0 e0 b1       	r3 = -20000 <_sstack_top+0xFFFFFFFFFE3891E0 : ffffffffffffb1e0 >
+ 1c0a9d2:    c1 ff 20 f2 c0 01 	r1 = 29422112 <sx_collect : 1c0f220 >
+ 1c0a9d8:    24 61             	r4 = [r2+4] 
+ 1c0a9da:    cc 17             	r4 = r4.l (s)
+ 1c0a9dc:    84 fd 0d 00       	ifs (r4 < 0) goto 26 <sie_rd+0x4C : 1c0a9fa >
+ 1c0a9e0:    c3 21             	r3 += 1
+ 1c0a9e2:    f3 5a             	if (r3 != 0) goto -12 <sie_rd+0x2A : 1c0a9d8 >
+ 1c0a9e4:    d0 ec 1c 2b       	r2 = [r1+188]
+ 1c0a9e8:    c2 21             	r2 += 1
+ 1c0a9ea:    d0 ec 1d 2b       	[r1+188] = r2
+ 1c0a9ee:    32 e9 33 40       	if (r2 >= 51) {
+ 1c0a9f2:    52 ee 18 09       		b[r1+152] = r0
+ 1c0a9f6:    54 04             		{pc, r4} = [sp++]
+                               	}
+ 1c0a9f8:    54 04             	{pc, r4} = [sp++]
+ 1c0a9fa:    d0 ec 1d 0b       	[r1+188] = r0
+ 1c0a9fe:    20 61             	r0 = [r2+4] 
+ 1c0aa00:    00 17             	r0 = r0.b0 (u)
+ 1c0aa02:    54 04             	{pc, r4} = [sp++]
+
+
+e0_chunk:
+ 1c0aa04:    76 04             	[--sp] = {rets, r6-r4}
+ 1c0aa06:    c4 ff 20 f2 c0 01 	r4 = 29422112 <sx_collect : 1c0f220 >
+ 1c0aa0c:    50 ed 44 0a       	r0 = h[r4+164] (u)
+ 1c0aa10:    01 16             	r1 = r0
+ 1c0aa12:    30 e9 40 00       	if (r0 >= 64) {
+ 1c0aa16:    51 20             		r1 = 64
+                               	}
+ 1c0aa18:    c2 ff 54 c6 c0 01 	r2 = 29410900 <ep0buf : 1c0c654 >
+ 1c0aa1e:    01 4a             	if (r1 == 0) goto 20 <e0_chunk+0x30 : 1c0aa34 >
+ 1c0aa20:    d0 ec 40 3a       	r3 = [r4+160]
+ 1c0aa24:    45 20             	r5 = 0
+ 1c0aa26:    d8 ee 30 65       	r6 = b[r3+r5] (u)
+ 1c0aa2a:    d8 ee 51 62       	b[r5+r2] = r6
+ 1c0aa2e:    c5 21             	r5 += 1
+ 1c0aa30:    81 e9 f9 51       	if (r5 < r1) goto -14 <e0_chunk+0x22 : 1c0aa26 >
+ 1c0aa34:    20 00             	csync
+ 1c0aa36:    c3 ff 08 18 01 00 	r3 = 71688 <firmware/loader/loader.c+0x11808 : 11808 >
+ 1c0aa3c:    b2 64             	[r3+16] = r2
+ 1c0aa3e:    02 f1 a0 40       	r2 = r4 + 160  #
+ 1c0aa42:    b1 60             		 [r3+0] = r1
+ 1c0aa44:    68 e8 00 21       	[r2+0] += r1
+ 1c0aa48:    2b 62             	r3 = h[r2+4] (u)
+ 1c0aa4a:    39 1e             	r1 = r3 - r1
+ 1c0aa4c:    91 d7             	r1 = r1.l (u)  #
+ 1c0aa4e:    a9 62             		 h[r2+4] = r1
+ 1c0aa50:    45 20             	r5 = 0
+ 1c0aa52:    81 4b             	if (r1 != 0) goto 22 <e0_chunk+0x66 : 1c0aa6a >
+ 1c0aa54:    42 21             	r2 = 1
+ 1c0aa56:    43 21             	r3 = 1
+ 1c0aa58:    30 e9 40 00       	if (r0 >= 64) {
+ 1c0aa5c:    43 20             		r3 = 0
+                               	}
+ 1c0aa5e:    50 ee 4d 59       	r5 = b[r4+157] (u)
+ 1c0aa62:    05 41             	if (r5 == 0) goto 2 <e0_chunk+0x62 : 1c0aa66 >
+ 1c0aa64:    42 20             	r2 = 0
+ 1c0aa66:    90 e1 30 52       	r5 = r3 | r2
+ 1c0aa6a:    80 f9 04 80       	if (r0 < 64) goto 8 <e0_chunk+0x72 : 1c0aa76 >
+ 1c0aa6e:    81 43             	if (r1 != 0) goto 6 <e0_chunk+0x72 : 1c0aa76 >
+ 1c0aa70:    40 20             	r0 = 0
+ 1c0aa72:    52 ee 4d 09       	b[r4+157] = r0
+ 1c0aa76:    40 2e             	r0 = 14
+ 1c0aa78:    41 20             	r1 = 0
+ 1c0aa7a:    bf ea 0e ff       	call -484 <sie_wr : 1c0a89a >
+ 1c0aa7e:    41 2a             	r1 = 10
+ 1c0aa80:    85 41             	if (r5 != 0) goto 2 <e0_chunk+0x80 : 1c0aa84 >
+ 1c0aa82:    41 22             	r1 = 2
+ 1c0aa84:    40 31             	r0 = 17
+ 1c0aa86:    bf ea 08 ff       	call -496 <sie_wr : 1c0a89a >
+ 1c0aa8a:    05 43             	if (r5 == 0) goto 6 <e0_chunk+0x8E : 1c0aa92 >
+ 1c0aa8c:    40 20             	r0 = 0
+ 1c0aa8e:    52 ee 4c 09       	b[r4+156] = r0
+ 1c0aa92:    56 04             	{pc, r6-r4} = [sp++]
+
+
+e0_send:
+ 1c0aa94:    75 04             	[--sp] = {rets, r5, r4}
+ 1c0aa96:    c3 ff bc f2 c0 01 	r3 = 29422268 <usb+0x4 : 1c0f2bc >
+ 1c0aa9c:    35 f4 10 42       	r4 = umin(r1, r2)  #
+ 1c0aaa0:    b0 61             		 [r3+4] = r0
+ 1c0aaa2:    bc 64             	h[r3+8] = r4
+ 1c0aaa4:    40 21             	r0 = 1
+ 1c0aaa6:    45 21             	r5 = 1
+ 1c0aaa8:    92 ec 00 01       	if (r2 <= r1) {
+ 1c0aaac:    45 20             		r5 = 0
+                               	}
+ 1c0aaae:    41 21             	r1 = 1
+ 1c0aab0:    34 ea 3f 00       	if ((r4 & 0x3F) != 0) {
+ 1c0aab4:    41 20             		r1 = 0
+                               	}
+ 1c0aab6:    d1 19             	r1 &= r5
+ 1c0aab8:    b9 41             	b[r3+1] = r1
+ 1c0aaba:    b8 40             	b[r3+0] = r0
+ 1c0aabc:    40 2e             	r0 = 14
+ 1c0aabe:    41 20             	r1 = 0
+ 1c0aac0:    bf ea eb fe       	call -554 <sie_wr : 1c0a89a >
+ 1c0aac4:    40 31             	r0 = 17
+ 1c0aac6:    51 20             	r1 = 64
+ 1c0aac8:    bf ea e7 fe       	call -562 <sie_wr : 1c0a89a >
+ 1c0aacc:    35 04             	{rets, r5, r4} = [sp++]
+ 1c0aace:    ff ea 99 ff       	goto -206 <e0_chunk : 1c0aa04 >
+
+
+ldr_poll:
+ 1c0aad2:    7f 04             	[--sp] = {rets, r15-r4}
+ 1c0aad4:    e2 9e             	sp += -8
+ 1c0aad6:    c0 ff 04 08 01 00 	r0 = 67588 <firmware/loader/loader.c+0x10804 : 10804 >
+ 1c0aadc:    04 60             	r4 = [r0+0] 
+ 1c0aade:    40 21             	r0 = 1
+ 1c0aae0:    61 20             	r1 = 128
+ 1c0aae2:    52 20             	r2 = 64
+ 1c0aae4:    bf ea b5 fe       	call -662 <fm1__p33_op : 1c0a852 >
+ 1c0aae8:    c7 ff 20 f2 c0 01 	r7 = 29422112 <sx_collect : 1c0f220 >
+ 1c0aaee:    70 61             	r0 = [r7+4] 
+ 1c0aaf0:    40 1e             	r0 = r4 - r0
+ 1c0aaf2:    80 a5             	r0 = r0 >> 5
+ 1c0aaf4:    03 ff 77 01 d6 02 	if (r0 < 375) goto 1452 <ldr_poll+0x5D4 : 1c0b0a6 >
+ 1c0aafa:    f4 61             	[r7+4] = r4
+ 1c0aafc:    50 ee 78 09       	r0 = b[r7+152] (u)
+ 1c0ab00:    00 ff 00 00 d0 02 	if (r0 == 0) goto 1440 <ldr_poll+0x5D4 : 1c0b0a6 >
+ 1c0ab06:    60 e0 8c 9b       	r9 = 0x11800
+ 1c0ab0a:    d0 ec 90 00       	r0 = [r9+0]
+ 1c0ab0e:    50 e8 0b 6a       	if ((r0 & 8192) != 0) goto 22 <ldr_poll+0x56 : 1c0ab28 >
+ 1c0ab12:    71 16             	r1 = r7
+ 1c0ab14:    d0 ec 12 0c       	r0 = [++r1=192]
+ 1c0ab18:    c0 21             	r0 += 1
+ 1c0ab1a:    90 60             	[r1+0] = r0
+ 1c0ab1c:    11 62             	r1 = [r1+8] 
+ 1c0ab1e:    10 ec 00 01       	if (r0 > r1) {
+ 1c0ab22:    d0 ec 79 0c       		[r7+200] = r0
+                               	}
+ 1c0ab26:    04 88             	goto 16 <ldr_poll+0x66 : 1c0ab38 >
+ 1c0ab28:    00 ef 80 9d       	[r9+0] |= 0x1000
+ 1c0ab2c:    00 e1 b8 70       	r0 = r7 + 184
+ 1c0ab30:    c0 eb 01 00       	[r0+0] += 1
+ 1c0ab34:    42 ea 00 00       	[r0+8] = 0x0
+ 1c0ab38:    50 ee 79 09       	r0 = b[r7+153] (u)
+ 1c0ab3c:    10 4e             	if (r0 == 0) goto 92 <ldr_poll+0xC8 : 1c0ab9a >
+ 1c0ab3e:    70 62             	r0 = [r7+8] 
+ 1c0ab40:    c0 21             	r0 += 1
+ 1c0ab42:    f0 62             	[r7+8] = r0
+ 1c0ab44:    80 f9 29 28       	if (r0 < 20) goto 82 <ldr_poll+0xC8 : 1c0ab9a >
+ 1c0ab48:    45 20             	r5 = 0
+ 1c0ab4a:    f5 62             	[r7+8] = r5
+ 1c0ab4c:    40 2c             	r0 = 12
+ 1c0ab4e:    bf ea 2e ff       	call -420 <sie_rd : 1c0a9ae >
+ 1c0ab52:    04 16             	r4 = r0
+ 1c0ab54:    40 2d             	r0 = 13
+ 1c0ab56:    bf ea 2a ff       	call -428 <sie_rd : 1c0a9ae >
+ 1c0ab5a:    00 a8             	r0 = r0 << 8
+ 1c0ab5c:    50 ed 74 1d       	r1 = h[r7+212] (u)
+ 1c0ab60:    60 e1 e0 0e       	r0 = r0 & 0x700
+ 1c0ab64:    40 19             	r0 |= r4
+ 1c0ab66:    82 17             	r2 = r0.l (u)
+ 1c0ab68:    82 e8 12 10       	if (r1 != r2) goto 36 <ldr_poll+0xBE : 1c0ab90 >
+ 1c0ab6c:    50 ed 76 0d       	r0 = h[r7+214] (u)
+ 1c0ab70:    c0 21             	r0 += 1
+ 1c0ab72:    81 17             	r1 = r0.l (u)
+ 1c0ab74:    50 ed 77 0d       	h[r7+214] = r0
+ 1c0ab78:    81 f9 0f 14       	if (r1 < 10) goto 30 <ldr_poll+0xC8 : 1c0ab9a >
+ 1c0ab7c:    50 ee 79 0d       	r0 = b[r7+217] (u)
+ 1c0ab80:    80 4c             	if (r0 != 0) goto 24 <ldr_poll+0xC8 : 1c0ab9a >
+ 1c0ab82:    40 21             	r0 = 1
+ 1c0ab84:    01 e1 d0 70       	r1 = r7 + 208
+ 1c0ab88:    98 49             	b[r1+9] = r0
+ 1c0ab8a:    c0 eb 01 10       	[r1+0] += 1
+ 1c0ab8e:    04 85             	goto 10 <ldr_poll+0xC8 : 1c0ab9a >
+ 1c0ab90:    71 16             	r1 = r7
+ 1c0ab92:    58 ed 15 0d       	h[++r1=212] = r0
+ 1c0ab96:    9d 61             	h[r1+2] = r5
+ 1c0ab98:    9d 45             	b[r1+5] = r5
+ 1c0ab9a:    40 26             	r0 = 6
+ 1c0ab9c:    bf ea 07 ff       	call -498 <sie_rd : 1c0a9ae >
+ 1c0aba0:    06 16             	r6 = r0
+ 1c0aba2:    40 22             	r0 = 2
+ 1c0aba4:    bf ea 03 ff       	call -506 <sie_rd : 1c0a9ae >
+ 1c0aba8:    05 16             	r5 = r0
+ 1c0abaa:    40 23             	r0 = 3
+ 1c0abac:    bf ea ff fe       	call -514 <sie_rd : 1c0a9ae >
+ 1c0abb0:    40 24             	r0 = 4
+ 1c0abb2:    bf ea fc fe       	call -520 <sie_rd : 1c0a9ae >
+ 1c0abb6:    0a 16             	r10 = r0
+ 1c0abb8:    40 25             	r0 = 5
+ 1c0abba:    bf ea f8 fe       	call -528 <sie_rd : 1c0a9ae >
+ 1c0abbe:    36 ea 01 c0       	if ((r6 & 0x1) != 0) {
+ 1c0abc2:    00 e1 c4 70       		r0 = r7 + 196
+ 1c0abc6:    c0 eb 01 00       		[r0+0] += 1
+ 1c0abca:    40 21             		r0 = 1
+ 1c0abcc:    52 ee 79 0d       		b[r7+217] = r0
+                               	}
+ 1c0abd0:    36 ea 02 40       	if ((r6 & 0x2) != 0) {
+ 1c0abd4:    40 20             		r0 = 0
+ 1c0abd6:    52 ee 79 0d       		b[r7+217] = r0
+                               	}
+ 1c0abda:    c8 ff 54 c6 c0 01 	r8 = 29410900 <ep0buf : 1c0c654 >
+ 1c0abe0:    56 e8 22 10       	if ((r6 & 4) == 0) goto 68 <ldr_poll+0x156 : 1c0ac28 >
+ 1c0abe4:    06 e1 98 70       	r6 = r7 + 152
+ 1c0abe8:    c4 eb 01 60       	[r6+16] += 1
+ 1c0abec:    80 14             	r1_r0 = 0
+ 1c0abee:    44 20             	r4 = 0
+ 1c0abf0:    bf ea 53 fe       	call -858 <sie_wr : 1c0a89a >
+ 1c0abf4:    ec 41             	b[r6+1] = r4
+ 1c0abf6:    52 ee 79 4d       	b[r7+217] = r4
+ 1c0abfa:    70 63             	r0 = [r7+12] 
+ 1c0abfc:    f0 64             	[r7+16] = r0
+ 1c0abfe:    52 ee 73 4f       	b[r7+243] = r4
+ 1c0ac02:    70 65             	r0 = [r7+20] 
+ 1c0ac04:    f0 66             	[r7+24] = r0
+ 1c0ac06:    fc 40             	b[r7+0] = r4
+ 1c0ac08:    ec 44             	b[r6+4] = r4
+ 1c0ac0a:    ec 43             	b[r6+3] = r4
+ 1c0ac0c:    d0 ec 99 81       	[r9+24] = r8
+ 1c0ac10:    40 2b             	r0 = 11
+ 1c0ac12:    41 27             	r1 = 7
+ 1c0ac14:    bf ea 41 fe       	call -894 <sie_wr : 1c0a89a >
+ 1c0ac18:    40 27             	r0 = 7
+ 1c0ac1a:    41 21             	r1 = 1
+ 1c0ac1c:    bf ea 3d fe       	call -902 <sie_wr : 1c0a89a >
+ 1c0ac20:    40 29             	r0 = 9
+ 1c0ac22:    41 20             	r1 = 0
+ 1c0ac24:    bf ea 39 fe       	call -910 <sie_wr : 1c0a89a >
+ 1c0ac28:    c6 ff 98 c6 c0 01 	r6 = 29410968 <ep1tx : 1c0c698 >
+ 1c0ac2e:    cf ff d8 c6 c0 01 	r15 = 29411032 <ep1rx : 1c0c6d8 >
+ 1c0ac34:    60 ff 01 50 0b 01 	if ((r5 & 0x1) == 0) goto 534 <ldr_poll+0x37E : 1c0ae50 >
+ 1c0ac3a:    50 ee 7b 09       	r0 = b[r7+155] (u)
+ 1c0ac3e:    00 48             	if (r0 == 0) goto 16 <ldr_poll+0x17E : 1c0ac50 >
+ 1c0ac40:    50 ee 7a 19       	r1 = b[r7+154] (u)
+ 1c0ac44:    40 20             	r0 = 0
+ 1c0ac46:    44 20             	r4 = 0
+ 1c0ac48:    bf ea 27 fe       	call -946 <sie_wr : 1c0a89a >
+ 1c0ac4c:    52 ee 7b 49       	b[r7+155] = r4
+ 1c0ac50:    40 2e             	r0 = 14
+ 1c0ac52:    41 20             	r1 = 0
+ 1c0ac54:    44 20             	r4 = 0
+ 1c0ac56:    bf ea 20 fe       	call -960 <sie_wr : 1c0a89a >
+ 1c0ac5a:    40 31             	r0 = 17
+ 1c0ac5c:    bf ea a7 fe       	call -690 <sie_rd : 1c0a9ae >
+ 1c0ac60:    05 16             	r5 = r0
+ 1c0ac62:    55 e8 0a 12       	if ((r5 & 4) != 0) goto 20 <ldr_poll+0x1A8 : 1c0ac7a >
+ 1c0ac66:    55 e8 0f 22       	if ((r5 & 16) != 0) goto 30 <ldr_poll+0x1B6 : 1c0ac88 >
+ 1c0ac6a:    50 ee 7c 09       	r0 = b[r7+156] (u)
+ 1c0ac6e:    00 53             	if (r0 == 0) goto 38 <ldr_poll+0x1C4 : 1c0ac96 >
+ 1c0ac70:    55 e8 ee 0a       	if ((r5 & 2) != 0) goto 476 <ldr_poll+0x37E : 1c0ae50 >
+ 1c0ac74:    bf ea c6 fe       	call -628 <e0_chunk : 1c0aa04 >
+ 1c0ac78:    74 8b             	goto 470 <ldr_poll+0x37E : 1c0ae50 >
+ 1c0ac7a:    40 31             	r0 = 17
+ 1c0ac7c:    41 20             	r1 = 0
+ 1c0ac7e:    bf ea 0c fe       	call -1000 <sie_wr : 1c0a89a >
+ 1c0ac82:    52 ee 7c 49       	b[r7+156] = r4
+ 1c0ac86:    74 84             	goto 456 <ldr_poll+0x37E : 1c0ae50 >
+ 1c0ac88:    40 31             	r0 = 17
+ 1c0ac8a:    61 20             	r1 = 128
+ 1c0ac8c:    bf ea 05 fe       	call -1014 <sie_wr : 1c0a89a >
+ 1c0ac90:    40 20             	r0 = 0
+ 1c0ac92:    52 ee 7c 09       	b[r7+156] = r0
+ 1c0ac96:    55 e8 db 00       	if ((r5 & 1) == 0) goto 438 <ldr_poll+0x37E : 1c0ae50 >
+ 1c0ac9a:    22 00             	ssync
+ 1c0ac9c:    40 20             	r0 = 0
+ 1c0ac9e:    d8 ee 00 18       	r1 = b[r0+r8] (u)
+ 1c0aca2:    8a 1d             	r2 = r0 + r7
+ 1c0aca4:    c0 21             	r0 += 1
+ 1c0aca6:    52 ee 2a 1d       	b[r2+218] = r1
+ 1c0acaa:    80 f8 f8 11       	if (r0 != 8) goto -16 <ldr_poll+0x1CC : 1c0ac9e >
+ 1c0acae:    00 e1 ac 70       	r0 = r7 + 172
+ 1c0acb2:    c0 eb 01 00       	[r0+0] += 1
+ 1c0acb6:    00 e1 d8 70       	r0 = r7 + 216
+ 1c0acba:    0a 49             	r2 = b[r0+9] (u)
+ 1c0acbc:    09 48             	r1 = b[r0+8] (u)
+ 1c0acbe:    a1 f1 60 24       	r1 <= insert(r2, p:8, l:24)  #
+ 1c0acc2:    0b 42             		 r3 = b[r0+2] (u)
+ 1c0acc4:    0d 43             	r5 = b[r0+3] (u)
+ 1c0acc6:    a5 f1 60 34       	r5 <= insert(r3, p:8, l:24)  #
+ 1c0acca:    0c 45             		 r4 = b[r0+5] (u)
+ 1c0accc:    d3 d7             	r3 = r5.l (u)  #
+ 1c0acce:    0a 44             		 r2 = b[r0+4] (u)
+ 1c0acd0:    c5 ff 05 80 00 00 	r5 = 32773 <firmware/loader/loader.c+0x8004 : 8004 >
+ 1c0acd6:    c0 ff 4a c5 c0 01 	r0 = 29410634 <ep0_service.zero2 : 1c0c54a >
+ 1c0acdc:    05 ee 0d 30       	ifs (r3 > r5) goto 26 <ldr_poll+0x228 : 1c0acfa >
+ 1c0ace0:    a3 fe 1d 14       	ifs (r3 <= 266) goto 58 <ldr_poll+0x24C : 1c0ad1e >
+ 1c0ace4:    a2 e1 20 44       	r2 <= insert(r4, p:8, l:8)
+ 1c0ace8:    23 f8 57 16       	if (r3 == 267) goto 174 <ldr_poll+0x2C8 : 1c0ad9a >
+ 1c0acec:    00 ff 01 32 56 00 	if (r3 == 513) goto 172 <ldr_poll+0x2CC : 1c0ad9e >
+ 1c0acf2:    20 ff 00 3c 0e 00 	if (r3 == 32768) goto 28 <ldr_poll+0x242 : 1c0ad14 >
+ 1c0acf8:    44 83             	goto 262 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0acfa:    2b ff 01 3c 40 00 	ifs (r3 < 33024) goto 128 <ldr_poll+0x2AE : 1c0ad80 >
+ 1c0ad00:    20 ff 01 3c 07 00 	if (r3 == 33024) goto 14 <ldr_poll+0x242 : 1c0ad14 >
+ 1c0ad06:    02 e1 05 51       	r2 = r5 + 261
+ 1c0ad0a:    02 e8 41 30       	if (r3 == r2) goto 130 <ldr_poll+0x2BE : 1c0ad90 >
+ 1c0ad0e:    21 ff 02 3c 76 00 	if (r3 != 33280) goto 236 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0ad14:    92 17             	r2 = r1.l (u)
+ 1c0ad16:    41 22             	r1 = 2
+ 1c0ad18:    bf ea bc fe       	call -648 <e0_send : 1c0aa94 >
+ 1c0ad1c:    44 99             	goto 306 <ldr_poll+0x37E : 1c0ae50 >
+ 1c0ad1e:    03 f8 52 0a       	if (r3 == 5) goto 164 <ldr_poll+0x2F4 : 1c0adc6 >
+ 1c0ad22:    83 f8 6d 12       	if (r3 != 9) goto 218 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0ad26:    02 fc 6b 02       	if (r2 > 1) goto 214 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0ad2a:    52 ee 79 29       	b[r7+153] = r2
+ 1c0ad2e:    82 f8 6e 02       	if (r2 != 1) goto 220 <ldr_poll+0x33C : 1c0ae0e >
+ 1c0ad32:    d0 ec 9d 61       	[r9+28] = r6
+ 1c0ad36:    d0 ec 91 f2       	[r9+32] = r15
+ 1c0ad3a:    40 2e             	r0 = 14
+ 1c0ad3c:    41 21             	r1 = 1
+ 1c0ad3e:    bf ea ac fd       	call -1192 <sie_wr : 1c0a89a >
+ 1c0ad42:    40 30             	r0 = 16
+ 1c0ad44:    79 3f             	r1 = 255
+ 1c0ad46:    bf ea a8 fd       	call -1200 <sie_wr : 1c0a89a >
+ 1c0ad4a:    40 31             	r0 = 17
+ 1c0ad4c:    51 28             	r1 = 72
+ 1c0ad4e:    bf ea a4 fd       	call -1208 <sie_wr : 1c0a89a >
+ 1c0ad52:    40 32             	r0 = 18
+ 1c0ad54:    41 20             	r1 = 0
+ 1c0ad56:    bf ea a0 fd       	call -1216 <sie_wr : 1c0a89a >
+ 1c0ad5a:    40 33             	r0 = 19
+ 1c0ad5c:    79 3f             	r1 = 255
+ 1c0ad5e:    bf ea 9c fd       	call -1224 <sie_wr : 1c0a89a >
+ 1c0ad62:    40 34             	r0 = 20
+ 1c0ad64:    61 30             	r1 = 144
+ 1c0ad66:    bf ea 98 fd       	call -1232 <sie_wr : 1c0a89a >
+ 1c0ad6a:    40 35             	r0 = 21
+ 1c0ad6c:    41 20             	r1 = 0
+ 1c0ad6e:    bf ea 94 fd       	call -1240 <sie_wr : 1c0a89a >
+ 1c0ad72:    40 29             	r0 = 9
+ 1c0ad74:    41 22             	r1 = 2
+ 1c0ad76:    bf ea 90 fd       	call -1248 <sie_wr : 1c0a89a >
+ 1c0ad7a:    c0 ef 80 99       	[r9+0] &= 0xFFEFFFFF
+ 1c0ad7e:    34 80             	goto 192 <ldr_poll+0x36E : 1c0ae40 >
+ 1c0ad80:    58 81             	r0 = r5 + 1
+ 1c0ad82:    00 e8 28 30       	if (r3 == r0) goto 80 <ldr_poll+0x304 : 1c0add6 >
+ 1c0ad86:    c0 22             	r0 += 2
+ 1c0ad88:    80 e8 3a 30       	if (r3 != r0) goto 116 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0ad8c:    00 e1 99 70       	r0 = r7 + 153
+ 1c0ad90:    92 17             	r2 = r1.l (u)
+ 1c0ad92:    41 21             	r1 = 1
+ 1c0ad94:    bf ea 7e fe       	call -772 <e0_send : 1c0aa94 >
+ 1c0ad98:    24 9b             	goto 182 <ldr_poll+0x37E : 1c0ae50 >
+ 1c0ad9a:    92 52             	if (r2 != 0) goto 100 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0ad9c:    24 91             	goto 162 <ldr_poll+0x36E : 1c0ae40 >
+ 1c0ad9e:    92 50             	if (r2 != 0) goto 96 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0ada0:    50 ee 7e 0d       	r0 = b[r7+222] (u)
+ 1c0ada4:    71 e1 f0 00       	r1 = r0 & 0xFFFFFF0F
+ 1c0ada8:    01 fc 2a 02       	if (r1 > 1) goto 84 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0adac:    21 49             	if (r1 == 0) goto 146 <ldr_poll+0x36E : 1c0ae40 >
+ 1c0adae:    40 2e             	r0 = 14
+ 1c0adb0:    bf ea 73 fd       	call -1306 <sie_wr : 1c0a89a >
+ 1c0adb4:    54 ee 7e 0d       	r0 = b[r7+222] (s)
+ 1c0adb8:    30 ee ff 6f       	ifs (r0 > -1) {
+ 1c0adbc:    40 34             		r0 = 20
+ 1c0adbe:    61 20             		r1 = 128
+                               	} else {
+ 1c0adc0:    40 31             		r0 = 17
+ 1c0adc2:    51 20             		r1 = 64
+                               	}
+ 1c0adc4:    14 86             	goto 76 <ldr_poll+0x340 : 1c0ae12 >
+ 1c0adc6:    70 e1 80 20       	r0 = r2 & 0xFFFFFF7F
+ 1c0adca:    52 ee 7a 09       	b[r7+154] = r0
+ 1c0adce:    40 21             	r0 = 1
+ 1c0add0:    52 ee 7b 09       	b[r7+155] = r0
+ 1c0add4:    14 95             	goto 106 <ldr_poll+0x36E : 1c0ae40 >
+ 1c0add6:    04 f8 1f 02       	if (r4 == 1) goto 62 <ldr_poll+0x346 : 1c0ae18 >
+ 1c0adda:    04 f8 07 06       	if (r4 == 3) goto 14 <ldr_poll+0x31A : 1c0adec >
+ 1c0adde:    84 f8 0f 04       	if (r4 != 2) goto 30 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0ade2:    5b 25             	r3 = 101
+ 1c0ade4:    c0 ff 5e c5 c0 01 	r0 = 29410654 <CFG_DESC : 1c0c55e >
+ 1c0adea:    14 84             	goto 72 <ldr_poll+0x362 : 1c0ae34 >
+ 1c0adec:    02 5a             	if (r2 == 0) goto 52 <ldr_poll+0x350 : 1c0ae22 >
+ 1c0adee:    02 f8 1d 04       	if (r2 == 2) goto 58 <ldr_poll+0x35A : 1c0ae2c >
+ 1c0adf2:    82 f8 05 02       	if (r2 != 1) goto 10 <ldr_poll+0x32E : 1c0ae00 >
+ 1c0adf6:    4b 2a             	r3 = 42
+ 1c0adf8:    c0 ff c7 c5 c0 01 	r0 = 29410759 <STR0+0x3 : 1c0c5c6 >
+ 1c0adfe:    04 9a             	goto 52 <ldr_poll+0x362 : 1c0ae34 >
+ 1c0ae00:    40 2e             	r0 = 14
+ 1c0ae02:    41 20             	r1 = 0
+ 1c0ae04:    bf ea 49 fd       	call -1390 <sie_wr : 1c0a89a >
+ 1c0ae08:    40 31             	r0 = 17
+ 1c0ae0a:    59 20             	r1 = 96
+ 1c0ae0c:    04 9f             	goto 62 <ldr_poll+0x37A : 1c0ae4c >
+ 1c0ae0e:    40 29             	r0 = 9
+ 1c0ae10:    41 20             	r1 = 0
+ 1c0ae12:    bf ea 42 fd       	call -1404 <sie_wr : 1c0a89a >
+ 1c0ae16:    04 94             	goto 40 <ldr_poll+0x36E : 1c0ae40 >
+ 1c0ae18:    43 32             	r3 = 18
+ 1c0ae1a:    c0 ff 4c c5 c0 01 	r0 = 29410636 <DEV_DESC : 1c0c54c >
+ 1c0ae20:    04 89             	goto 18 <ldr_poll+0x362 : 1c0ae34 >
+ 1c0ae22:    43 24             	r3 = 4
+ 1c0ae24:    c0 ff c3 c5 c0 01 	r0 = 29410755 <CFG_DESC+0x64 : 1c0c5c2 >
+ 1c0ae2a:    04 84             	goto 8 <ldr_poll+0x362 : 1c0ae34 >
+ 1c0ae2c:    43 3e             	r3 = 30
+ 1c0ae2e:    c0 ff f1 c5 c0 01 	r0 = 29410801 <STR1+0x29 : 1c0c5f0 >
+ 1c0ae34:    92 17             	r2 = r1.l (u)
+ 1c0ae36:    02 44             	if (r2 == 0) goto 8 <ldr_poll+0x36E : 1c0ae40 >
+ 1c0ae38:    b1 17             	r1 = r3.l (u)
+ 1c0ae3a:    bf ea 2b fe       	call -938 <e0_send : 1c0aa94 >
+ 1c0ae3e:    04 88             	goto 16 <ldr_poll+0x37E : 1c0ae50 >
+ 1c0ae40:    40 2e             	r0 = 14
+ 1c0ae42:    41 20             	r1 = 0
+ 1c0ae44:    bf ea 29 fd       	call -1454 <sie_wr : 1c0a89a >
+ 1c0ae48:    40 31             	r0 = 17
+ 1c0ae4a:    51 28             	r1 = 72
+ 1c0ae4c:    bf ea 25 fd       	call -1462 <sie_wr : 1c0a89a >
+ 1c0ae50:    5a e8 db 08       	if ((r10 & 2) == 0) goto 438 <ldr_poll+0x538 : 1c0b00a >
+ 1c0ae54:    40 2e             	r0 = 14
+ 1c0ae56:    41 21             	r1 = 1
+ 1c0ae58:    bf ea 1f fd       	call -1474 <sie_wr : 1c0a89a >
+ 1c0ae5c:    40 34             	r0 = 20
+ 1c0ae5e:    bf ea a6 fd       	call -1204 <sie_rd : 1c0a9ae >
+ 1c0ae62:    04 16             	r4 = r0
+ 1c0ae64:    40 35             	r0 = 21
+ 1c0ae66:    bf ea a2 fd       	call -1212 <sie_rd : 1c0a9ae >
+ 1c0ae6a:    54 e8 ce 00       	if ((r4 & 1) == 0) goto 412 <ldr_poll+0x538 : 1c0b00a >
+ 1c0ae6e:    00 a8             	r0 = r0 << 8
+ 1c0ae70:    40 d9             	r0 |= r4  #
+ 1c0ae72:    84 21             		 [sp+4] = r4
+ 1c0ae74:    80 20             	[sp] = r0
+ 1c0ae76:    40 36             	r0 = 22
+ 1c0ae78:    bf ea 99 fd       	call -1230 <sie_rd : 1c0a9ae >
+ 1c0ae7c:    05 16             	r5 = r0
+ 1c0ae7e:    40 37             	r0 = 23
+ 1c0ae80:    bf ea 95 fd       	call -1238 <sie_rd : 1c0a9ae >
+ 1c0ae84:    00 a8             	r0 = r0 << 8
+ 1c0ae86:    90 e1 00 d5       	r13 = r0 | r5
+ 1c0ae8a:    3d e9 40 00       	if (r13 >= 64) {
+ 1c0ae8e:    4d e0 40 00       		r13 = 64
+                               	} <firmware/loader/loader.c+0x40 : 40 >
+ 1c0ae92:    22 00             	ssync
+ 1c0ae94:    8d f9 a2 08       	if (r13 < 4) goto 324 <ldr_poll+0x50A : 1c0afdc >
+ 1c0ae98:    c2 14             	r10 = 0
+ 1c0ae9a:    c2 ff 0f c6 c0 01 	r2 = 29410831 <STR2+0x1D : 1c0c60e >
+ 1c0aea0:    4e e0 01 00       	r14 = 1 <firmware/loader/loader.c : 0 >
+ 1c0aea4:    cc ff 1c c7 c0 01 	r12 = 29411100 <sx_frame : 1c0c71c >
+ 1c0aeaa:    c1 14             	r9 = 0
+ 1c0aeac:    04 8f             	goto 30 <ldr_poll+0x3FA : 1c0aecc >
+ 1c0aeae:    83 f8 04 1e       	if (r3 != 15) goto 8 <ldr_poll+0x3E8 : 1c0aeba >
+ 1c0aeb2:    d8 ee b0 0f       	r0 = b[r11+r15] (u)
+ 1c0aeb6:    90 f9 8b f0       	if (r0 < 248) goto 278 <ldr_poll+0x4FE : 1c0afd0 >
+ 1c0aeba:    70 67             	r0 = [r7+28] 
+ 1c0aebc:    71 68             	r1 = [r7+32] 
+ 1c0aebe:    08 1e             	r0 = r0 - r1
+ 1c0aec0:    00 fc 86 7e       	if (r0 > 63) goto 268 <ldr_poll+0x4FE : 1c0afd0 >
+ 1c0aec4:    70 67             	r0 = [r7+28] 
+ 1c0aec6:    c7 eb 01 70       	[r7+28] += 1
+ 1c0aeca:    44 82             	goto 260 <ldr_poll+0x4FE : 1c0afd0 >
+ 1c0aecc:    d8 ee 90 0f       	r0 = b[r9+r15] (u)
+ 1c0aed0:    4b e1 01 90       	r11 = r9 | 0x1
+ 1c0aed4:    71 e1 f3 00       	r1 = r0 & 0xFFFFFF0C
+ 1c0aed8:    73 e1 f0 00       	r3 = r0 & 0xFFFFFF0F
+ 1c0aedc:    81 f8 74 08       	if (r1 != 4) goto 232 <ldr_poll+0x4F6 : 1c0afc8 >
+ 1c0aee0:    40 23             	r0 = 3
+ 1c0aee2:    03 f8 06 08       	if (r3 == 4) goto 12 <ldr_poll+0x420 : 1c0aef2 >
+ 1c0aee6:    03 f8 04 0e       	if (r3 == 7) goto 8 <ldr_poll+0x420 : 1c0aef2 >
+ 1c0aeea:    40 22             	r0 = 2
+ 1c0aeec:    b3 e8 06 00       	if (r3 != 6) {
+ 1c0aef0:    40 21             		r0 = 1
+                               	}
+ 1c0aef2:    43 20             	r3 = 0
+ 1c0aef4:    b4 e0 30 1b       	r1 = r3 + r11
+ 1c0aef8:    d8 ee 10 6f       	r6 = b[r1+r15] (u)
+ 1c0aefc:    96 f8 0c e0       	if (r6 != 240) goto 24 <ldr_poll+0x446 : 1c0af18 >
+ 1c0af00:    44 21             	r4 = 1
+ 1c0af02:    52 ee 73 4f       	b[r7+243] = r4
+ 1c0af06:    41 20             	r1 = 0
+ 1c0af08:    52 ee 72 1f       	b[r7+242] = r1
+ 1c0af0c:    7d 41             	r5 = b[r7+1] (u)
+ 1c0af0e:    05 41             	if (r5 == 0) goto 2 <ldr_poll+0x440 : 1c0af12 >
+ 1c0af10:    44 20             	r4 = 0
+ 1c0af12:    fc 40             	b[r7+0] = r4
+ 1c0af14:    f1 69             	[r7+36] = r1
+ 1c0af16:    04 83             	goto 6 <ldr_poll+0x44C : 1c0af1e >
+ 1c0af18:    50 ee 73 1f       	r1 = b[r7+243] (u)
+ 1c0af1c:    21 51             	if (r1 == 0) goto 162 <ldr_poll+0x4EE : 1c0afc0 >
+ 1c0af1e:    79 40             	r1 = b[r7+0] (u)
+ 1c0af20:    01 4d             	if (r1 == 0) goto 26 <ldr_poll+0x46A : 1c0af3c >
+ 1c0af22:    16 f8 0b e0       	if (r6 == 240) goto 22 <ldr_poll+0x46A : 1c0af3c >
+ 1c0af26:    16 f8 09 ee       	if (r6 == 247) goto 18 <ldr_poll+0x46A : 1c0af3c >
+ 1c0af2a:    71 69             	r1 = [r7+36] 
+ 1c0af2c:    b1 ec 7f 92       	if (r1 <= 639) {
+ 1c0af30:    1c 81             		r4 = r1 + 1
+ 1c0af32:    f4 69             		[r7+36] = r4
+ 1c0af34:    d8 ee 11 6c       		b[r1+r12] = r6
+                               	} else {
+ 1c0af38:    52 ee 70 a0       		b[r7+0] = r10
+                               	}
+ 1c0af3c:    50 ee 72 1f       	r1 = b[r7+242] (u)
+ 1c0af40:    b1 ec 0f c0       	if (r1 <= 15) {
+ 1c0af44:    1c 81             		r4 = r1 + 1
+ 1c0af46:    52 ee 72 4f       		b[r7+242] = r4
+ 1c0af4a:    71 18             		r1 += r7
+ 1c0af4c:    52 ee 12 6e       		b[r1+226] = r6
+                               	}
+ 1c0af50:    96 f8 36 ee       	if (r6 != 247) goto 108 <ldr_poll+0x4EE : 1c0afc0 >
+ 1c0af54:    50 ee 72 6f       	r6 = b[r7+242] (u)
+ 1c0af58:    86 f8 10 0c       	if (r6 != 6) goto 32 <ldr_poll+0x4AA : 1c0af7c >
+ 1c0af5c:    41 20             	r1 = 0
+ 1c0af5e:    d8 ee 10 42       	r4 = b[r1+r2] (u)
+ 1c0af62:    9d 1d             	r5 = r1 + r7
+ 1c0af64:    50 ee 52 5e       	r5 = b[r5+226] (u)
+ 1c0af68:    c1 21             	r1 += 1
+ 1c0af6a:    01 fc 02 0a       	if (r1 > 5) goto 4 <ldr_poll+0x4A0 : 1c0af72 >
+ 1c0af6e:    04 e8 f6 51       	if (r5 == r4) goto -20 <ldr_poll+0x48C : 1c0af5e >
+ 1c0af72:    84 e8 03 50       	if (r5 != r4) goto 6 <ldr_poll+0x4AA : 1c0af7c >
+ 1c0af76:    52 ee 74 ef       	b[r7+244] = r14
+ 1c0af7a:    04 9e             	goto 60 <ldr_poll+0x4E6 : 1c0afb8 >
+ 1c0af7c:    08 e1 e3 70       	r8 = r7 + 227
+ 1c0af80:    86 f8 13 0c       	if (r6 != 6) goto 38 <ldr_poll+0x4D8 : 1c0afaa >
+ 1c0af84:    50 ee 80 10       	r1 = b[r8+0] (u)
+ 1c0af88:    81 f8 0f 44       	if (r1 != 34) goto 30 <ldr_poll+0x4D8 : 1c0afaa >
+ 1c0af8c:    50 ee 81 10       	r1 = b[r8+1] (u)
+ 1c0af90:    81 f8 0b 48       	if (r1 != 36) goto 22 <ldr_poll+0x4D8 : 1c0afaa >
+ 1c0af94:    50 ee 82 10       	r1 = b[r8+2] (u)
+ 1c0af98:    81 f8 07 6a       	if (r1 != 53) goto 14 <ldr_poll+0x4D8 : 1c0afaa >
+ 1c0af9c:    50 ee 83 10       	r1 = b[r8+3] (u)
+ 1c0afa0:    81 f8 03 fe       	if (r1 != 127) goto 6 <ldr_poll+0x4D8 : 1c0afaa >
+ 1c0afa4:    52 ee 75 ef       	b[r7+245] = r14
+ 1c0afa8:    04 87             	goto 14 <ldr_poll+0x4E6 : 1c0afb8 >
+ 1c0afaa:    79 40             	r1 = b[r7+0] (u)
+ 1c0afac:    01 45             	if (r1 == 0) goto 10 <ldr_poll+0x4E6 : 1c0afb8 >
+ 1c0afae:    71 69             	r1 = [r7+36] 
+ 1c0afb0:    01 43             	if (r1 == 0) goto 6 <ldr_poll+0x4E6 : 1c0afb8 >
+ 1c0afb2:    f1 6a             	[r7+40] = r1
+ 1c0afb4:    52 ee 71 e0       	b[r7+1] = r14
+ 1c0afb8:    52 ee 70 a0       	b[r7+0] = r10
+ 1c0afbc:    52 ee 73 af       	b[r7+243] = r10
+ 1c0afc0:    c3 21             	r3 += 1
+ 1c0afc2:    80 e9 97 31       	if (r3 < r0) goto -210 <ldr_poll+0x422 : 1c0aef4 >
+ 1c0afc6:    04 84             	goto 8 <ldr_poll+0x4FE : 1c0afd0 >
+ 1c0afc8:    b0 e1 11 00       	r0 = sextra(r0, p:0, l:4)
+ 1c0afcc:    f0 fe 6f ff       	ifs (r0 <= -1) goto -290 <ldr_poll+0x3DC : 1c0aeae >
+ 1c0afd0:    09 e1 04 90       	r9 = r9 + 4
+ 1c0afd4:    40 e1 03 90       	r0 = r9 | 0x3
+ 1c0afd8:    8d e9 78 01       	if (r0 < r13) goto -272 <ldr_poll+0x3FA : 1c0aecc >
+ 1c0afdc:    00 e1 b0 70       	r0 = r7 + 176
+ 1c0afe0:    c0 eb 01 00       	[r0+0] += 1
+ 1c0afe4:    00 21             	r0 = [sp+4]
+ 1c0afe6:    60 e1 8b 00       	r0 = r0 & 0x8B
+ 1c0afea:    41 e1 10 00       	r1 = r0 | 0x10
+ 1c0afee:    40 34             	r0 = 20
+ 1c0aff0:    bf ea 53 fc       	call -1882 <sie_wr : 1c0a89a >
+ 1c0aff4:    00 20             	r0 = [sp]
+ 1c0aff6:    80 a9             	r0 = r0 >> 9
+ 1c0aff8:    01 a1             	r1 = r0 << 1
+ 1c0affa:    40 35             	r0 = 21
+ 1c0affc:    bf ea 4d fc       	call -1894 <sie_wr : 1c0a89a >
+ 1c0b000:    60 e0 8c 9b       	r9 = 0x11800
+ 1c0b004:    c6 ff 98 c6 c0 01 	r6 = 29410968 <ep1tx : 1c0c698 >
+ 1c0b00a:    50 ee 79 09       	r0 = b[r7+153] (u)
+ 1c0b00e:    20 4b             	if (r0 == 0) goto 150 <ldr_poll+0x5D4 : 1c0b0a6 >
+ 1c0b010:    70 63             	r0 = [r7+12] 
+ 1c0b012:    71 64             	r1 = [r7+16] 
+ 1c0b014:    81 e8 04 00       	if (r0 != r1) goto 8 <ldr_poll+0x54E : 1c0b020 >
+ 1c0b018:    70 65             	r0 = [r7+20] 
+ 1c0b01a:    71 66             	r1 = [r7+24] 
+ 1c0b01c:    01 e8 43 00       	if (r0 == r1) goto 134 <ldr_poll+0x5D4 : 1c0b0a6 >
+ 1c0b020:    40 2e             	r0 = 14
+ 1c0b022:    41 21             	r1 = 1
+ 1c0b024:    bf ea 39 fc       	call -1934 <sie_wr : 1c0a89a >
+ 1c0b028:    40 31             	r0 = 17
+ 1c0b02a:    bf ea c0 fc       	call -1664 <sie_rd : 1c0a9ae >
+ 1c0b02e:    50 e8 3a 02       	if ((r0 & 1) != 0) goto 116 <ldr_poll+0x5D4 : 1c0b0a6 >
+ 1c0b032:    30 ea 80 80       	if ((r0 & 0x80) != 0) {
+ 1c0b036:    71 e1 80 00       		r1 = r0 & 0xFFFFFF7F
+ 1c0b03a:    40 31             		r0 = 17
+ 1c0b03c:    bf ea 2d fc       		call -1958
+                               	} <sie_wr : 1c0a89a >
+ 1c0b040:    71 66             	r1 = [r7+24] 
+ 1c0b042:    72 65             	r2 = [r7+20] 
+ 1c0b044:    40 20             	r0 = 0
+ 1c0b046:    02 e8 1a 10       	if (r1 == r2) goto 52 <ldr_poll+0x5AC : 1c0b07e >
+ 1c0b04a:    c1 ff 9c c9 c0 01 	r1 = 29411740 <sx_out_q : 1c0c99c >
+ 1c0b050:    63 d6             	r3 = r6  #
+ 1c0b052:    72 66             		 r2 = [r7+24] 
+ 1c0b054:    62 e1 7f 20       	r2 = r2 & 0x7F
+ 1c0b058:    d8 ec 1a 22       	r2 = [r1+r2<<2]
+ 1c0b05c:    dc ee 31 20       	b[++r3=r0] = r2
+ 1c0b060:    a4 a8             	r4 = r2 >> 8
+ 1c0b062:    bc 41             	b[r3+1] = r4
+ 1c0b064:    a4 b0             	r4 = r2 >> 16
+ 1c0b066:    bc 42             	b[r3+2] = r4
+ 1c0b068:    a2 b8             	r2 = r2 >> 24
+ 1c0b06a:    ba 43             	b[r3+3] = r2
+ 1c0b06c:    c6 eb 01 70       	[r7+24] += 1
+ 1c0b070:    72 66             	r2 = [r7+24] 
+ 1c0b072:    73 65             	r3 = [r7+20] 
+ 1c0b074:    c0 24             	r0 += 4
+ 1c0b076:    00 fc 02 7e       	if (r0 > 63) goto 4 <ldr_poll+0x5AC : 1c0b07e >
+ 1c0b07a:    83 e8 e9 21       	if (r2 != r3) goto -46 <ldr_poll+0x57E : 1c0b050 >
+ 1c0b07e:    79 42             	r1 = b[r7+2] (u)
+ 1c0b080:    01 54             	if (r1 == 0) goto 40 <ldr_poll+0x5D8 : 1c0b0aa >
+ 1c0b082:    00 51             	if (r0 == 0) goto 34 <ldr_poll+0x5D4 : 1c0b0a6 >
+ 1c0b084:    20 00             	csync
+ 1c0b086:    d0 ec 9d 61       	[r9+28] = r6
+ 1c0b08a:    d0 ec 9d 00       	[r9+12] = r0
+ 1c0b08e:    40 31             	r0 = 17
+ 1c0b090:    bf ea 8d fc       	call -1766 <sie_rd : 1c0a9ae >
+ 1c0b094:    41 e1 01 00       	r1 = r0 | 0x1
+ 1c0b098:    40 31             	r0 = 17
+ 1c0b09a:    bf ea fe fb       	call -2052 <sie_wr : 1c0a89a >
+ 1c0b09e:    00 e1 b4 70       	r0 = r7 + 180
+ 1c0b0a2:    c0 eb 01 00       	[r0+0] += 1
+ 1c0b0a6:    02 82             	sp += 8
+ 1c0b0a8:    5f 04             	{pc, r15-r4} = [sp++]
+ 1c0b0aa:    41 20             	r1 = 0
+ 1c0b0ac:    72 66             	r2 = [r7+24] 
+ 1c0b0ae:    73 65             	r3 = [r7+20] 
+ 1c0b0b0:    83 e8 e7 21       	if (r2 != r3) goto -50 <ldr_poll+0x5B0 : 1c0b082 >
+ 1c0b0b4:    72 64             	r2 = [r7+16] 
+ 1c0b0b6:    73 63             	r3 = [r7+12] 
+ 1c0b0b8:    00 fc e3 7f       	if (r0 > 63) goto -58 <ldr_poll+0x5B0 : 1c0b082 >
+ 1c0b0bc:    03 e8 e1 21       	if (r2 == r3) goto -62 <ldr_poll+0x5B0 : 1c0b082 >
+ 1c0b0c0:    62 d6             	r2 = r6  #
+ 1c0b0c2:    72 64             		 r2 = [r7+16] 
+ 1c0b0c4:    dc ee 21 10       	b[++r2=r0] = r1
+ 1c0b0c8:    a9 41             	b[r2+1] = r1
+ 1c0b0ca:    a9 42             	b[r2+2] = r1
+ 1c0b0cc:    a9 43             	b[r2+3] = r1
+ 1c0b0ce:    c4 eb 01 70       	[r7+16] += 1
+ 1c0b0d2:    7a 42             	r2 = b[r7+2] (u)
+ 1c0b0d4:    c0 24             	r0 += 4
+ 1c0b0d6:    72 4a             	if (r2 == 0) goto -44 <ldr_poll+0x5DA : 1c0b0ac >
+ 1c0b0d8:    e7 95             	goto -86 <ldr_poll+0x5B2 : 1c0b084 >
+
+
+ota_take:
+ 1c0b0da:    77 04             	[--sp] = {rets, r7-r4}
+ 1c0b0dc:    c3 ff 20 f2 c0 01 	r3 = 29422112 <sx_collect : 1c0f220 >
+ 1c0b0e2:    38 41             	r0 = b[r3+1] (u)
+ 1c0b0e4:    20 45             	if (r0 == 0) goto 138 <ota_take+0x96 : 1c0b170 >
+ 1c0b0e6:    30 6a             	r0 = [r3+40] 
+ 1c0b0e8:    44 20             	r4 = 0
+ 1c0b0ea:    c5 ff 1c c7 c0 01 	r5 = 29411100 <sx_frame : 1c0c71c >
+ 1c0b0f0:    c2 ff 9c cb c0 01 	r2 = 29412252 <ota_dec : 1c0cb9c >
+ 1c0b0f6:    46 20             	r6 = 0
+ 1c0b0f8:    41 20             	r1 = 0
+ 1c0b0fa:    04 8f             	goto 30 <ota_take+0x40 : 1c0b11a >
+ 1c0b0fc:    57 07             	r7 = b[r5++=1] (u)
+ 1c0b0fe:    f8 3f             	r0 += -1
+ 1c0b100:    bf 27             	r7 &= 4294967167
+ 1c0b102:    67 1a             	r7 <<= r6
+ 1c0b104:    c6 27             	r6 += 7
+ 1c0b106:    74 19             	r4 |= r7
+ 1c0b108:    86 f9 07 10       	if (r6 < 8) goto 14 <ota_take+0x40 : 1c0b11a >
+ 1c0b10c:    b1 ec 7f 02       	if (r1 <= 639) {
+ 1c0b110:    d8 ee 11 42       		b[r1+r2] = r4
+                               	}
+ 1c0b114:    fe 38             	r6 += -8
+ 1c0b116:    c4 a8             	r4 = r4 >> 8
+ 1c0b118:    c1 21             	r1 += 1
+ 1c0b11a:    f0 50             	if (r0 != 0) goto -32 <ota_take+0x22 : 1c0b0fc >
+ 1c0b11c:    40 20             	r0 = 0
+ 1c0b11e:    34 e1 f9 1f       	r4 = r1 + -7
+ 1c0b122:    b8 41             	b[r3+1] = r0
+ 1c0b124:    44 fc 23 f2       	if (r4 > 633) goto 70 <ota_take+0x94 : 1c0b16e >
+ 1c0b128:    2b 40             	r3 = b[r2+0] (u)
+ 1c0b12a:    93 41             	if (r3 != 0) goto 66 <ota_take+0x94 : 1c0b16e >
+ 1c0b12c:    2b 41             	r3 = b[r2+1] (u)
+ 1c0b12e:    83 f8 1e b2       	if (r3 != 89) goto 60 <ota_take+0x94 : 1c0b16e >
+ 1c0b132:    2b 44             	r3 = b[r2+4] (u)
+ 1c0b134:    2c 43             	r4 = b[r2+3] (u)
+ 1c0b136:    a4 f1 20 34       	r4 <= insert(r3, p:8, l:8)  #
+ 1c0b13a:    2d 45             		 r5 = b[r2+5] (u)
+ 1c0b13c:    a4 e1 20 58       	r4 <= insert(r5, p:16, l:8)
+ 1c0b140:    4b 87             	r3 = r4 + 7
+ 1c0b142:    81 e8 14 30       	if (r3 != r1) goto 40 <ota_take+0x94 : 1c0b16e >
+ 1c0b146:    78 3f             	r0 = 255
+ 1c0b148:    81 f9 0b 10       	if (r1 < 8) goto 22 <ota_take+0x88 : 1c0b162 >
+ 1c0b14c:    40 20             	r0 = 0
+ 1c0b14e:    43 27             	r3 = 7
+ 1c0b150:    b4 1c             	r4 = r3 + r2
+ 1c0b152:    4c 5f             	r4 = b[r4+-1] (u)
+ 1c0b154:    c3 21             	r3 += 1
+ 1c0b156:    40 18             	r0 += r4
+ 1c0b158:    83 e8 fa 11       	if (r1 != r3) goto -12 <ota_take+0x76 : 1c0b150 >
+ 1c0b15c:    7b 3f             	r3 = 255
+ 1c0b15e:    90 e1 33 00       	r0 = r3 & ~r0
+ 1c0b162:    12 18             	r2 += r1
+ 1c0b164:    2a 5f             	r2 = b[r2+-1] (u)
+ 1c0b166:    90 e8 00 02       	if (r0 != r2) {
+ 1c0b16a:    41 20             		r1 = 0
+                               	}
+ 1c0b16c:    10 16             	r0 = r1
+ 1c0b16e:    57 04             	{pc, r7-r4} = [sp++]
+ 1c0b170:    40 20             	r0 = 0
+ 1c0b172:    57 04             	{pc, r7-r4} = [sp++]
+
+
+ota_send_msg:
+ 1c0b174:    7f 04             	[--sp] = {rets, r15-r4}
+ 1c0b176:    c4 ff 20 f2 c0 01 	r4 = 29422112 <sx_collect : 1c0f220 >
+ 1c0b17c:    43 20             	r3 = 0
+ 1c0b17e:    45 16             	r5 = r4
+ 1c0b180:    5a ee 5c 33       	b[++r5=60] = r3
+ 1c0b184:    56 39             	r6 = 89
+ 1c0b186:    de 41             	b[r5+1] = r6
+ 1c0b188:    d8 42             	b[r5+2] = r0
+ 1c0b18a:    da 43             	b[r5+3] = r2
+ 1c0b18c:    db 44             	b[r5+4] = r3
+ 1c0b18e:    db 45             	b[r5+5] = r3
+ 1c0b190:    02 54             	if (r2 == 0) goto 40 <ota_send_msg+0x46 : 1c0b1ba >
+ 1c0b192:    00 e1 42 40       	r0 = r4 + 66
+ 1c0b196:    25 16             	r5 = r2
+ 1c0b198:    1e 40             	r6 = b[r1+0] (u)
+ 1c0b19a:    86 07             	b[r0++=1] = r6
+ 1c0b19c:    16 07             	r6 = b[r1++=1] (u)
+ 1c0b19e:    63 18             	r3 += r6
+ 1c0b1a0:    05 ea fa ff       	if (--r5 != 0) goto -12 <ota_send_msg+0x24 : 1c0b198 >
+ 1c0b1a4:    20 1d             	r0 = r2 + r4
+ 1c0b1a6:    b9 19             	r1 = ~r3
+ 1c0b1a8:    52 ee 02 14       	b[r0+66] = r1
+ 1c0b1ac:    78 30             	r0 = 240
+ 1c0b1ae:    29 87             	r1 = r2 + 7
+ 1c0b1b0:    52 ee 44 06       	b[r4+100] = r0
+ 1c0b1b4:    81 4a             	if (r1 != 0) goto 20 <ota_send_msg+0x56 : 1c0b1ca >
+ 1c0b1b6:    40 20             	r0 = 0
+ 1c0b1b8:    14 86             	goto 76 <ota_send_msg+0x92 : 1c0b206 >
+ 1c0b1ba:    20 1d             	r0 = r2 + r4
+ 1c0b1bc:    79 3f             	r1 = 255
+ 1c0b1be:    52 ee 02 14       	b[r0+66] = r1
+ 1c0b1c2:    78 30             	r0 = 240
+ 1c0b1c4:    52 ee 44 06       	b[r4+100] = r0
+ 1c0b1c8:    41 27             	r1 = 7
+ 1c0b1ca:    02 e1 3c 40       	r2 = r4 + 60
+ 1c0b1ce:    40 20             	r0 = 0
+ 1c0b1d0:    45 20             	r5 = 0
+ 1c0b1d2:    43 20             	r3 = 0
+ 1c0b1d4:    26 07             	r6 = b[r2++=1] (u)
+ 1c0b1d6:    56 1a             	r6 <<= r5
+ 1c0b1d8:    63 19             	r3 |= r6
+ 1c0b1da:    c5 28             	r5 += 8
+ 1c0b1dc:    f9 3f             	r1 += -1
+ 1c0b1de:    85 f9 0a 0e       	if (r5 < 7) goto 20 <ota_send_msg+0x82 : 1c0b1f6 >
+ 1c0b1e2:    06 1d             	r6 = r0 + r4
+ 1c0b1e4:    67 e1 7f 30       	r7 = r3 & 0x7F
+ 1c0b1e8:    52 ee 65 76       	b[r6+101] = r7
+ 1c0b1ec:    fd 39             	r5 += -7
+ 1c0b1ee:    b3 a7             	r3 = r3 >> 7
+ 1c0b1f0:    c0 21             	r0 += 1
+ 1c0b1f2:    05 fc f6 0d       	if (r5 > 6) goto -20 <ota_send_msg+0x6E : 1c0b1e2 >
+ 1c0b1f6:    f1 4e             	if (r1 != 0) goto -36 <ota_send_msg+0x60 : 1c0b1d4 >
+ 1c0b1f8:    05 46             	if (r5 == 0) goto 12 <ota_send_msg+0x92 : 1c0b206 >
+ 1c0b1fa:    01 1d             	r1 = r0 + r4
+ 1c0b1fc:    62 e1 7f 30       	r2 = r3 & 0x7F
+ 1c0b200:    52 ee 15 26       	b[r1+101] = r2
+ 1c0b204:    c0 21             	r0 += 1
+ 1c0b206:    01 1d             	r1 = r0 + r4
+ 1c0b208:    7a 37             	r2 = 247
+ 1c0b20a:    52 ee 15 26       	b[r1+101] = r2
+ 1c0b20e:    c9 ff 04 08 01 00 	r9 = 67588 <firmware/loader/loader.c+0x10804 : 10804 >
+ 1c0b214:    d0 ec 90 10       	r1 = [r9+0]
+ 1c0b218:    50 ec 40 23       	r3_r2 = d[r4+48]
+ 1c0b21c:    91 de             	r1 = r1 - r2  #
+ 1c0b21e:    c1 6c             		 [r4+48] = r1
+ 1c0b220:    31 d8             	r1 += r3  #
+ 1c0b222:    42 6e             		 r2 = [r4+56] 
+ 1c0b224:    4c e0 c0 5d       	r12 = 24000 <firmware/loader/loader.c+0x5DC0 : 5dc0 >
+ 1c0b228:    f4 e1 10 3c       	r3 = r1 / r12 (u)
+ 1c0b22c:    ae 1c             	r6 = r2 + r3
+ 1c0b22e:    f0 f1 30 2c       	r2 = r3 * r12  #
+ 1c0b232:    c6 6e             		 [r4+56] = r6
+ 1c0b234:    91 1e             	r1 = r1 - r2
+ 1c0b236:    c1 6d             	[r4+52] = r1
+ 1c0b238:    41 21             	r1 = 1
+ 1c0b23a:    0a f1 02 00       	r10 = r0 + 2  #
+ 1c0b23e:    c9 42             		 b[r4+2] = r1
+ 1c0b240:    40 20             	r0 = 0
+ 1c0b242:    0a f8 5b 00       	if (r10 == 0) goto 182 <ota_send_msg+0x188 : 1c0b2fc >
+ 1c0b246:    45 20             	r5 = 0
+ 1c0b248:    b4 e0 a2 05       	r0 = r10 - r5
+ 1c0b24c:    47 23             	r7 = 3
+ 1c0b24e:    b0 ec 02 00       	if (r0 <= 2) {
+ 1c0b252:    07 16             		r7 = r0
+                               	}
+ 1c0b254:    79 84             	r1 = r7 + 4
+ 1c0b256:    4d e0 04 00       	r13 = 4 <firmware/loader/loader.c+0x4 : 4 >
+ 1c0b25a:    b7 e8 03 00       	if (r7 != 3) {
+ 1c0b25e:    1d 16             		r13 = r1
+                               	}
+ 1c0b260:    5a 83             	r2 = r5 + 3
+ 1c0b262:    12 e9 00 0a       	if (r2 >= r10) {
+ 1c0b266:    1d 16             		r13 = r1
+                               	}
+ 1c0b268:    51 1d             	r1 = r5 + r4
+ 1c0b26a:    50 ee 14 b6       	r11 = b[r1+100] (u)
+ 1c0b26e:    8e 14             	r15_r14 = 0
+ 1c0b270:    37 e9 02 40       	if (r7 >= 2) {
+ 1c0b274:    50 ee 15 26       		r2 = b[r1+101] (u)
+ 1c0b278:    c0 e1 20 f1       		r15 = r2 << 16
+                               	}
+ 1c0b27c:    30 e9 03 40       	if (r0 >= 3) {
+ 1c0b280:    50 ee 16 06       		r0 = b[r1+102] (u)
+ 1c0b284:    c0 e1 08 e1       		r14 = r0 << 24
+                               	}
+ 1c0b288:    40 65             	r0 = [r4+20] 
+ 1c0b28a:    41 66             	r1 = [r4+24] 
+ 1c0b28c:    08 1e             	r0 = r0 - r1
+ 1c0b28e:    90 f9 1f 00       	if (r0 < 128) goto 62 <ota_send_msg+0x15C : 1c0b2d0 >
+ 1c0b292:    50 ee 49 19       	r1 = b[r4+153] (u)
+ 1c0b296:    10 3f             	r0 = -1
+ 1c0b298:    11 51             	if (r1 == 0) goto 98 <ota_send_msg+0x188 : 1c0b2fc >
+ 1c0b29a:    d0 ec 90 10       	r1 = [r9+0]
+ 1c0b29e:    50 ec 40 23       	r3_r2 = d[r4+48]
+ 1c0b2a2:    91 de             	r1 = r1 - r2  #
+ 1c0b2a4:    c1 6c             		 [r4+48] = r1
+ 1c0b2a6:    d0 ec 48 83       	r8 = [r4+56]
+ 1c0b2aa:    31 18             	r1 += r3
+ 1c0b2ac:    f4 e1 10 2c       	r2 = r1 / r12 (u)
+ 1c0b2b0:    b4 e0 80 32       	r3 = r8 + r2
+ 1c0b2b4:    c2 db             	r2 *= r12  #
+ 1c0b2b6:    c3 6e             		 [r4+56] = r3
+ 1c0b2b8:    91 1e             	r1 = r1 - r2
+ 1c0b2ba:    b2 df             	r2 = r3 - r6  #
+ 1c0b2bc:    c1 6d             		 [r4+52] = r1
+ 1c0b2be:    12 fc 1d 90       	if (r2 > 200) goto 58 <ota_send_msg+0x188 : 1c0b2fc >
+ 1c0b2c2:    bf ea 06 fc       	call -2036 <ldr_poll : 1c0aad2 >
+ 1c0b2c6:    40 65             	r0 = [r4+20] 
+ 1c0b2c8:    41 66             	r1 = [r4+24] 
+ 1c0b2ca:    08 1e             	r0 = r0 - r1
+ 1c0b2cc:    00 fc e1 ff       	if (r0 > 127) goto -62 <ota_send_msg+0x11E : 1c0b292 >
+ 1c0b2d0:    c0 e1 b8 00       	r0 = r11 << 8
+ 1c0b2d4:    90 f1 00 0d       	r0 = r0 | r13  #
+ 1c0b2d8:    41 65             		 r1 = [r4+20] 
+ 1c0b2da:    90 e1 00 0f       	r0 = r0 | r15
+ 1c0b2de:    90 e1 00 0e       	r0 = r0 | r14
+ 1c0b2e2:    61 e1 7f 10       	r1 = r1 & 0x7F
+ 1c0b2e6:    c2 ff 9c c9 c0 01 	r2 = 29411740 <sx_out_q : 1c0c99c >
+ 1c0b2ec:    d8 ec 2b 01       	[r2+r1<<2] = r0
+ 1c0b2f0:    c5 eb 01 40       	[r4+20] += 1
+ 1c0b2f4:    75 18             	r5 += r7
+ 1c0b2f6:    8a e9 a7 51       	if (r5 < r10) goto -178 <ota_send_msg+0xD4 : 1c0b248 >
+ 1c0b2fa:    40 20             	r0 = 0
+ 1c0b2fc:    41 20             	r1 = 0
+ 1c0b2fe:    c9 42             	b[r4+2] = r1
+ 1c0b300:    5f 04             	{pc, r15-r4} = [sp++]
+
+
+ota_reply_identity:
+ 1c0b302:    10 04             	[--sp] = rets
+ 1c0b304:    e2 99             	sp += -28
+ 1c0b306:    40 20             	r0 = 0
+ 1c0b308:    c1 ff 25 c6 c0 01 	r1 = 29410853 <fm1_enter_uboot.k+0xF : 1c0c624 >
+ 1c0b30e:    42 20             	r2 = 0
+ 1c0b310:    b0 ec 0b 00       	if (r0 <= 11) {
+ 1c0b314:    d8 ee 00 21       		r2 = b[r0+r1] (u)
+                               	}
+ 1c0b318:    8b 81             	r3 = sp + 1
+ 1c0b31a:    d8 ee 31 20       	b[r3+r0] = r2
+ 1c0b31e:    c0 21             	r0 += 1
+ 1c0b320:    80 f8 f5 37       	if (r0 != 27) goto -22 <ota_reply_identity+0xC : 1c0b30e >
+ 1c0b324:    89 81             	r1 = sp + 1
+ 1c0b326:    40 31             	r0 = 17
+ 1c0b328:    42 3b             	r2 = 27
+ 1c0b32a:    bf ea 23 ff       	call -442 <ota_send_msg : 1c0b174 >
+ 1c0b32e:    02 87             	sp += 28
+ 1c0b330:    00 04             	pc = [sp++]
+
+
+ota_read:
+ 1c0b332:    7f 04             	[--sp] = {rets, r15-r4}
+ 1c0b334:    e2 9e             	sp += -8
+ 1c0b336:    2d 16             	r13 = r2
+ 1c0b338:    1a 16             	r10 = r1
+ 1c0b33a:    09 16             	r9 = r0
+ 1c0b33c:    c3 14             	r11 = 0
+ 1c0b33e:    de e9 00 b0       	b[sp] = r11
+ 1c0b342:    de e9 01 00       	b[sp+1] = r0
+ 1c0b346:    80 a8             	r0 = r0 >> 8
+ 1c0b348:    de e9 02 00       	b[sp+2] = r0
+ 1c0b34c:    c0 e1 90 09       	r0 = r9 >> 16
+ 1c0b350:    de e9 03 00       	b[sp+3] = r0
+ 1c0b354:    c0 e1 98 09       	r0 = r9 >> 24
+ 1c0b358:    de e9 04 00       	b[sp+4] = r0
+ 1c0b35c:    de e9 05 20       	b[sp+5] = r2
+ 1c0b360:    a0 a8             	r0 = r2 >> 8
+ 1c0b362:    de e9 06 00       	b[sp+6] = r0
+ 1c0b366:    de e9 07 b0       	b[sp+7] = r11
+ 1c0b36a:    0c e1 08 20       	r12 = r2 + 8
+ 1c0b36e:    0e e1 0f 20       	r14 = r2 + 15
+ 1c0b372:    cf ff 04 08 01 00 	r15 = 67588 <firmware/loader/loader.c+0x10804 : 10804 >
+ 1c0b378:    c4 ff 20 f2 c0 01 	r4 = 29422112 <sx_collect : 1c0f220 >
+ 1c0b37e:    45 e0 c0 5d       	r5 = 24000 <firmware/loader/loader.c+0x5DC0 : 5dc0 >
+ 1c0b382:    c7 ff 9c cb c0 01 	r7 = 29412252 <ota_dec : 1c0cb9c >
+ 1c0b388:    89 80             	r1 = sp + 0
+ 1c0b38a:    48 30             	r0 = 48
+ 1c0b38c:    42 28             	r2 = 8
+ 1c0b38e:    bf ea f1 fe       	call -542 <ota_send_msg : 1c0b174 >
+ 1c0b392:    48 e0 ff ff       	r8 = -1 <_sstack_top+0xFFFFFFFFFE38DFFE : fffffffffffffffe >
+ 1c0b396:    b0 42             	if (r0 != 0) goto 196 <ota_read+0x12A : 1c0b45c >
+ 1c0b398:    d0 ec f0 00       	r0 = [r15+0]
+ 1c0b39c:    41 6c             	r1 = [r4+48] 
+ 1c0b39e:    09 de             	r1 = r0 - r1  #
+ 1c0b3a0:    42 6d             		 r2 = [r4+52] 
+ 1c0b3a2:    21 d8             	r1 += r2  #
+ 1c0b3a4:    c0 6c             		 [r4+48] = r0
+ 1c0b3a6:    f4 f1 10 25       	r2 = r1 / r5 (u)  #
+ 1c0b3aa:    43 6e             		 r3 = [r4+56] 
+ 1c0b3ac:    b6 1c             	r6 = r3 + r2
+ 1c0b3ae:    52 db             	r2 *= r5  #
+ 1c0b3b0:    c6 6e             		 [r4+56] = r6
+ 1c0b3b2:    92 1e             	r2 = r1 - r2
+ 1c0b3b4:    61 d6             	r1 = r6  #
+ 1c0b3b6:    c2 6d             		 [r4+52] = r2
+ 1c0b3b8:    14 93             	goto 102 <ota_read+0xEE : 1c0b420 >
+ 1c0b3ba:    bf ea 8a fb       	call -2284 <ldr_poll : 1c0aad2 >
+ 1c0b3be:    bf ea 8c fe       	call -744 <ota_take : 1c0b0da >
+ 1c0b3c2:    10 4b             	if (r0 == 0) goto 86 <ota_read+0xE8 : 1c0b41a >
+ 1c0b3c4:    80 f8 06 0e       	if (r0 != 7) goto 12 <ota_read+0xA2 : 1c0b3d4 >
+ 1c0b3c8:    79 42             	r1 = b[r7+2] (u)
+ 1c0b3ca:    81 f8 04 22       	if (r1 != 17) goto 8 <ota_read+0xA4 : 1c0b3d6 >
+ 1c0b3ce:    bf ea 98 ff       	call -208 <ota_reply_identity : 1c0b302 >
+ 1c0b3d2:    14 83             	goto 70 <ota_read+0xE8 : 1c0b41a >
+ 1c0b3d4:    79 42             	r1 = b[r7+2] (u)
+ 1c0b3d6:    8e e8 20 00       	if (r0 != r14) goto 64 <ota_read+0xE8 : 1c0b41a >
+ 1c0b3da:    81 f8 1e 60       	if (r1 != 48) goto 60 <ota_read+0xE8 : 1c0b41a >
+ 1c0b3de:    78 44             	r0 = b[r7+4] (u)
+ 1c0b3e0:    79 43             	r1 = b[r7+3] (u)
+ 1c0b3e2:    a1 f1 20 04       	r1 <= insert(r0, p:8, l:8)  #
+ 1c0b3e6:    7a 45             		 r2 = b[r7+5] (u)
+ 1c0b3e8:    a1 e1 20 28       	r1 <= insert(r2, p:16, l:8)
+ 1c0b3ec:    8c e8 15 10       	if (r1 != r12) goto 42 <ota_read+0xE8 : 1c0b41a >
+ 1c0b3f0:    78 48             	r0 = b[r7+8] (u)
+ 1c0b3f2:    79 47             	r1 = b[r7+7] (u)
+ 1c0b3f4:    a1 f1 20 04       	r1 <= insert(r0, p:8, l:8)  #
+ 1c0b3f8:    7a 49             		 r2 = b[r7+9] (u)
+ 1c0b3fa:    a1 f1 20 28       	r1 <= insert(r2, p:16, l:8)  #
+ 1c0b3fe:    7b 4a             		 r3 = b[r7+10] (u)
+ 1c0b400:    a1 e1 20 3c       	r1 <= insert(r3, p:24, l:8)
+ 1c0b404:    89 e8 09 10       	if (r1 != r9) goto 18 <ota_read+0xE8 : 1c0b41a >
+ 1c0b408:    78 4c             	r0 = b[r7+12] (u)
+ 1c0b40a:    79 4b             	r1 = b[r7+11] (u)
+ 1c0b40c:    a1 f1 20 04       	r1 <= insert(r0, p:8, l:8)  #
+ 1c0b410:    7a 4d             		 r2 = b[r7+13] (u)
+ 1c0b412:    a1 e1 20 28       	r1 <= insert(r2, p:16, l:8)
+ 1c0b416:    0d e8 18 10       	if (r1 == r13) goto 48 <ota_read+0x118 : 1c0b44a >
+ 1c0b41a:    41 6e             	r1 = [r4+56] 
+ 1c0b41c:    42 6d             	r2 = [r4+52] 
+ 1c0b41e:    40 6c             	r0 = [r4+48] 
+ 1c0b420:    d0 ec f0 30       	r3 = [r15+0]
+ 1c0b424:    30 de             	r0 = r3 - r0  #
+ 1c0b426:    c3 6c             		 [r4+48] = r3
+ 1c0b428:    20 18             	r0 += r2
+ 1c0b42a:    f4 e1 00 25       	r2 = r0 / r5 (u)
+ 1c0b42e:    21 18             	r1 += r2
+ 1c0b430:    52 db             	r2 *= r5  #
+ 1c0b432:    c1 6e             		 [r4+56] = r1
+ 1c0b434:    80 1e             	r0 = r0 - r2
+ 1c0b436:    91 df             	r1 = r1 - r6  #
+ 1c0b438:    c0 6d             		 [r4+52] = r0
+ 1c0b43a:    91 a3             	r1 = r1 >> 3
+ 1c0b43c:    c1 fc bd e1       	if (r1 <= 624) goto -134 <ota_read+0x88 : 1c0b3ba >
+ 1c0b440:    0b e1 01 b0       	r11 = r11 + 1
+ 1c0b444:    8b f9 a0 07       	if (r11 < 3) goto -192 <ota_read+0x56 : 1c0b388 >
+ 1c0b448:    04 89             	goto 18 <ota_read+0x12A : 1c0b45c >
+ 1c0b44a:    c0 14             	r8 = 0
+ 1c0b44c:    0d f8 06 00       	if (r13 == 0) goto 12 <ota_read+0x12A : 1c0b45c >
+ 1c0b450:    78 8e             	r0 = r7 + 14
+ 1c0b452:    01 07             	r1 = b[r0++=1] (u)
+ 1c0b454:    d2 ee a1 10       	b[r10++=1] = r1
+ 1c0b458:    0d ea fb ff       	if (--r13 != 0) goto -10 <ota_read+0x120 : 1c0b452 >
+ 1c0b45c:    80 16             	r0 = r8
+ 1c0b45e:    02 82             	sp += 8
+ 1c0b460:    5f 04             	{pc, r15-r4} = [sp++]
+
+
+ota_jl_enc:
+ 1c0b462:    74 04             	[--sp] = {rets, r4}
+ 1c0b464:    01 50             	if (r1 == 0) goto 32 <ota_jl_enc+0x24 : 1c0b486 >
+ 1c0b466:    c3 ff ff ff 00 00 	r3 = 65535 <firmware/loader/loader.c+0xFFFE : fffe >
+ 1c0b46c:    42 e0 21 10       	r2 = 4129 <firmware/loader/loader.c+0x1020 : 1020 >
+ 1c0b470:    0c 40             	r4 = b[r0+0] (u)
+ 1c0b472:    3c 19             	r4 ^= r3
+ 1c0b474:    b4 f1 85 37       	r4 = sextra(r3, p:15, l:1)  #
+ 1c0b478:    84 07             		 b[r0++=1] = r4
+ 1c0b47a:    a4 19             	r4 &= r2
+ 1c0b47c:    33 a1             	r3 = r3 << 1
+ 1c0b47e:    b3 17             	r3 = r3.l (u)
+ 1c0b480:    4b 19             	r3 ^= r4
+ 1c0b482:    01 ea f5 ff       	if (--r1 != 0) goto -22 <ota_jl_enc+0xE : 1c0b470 >
+ 1c0b486:    54 04             	{pc, r4} = [sp++]
+
+
+ota_crc16:
+ 1c0b488:    77 04             	[--sp] = {rets, r7-r4}
+ 1c0b48a:    42 20             	r2 = 0
+ 1c0b48c:    01 53             	if (r1 == 0) goto 38 <ota_crc16+0x2C : 1c0b4b4 >
+ 1c0b48e:    43 e0 21 10       	r3 = 4129 <firmware/loader/loader.c+0x1020 : 1020 >
+ 1c0b492:    04 07             	r4 = b[r0++=1] (u)
+ 1c0b494:    44 a8             	r4 = r4 << 8
+ 1c0b496:    4a 19             	r2 ^= r4
+ 1c0b498:    f9 3f             	r1 += -1
+ 1c0b49a:    44 28             	r4 = 8
+ 1c0b49c:    25 a1             	r5 = r2 << 1
+ 1c0b49e:    90 e1 51 63       	r6 = r5 ^ r3
+ 1c0b4a2:    af 17             	r7 = r2.l (s)
+ 1c0b4a4:    62 16             	r2 = r6
+ 1c0b4a6:    37 ed 00 00       	ifs (r7 >= 0) {
+ 1c0b4aa:    52 16             		r2 = r5
+                               	}
+ 1c0b4ac:    04 ea f6 ff       	if (--r4 != 0) goto -20 <ota_crc16+0x14 : 1c0b49c >
+ 1c0b4b0:    a2 17             	r2 = r2.l (u)
+ 1c0b4b2:    f1 4f             	if (r1 != 0) goto -34 <ota_crc16+0xA : 1c0b492 >
+ 1c0b4b4:    20 16             	r0 = r2
+ 1c0b4b6:    57 04             	{pc, r7-r4} = [sp++]
+
+
+ldr_main:
+ 1c0b4b8:    c2 93             	sp += -180
+ 1c0b4ba:    40 20             	r0 = 0
+ 1c0b4bc:    61 20             	r1 = 128
+ 1c0b4be:    42 20             	r2 = 0
+ 1c0b4c0:    c5 14             	r13 = 0
+ 1c0b4c2:    bf ea c6 f9       	call -3188 <fm1__p33_op : 1c0a852 >
+ 1c0b4c6:    40 22             	r0 = 2
+ 1c0b4c8:    41 37             	r1 = 23
+ 1c0b4ca:    6a 3f             	r2 = 191
+ 1c0b4cc:    bf ea c1 f9       	call -3198 <fm1__p33_op : 1c0a852 >
+ 1c0b4d0:    40 20             	r0 = 0
+ 1c0b4d2:    61 20             	r1 = 128
+ 1c0b4d4:    52 2d             	r2 = 77
+ 1c0b4d6:    bf ea bc f9       	call -3208 <fm1__p33_op : 1c0a852 >
+ 1c0b4da:    40 21             	r0 = 1
+ 1c0b4dc:    61 20             	r1 = 128
+ 1c0b4de:    42 30             	r2 = 16
+ 1c0b4e0:    bf ea b7 f9       	call -3218 <fm1__p33_op : 1c0a852 >
+ 1c0b4e4:    60 e0 84 5b       	r5 = 0x10800
+ 1c0b4e8:    50 60             	r0 = [r5+0] 
+ 1c0b4ea:    60 e1 0f 00       	r0 = r0 & 0xF
+ 1c0b4ee:    00 f8 09 12       	if (r0 == 9) goto 18 <ldr_main+0x4C : 1c0b504 >
+ 1c0b4f2:    d0 ec 51 d0       	[r5+0] = r13
+ 1c0b4f6:    42 ea ff 53       	[r5+8] = 0xFFFFFFFF
+ 1c0b4fa:    d0 ec 55 d0       	[r5+4] = r13
+ 1c0b4fe:    40 e0 09 40       	r0 = 16393 <firmware/loader/loader.c+0x4008 : 4008 >
+ 1c0b502:    d0 60             	[r5+0] = r0
+ 1c0b504:    bf ea f1 f9       	call -3102 <usb_start : 1c0a8ea >
+ 1c0b508:    e8 86             	r0 = sp + 102
+ 1c0b50a:    09 90             	r1 = r0 + 16
+ 1c0b50c:    4e f0 c0 5d       	r14 = 24000  # <firmware/loader/loader.c+0x5DC0 : 5dc0 >
+ 1c0b510:    81 24             		 [sp+16] = r1
+ 1c0b512:    80 21             	[sp+4] = r0
+ 1c0b514:    c0 2f             	r0 += 15
+ 1c0b516:    80 20             	[sp] = r0
+ 1c0b518:    f8 e8 88 00       	r0 = sp + 136
+ 1c0b51c:    0a f1 10 00       	r10 = r0 + 16  #
+ 1c0b520:    80 23             		 [sp+12] = r0
+ 1c0b522:    c0 22             	r0 += 2
+ 1c0b524:    80 22             	[sp+8] = r0
+ 1c0b526:    c4 ff 20 f2 c0 01 	r4 = 29422112 <sx_collect : 1c0f220 >
+ 1c0b52c:    c9 ff 9c cb c0 01 	r9 = 29412252 <ota_dec : 1c0cb9c >
+ 1c0b532:    cb ff 1c ce c0 01 	r11 = 29412892 <ldr_session.hdr : 1c0ce1c >
+ 1c0b538:    bf ea cb fa       	call -2666 <ldr_poll : 1c0aad2 >
+ 1c0b53c:    50 61             	r0 = [r5+4] 
+ 1c0b53e:    41 6c             	r1 = [r4+48] 
+ 1c0b540:    42 6d             	r2 = [r4+52] 
+ 1c0b542:    08 de             	r0 = r0 - r1  #
+ 1c0b544:    c0 6c             		 [r4+48] = r0
+ 1c0b546:    21 dc             	r1 = r2 + r0  #
+ 1c0b548:    43 6e             		 r3 = [r4+56] 
+ 1c0b54a:    f4 e1 10 2e       	r2 = r1 / r14 (u)
+ 1c0b54e:    b0 1c             	r0 = r3 + r2
+ 1c0b550:    e2 db             	r2 *= r14  #
+ 1c0b552:    c0 6e             		 [r4+56] = r0
+ 1c0b554:    91 1e             	r1 = r1 - r2
+ 1c0b556:    c1 6d             	[r4+52] = r1
+ 1c0b558:    50 ee 48 19       	r1 = b[r4+152] (u)
+ 1c0b55c:    50 ee 48 2d       	r2 = b[r4+216] (u)
+ 1c0b560:    21 19             	r1 |= r2
+ 1c0b562:    61 ff ff 10 0b 00 	if ((r1 & 0xFF) != 0) goto 22 <ldr_main+0xC6 : 1c0b57e >
+ 1c0b568:    41 6b             	r1 = [r4+44] 
+ 1c0b56a:    09 1e             	r1 = r0 - r1
+ 1c0b56c:    31 e9 e8 c3       	if (r1 >= 1000) {
+ 1c0b570:    c0 6b             		[r4+44] = r0
+ 1c0b572:    00 e1 cc 40       		r0 = r4 + 204
+ 1c0b576:    c0 eb 01 00       		[r0+0] += 1
+ 1c0b57a:    bf ea b6 f9       		call -3220
+                               	} <usb_start : 1c0a8ea >
+ 1c0b57e:    50 ee 44 0f       	r0 = b[r4+244] (u)
+ 1c0b582:    01 ff 00 00 04 02 	if (r0 != 0) goto 1032 <ldr_main+0x4D8 : 1c0b990 >
+ 1c0b588:    bf ea a7 fd       	call -1202 <ota_take : 1c0b0da >
+ 1c0b58c:    50 ee 92 10       	r1 = b[r9+2] (u)
+ 1c0b590:    80 f8 04 0e       	if (r0 != 7) goto 8 <ldr_main+0xE4 : 1c0b59c >
+ 1c0b594:    31 e8 11 00       	if (r1 == 17) {
+ 1c0b598:    bf ea b3 fe       		call -666
+                               	} <ota_reply_identity : 1c0b302 >
+ 1c0b59c:    50 ee 45 0f       	r0 = b[r4+245] (u)
+ 1c0b5a0:    60 4b             	if (r0 == 0) goto -106 <ldr_main+0x80 : 1c0b538 >
+ 1c0b5a2:    52 ee 45 df       	b[r4+245] = r13
+ 1c0b5a6:    40 20             	r0 = 0
+ 1c0b5a8:    42 e0 00 02       	r2 = 512 <firmware/loader/loader.c+0x200 : 200 >
+ 1c0b5ac:    b1 16             	r1 = r11
+ 1c0b5ae:    bf ea c0 fe       	call -640 <ota_read : 1c0b332 >
+ 1c0b5b2:    e0 42             	if (r0 != 0) goto -124 <ldr_main+0x80 : 1c0b538 >
+ 1c0b5b4:    01 e1 00 b2       	r1 = r11 + 512
+ 1c0b5b8:    40 e0 00 02       	r0 = 512 <firmware/loader/loader.c+0x200 : 200 >
+ 1c0b5bc:    02 16             	r2 = r0
+ 1c0b5be:    bf ea b8 fe       	call -656 <ota_read : 1c0b332 >
+ 1c0b5c2:    d0 5a             	if (r0 != 0) goto -140 <ldr_main+0x80 : 1c0b538 >
+ 1c0b5c4:    51 20             	r1 = 64
+ 1c0b5c6:    b0 16             	r0 = r11
+ 1c0b5c8:    bf ea 4b ff       	call -362 <ota_jl_enc : 1c0b462 >
+ 1c0b5cc:    50 ee b9 60       	r6 = b[r11+9] (u)
+ 1c0b5d0:    50 ee b8 70       	r7 = b[r11+8] (u)
+ 1c0b5d4:    00 e1 02 b0       	r0 = r11 + 2
+ 1c0b5d8:    49 3e             	r1 = 62
+ 1c0b5da:    bf ea 55 ff       	call -342 <ota_crc16 : 1c0b488 >
+ 1c0b5de:    50 ee b1 20       	r2 = b[r11+1] (u)
+ 1c0b5e2:    50 ee b0 10       	r1 = b[r11+0] (u)
+ 1c0b5e6:    a7 e1 20 64       	r7 <= insert(r6, p:8, l:8)
+ 1c0b5ea:    33 e1 ff 7f       	r3 = r7 + -1
+ 1c0b5ee:    a1 e1 20 24       	r1 <= insert(r2, p:8, l:8)
+ 1c0b5f2:    03 fc a1 15       	if (r3 > 10) goto -190 <ldr_main+0x80 : 1c0b538 >
+ 1c0b5f6:    81 e8 9f 01       	if (r0 != r1) goto -194 <ldr_main+0x80 : 1c0b538 >
+ 1c0b5fa:    00 e1 40 b0       	r0 = r11 + 64
+ 1c0b5fe:    e1 e1 50 70       	r1 = r7 * 0x50
+ 1c0b602:    bf ea 41 ff       	call -382 <ota_crc16 : 1c0b488 >
+ 1c0b606:    50 ee b3 20       	r2 = b[r11+3] (u)
+ 1c0b60a:    50 ee b2 10       	r1 = b[r11+2] (u)
+ 1c0b60e:    a1 e1 20 24       	r1 <= insert(r2, p:8, l:8)
+ 1c0b612:    47 52             	if (r7 == 0) goto -220 <ldr_main+0x80 : 1c0b538 >
+ 1c0b614:    81 e8 90 01       	if (r0 != r1) goto -224 <ldr_main+0x80 : 1c0b538 >
+ 1c0b618:    08 e1 4f b0       	r8 = r11 + 79
+ 1c0b61c:    c7 14             	r15 = 0
+ 1c0b61e:    c4 14             	r12 = 0
+ 1c0b620:    30 e1 f1 8f       	r0 = r8 + -15
+ 1c0b624:    51 30             	r1 = 80
+ 1c0b626:    bf ea 1c ff       	call -456 <ota_jl_enc : 1c0b462 >
+ 1c0b62a:    51 ee 82 0f       	r0 = b[r8+-14] (u)
+ 1c0b62e:    51 ee 81 1f       	r1 = b[r8+-15] (u)
+ 1c0b632:    a1 e1 60 04       	r1 <= insert(r0, p:8, l:24)
+ 1c0b636:    90 17             	r0 = r1.l (u)
+ 1c0b638:    80 5c             	if (r0 != 0) goto 56 <ldr_main+0x1BA : 1c0b672 >
+ 1c0b63a:    51 ee 8e 0f       	r0 = b[r8+-2] (u)
+ 1c0b63e:    51 ee 8d cf       	r12 = b[r8+-3] (u)
+ 1c0b642:    51 ee 8f 1f       	r1 = b[r8+-1] (u)
+ 1c0b646:    ac e1 20 04       	r12 <= insert(r0, p:8, l:8)
+ 1c0b64a:    ac e1 20 18       	r12 <= insert(r1, p:16, l:8)
+ 1c0b64e:    50 ee 80 00       	r0 = b[r8+0] (u)
+ 1c0b652:    51 ee 8a 1f       	r1 = b[r8+-6] (u)
+ 1c0b656:    51 ee 89 ff       	r15 = b[r8+-7] (u)
+ 1c0b65a:    51 ee 8b 2f       	r2 = b[r8+-5] (u)
+ 1c0b65e:    51 ee 8c 3f       	r3 = b[r8+-4] (u)
+ 1c0b662:    ac e1 20 0c       	r12 <= insert(r0, p:24, l:8)
+ 1c0b666:    af e1 20 14       	r15 <= insert(r1, p:8, l:8)
+ 1c0b66a:    af e1 20 28       	r15 <= insert(r2, p:16, l:8)
+ 1c0b66e:    af e1 20 3c       	r15 <= insert(r3, p:24, l:8)
+ 1c0b672:    08 e1 50 80       	r8 = r8 + 80
+ 1c0b676:    07 ea d3 ff       	if (--r7 != 0) goto -90 <ldr_main+0x168 : 1c0b620 >
+ 1c0b67a:    23 ff 13 ca 5c ff 	if (r12 < 602112) goto -328 <ldr_main+0x80 : 1c0b538 >
+ 1c0b680:    0f f8 5a 01       	if (r15 == 0) goto -332 <ldr_main+0x80 : 1c0b538 >
+ 1c0b684:    4f 20             	r7 = 32
+ 1c0b686:    f8 e8 88 10       	r1 = sp + 136
+ 1c0b68a:    4a 20             	r2 = 32
+ 1c0b68c:    70 16             	r0 = r7
+ 1c0b68e:    80 ea 88 06       	call 3344 <fl_read_ram : 1c0c3a2 >
+ 1c0b692:    80 f8 51 01       	if (r0 != 0) goto -350 <ldr_main+0x80 : 1c0b538 >
+ 1c0b696:    f8 e8 88 00       	r0 = sp + 136
+ 1c0b69a:    49 20             	r1 = 32
+ 1c0b69c:    bf ea e1 fe       	call -574 <ota_jl_enc : 1c0b462 >
+ 1c0b6a0:    41 3e             	r1 = 30
+ 1c0b6a2:    00 22             	r0 = [sp+8]
+ 1c0b6a4:    bf ea f0 fe       	call -544 <ota_crc16 : 1c0b488 >
+ 1c0b6a8:    01 23             	r1 = [sp+12]
+ 1c0b6aa:    19 41             	r1 = b[r1+1] (u)
+ 1c0b6ac:    dc e9 88 20       	r2 = b[sp+136] (u)
+ 1c0b6b0:    a2 e1 20 14       	r2 <= insert(r1, p:8, l:8)
+ 1c0b6b4:    82 e8 40 01       	if (r0 != r2) goto -384 <ldr_main+0x80 : 1c0b538 >
+ 1c0b6b8:    40 20             	r0 = 0
+ 1c0b6ba:    c3 ff 32 c6 c0 01 	r3 = 29410866 <ota_reply_identity.ID+0xD : 1c0c632 >
+ 1c0b6c0:    00 f8 11 1e       	if (r0 == 15) goto 34 <ldr_main+0x22E : 1c0b6e6 >
+ 1c0b6c4:    d8 ee 00 13       	r1 = b[r0+r3] (u)
+ 1c0b6c8:    d8 ee a0 20       	r2 = b[r10+r0] (u)
+ 1c0b6cc:    c0 21             	r0 += 1
+ 1c0b6ce:    01 e8 f7 21       	if (r2 == r1) goto -18 <ldr_main+0x208 : 1c0b6c0 >
+ 1c0b6d2:    00 23             	r0 = [sp+12]
+ 1c0b6d4:    09 4f             	r1 = b[r0+15] (u)
+ 1c0b6d6:    08 4e             	r0 = b[r0+14] (u)
+ 1c0b6d8:    cf 20             	r7 += 32
+ 1c0b6da:    a0 e1 20 14       	r0 <= insert(r1, p:8, l:8)
+ 1c0b6de:    77 fc 2b ff       	if (r7 > 1023) goto -426 <ldr_main+0x80 : 1c0b538 >
+ 1c0b6e2:    60 51             	if (r0 == 0) goto -94 <ldr_main+0x1CE : 1c0b686 >
+ 1c0b6e4:    97 89             	goto -430 <ldr_main+0x80 : 1c0b538 >
+ 1c0b6e6:    03 23             	r3 = [sp+12]
+ 1c0b6e8:    39 45             	r1 = b[r3+5] (u)
+ 1c0b6ea:    38 44             	r0 = b[r3+4] (u)
+ 1c0b6ec:    a0 f1 20 14       	r0 <= insert(r1, p:8, l:8)  #
+ 1c0b6f0:    3a 46             		 r2 = b[r3+6] (u)
+ 1c0b6f2:    a0 f1 20 28       	r0 <= insert(r2, p:16, l:8)  #
+ 1c0b6f6:    3b 47             		 r3 = b[r3+7] (u)
+ 1c0b6f8:    a0 e1 20 3c       	r0 <= insert(r3, p:24, l:8)
+ 1c0b6fc:    e9 86             	r1 = sp + 102
+ 1c0b6fe:    4a 22             	r2 = 34
+ 1c0b700:    80 ea 4f 06       	call 3230 <fl_read_ram : 1c0c3a2 >
+ 1c0b704:    80 f8 18 01       	if (r0 != 0) goto -464 <ldr_main+0x80 : 1c0b538 >
+ 1c0b708:    e8 86             	r0 = sp + 102
+ 1c0b70a:    49 20             	r1 = 32
+ 1c0b70c:    bf ea bc fe       	call -648 <ota_crc16 : 1c0b488 >
+ 1c0b710:    02 21             	r2 = [sp+4]
+ 1c0b712:    50 ee 21 12       	r1 = b[r2+33] (u)
+ 1c0b716:    50 ee 20 22       	r2 = b[r2+32] (u)
+ 1c0b71a:    a2 e1 20 14       	r2 <= insert(r1, p:8, l:8)
+ 1c0b71e:    82 e8 0b 01       	if (r0 != r2) goto -490 <ldr_main+0x80 : 1c0b538 >
+ 1c0b722:    80 14             	r1_r0 = 0
+ 1c0b724:    ea 86             	r2 = sp + 102
+ 1c0b726:    d8 ee 20 21       	r2 = b[r2+r1] (u)
+ 1c0b72a:    c1 21             	r1 += 1
+ 1c0b72c:    20 18             	r0 += r2
+ 1c0b72e:    81 f8 f9 21       	if (r1 != 16) goto -14 <ldr_main+0x26C : 1c0b724 >
+ 1c0b732:    01 17             	r1 = r0.b0 (u)
+ 1c0b734:    52 35             	r2 = 85
+ 1c0b736:    31 e9 11 00       	if (r1 >= 17) {
+ 1c0b73a:    12 16             		r2 = r1
+                               	}
+ 1c0b73c:    48 e0 aa 00       	r8 = 170 <firmware/loader/loader.c+0xAA : aa >
+ 1c0b740:    4c e0 01 00       	r12 = 1 <firmware/loader/loader.c : 0 >
+ 1c0b744:    b1 ec df 00       	if (r1 <= 223) {
+ 1c0b748:    28 16             		r8 = r2
+                               	}
+ 1c0b74a:    47 20             	r7 = 0
+ 1c0b74c:    01 20             	r1 = [sp]
+ 1c0b74e:    42 20             	r2 = 0
+ 1c0b750:    c8 f1 c0 32       	r3 = r12 << r2  #
+ 1c0b754:    00 24             		 r0 = [sp+16]
+ 1c0b756:    d8 ee 00 62       	r6 = b[r0+r2] (u)
+ 1c0b75a:    18 07             	r0 = b[r1++=-1] (u)
+ 1c0b75c:    68 19             	r0 ^= r6
+ 1c0b75e:    00 17             	r0 = r0.b0 (u)
+ 1c0b760:    10 e9 00 08       	if (r0 >= r8) {
+ 1c0b764:    43 20             		r3 = 0
+                               	}
+ 1c0b766:    c2 21             	r2 += 1
+ 1c0b768:    37 19             	r7 |= r3
+ 1c0b76a:    82 f8 f1 21       	if (r2 != 16) goto -30 <ldr_main+0x298 : 1c0b750 >
+ 1c0b76e:    e0 e0 80 fc       	r0 = r15 + 0x4000
+ 1c0b772:    4a 20             	r2 = 32
+ 1c0b774:    c1 ff 1c d2 c0 01 	r1 = 29413916 <ldr_session.sec : 1c0d21c >
+ 1c0b77a:    bf ea da fd       	call -1100 <ota_read : 1c0b332 >
+ 1c0b77e:    01 ff 00 00 da fe 	if (r0 != 0) goto -588 <ldr_main+0x80 : 1c0b538 >
+ 1c0b784:    40 20             	r0 = 0
+ 1c0b786:    c6 ff 1c d2 c0 01 	r6 = 29413916 <ldr_session.sec : 1c0d21c >
+ 1c0b78c:    43 e0 21 10       	r3 = 4129 <firmware/loader/loader.c+0x1020 : 1020 >
+ 1c0b790:    d8 ee 00 16       	r1 = b[r0+r6] (u)
+ 1c0b794:    79 19             	r1 ^= r7
+ 1c0b796:    d8 ee 01 16       	b[r0+r6] = r1
+ 1c0b79a:    b1 e1 85 77       	r1 = sextra(r7, p:15, l:1)
+ 1c0b79e:    b1 19             	r1 &= r3
+ 1c0b7a0:    72 a1             	r2 = r7 << 1
+ 1c0b7a2:    a2 17             	r2 = r2.l (u)
+ 1c0b7a4:    c0 21             	r0 += 1
+ 1c0b7a6:    90 e1 11 72       	r7 = r1 ^ r2
+ 1c0b7aa:    80 f8 f1 41       	if (r0 != 32) goto -30 <ldr_main+0x2D8 : 1c0b790 >
+ 1c0b7ae:    68 82             	r0 = r6 + 2
+ 1c0b7b0:    41 3e             	r1 = 30
+ 1c0b7b2:    bf ea 69 fe       	call -814 <ota_crc16 : 1c0b488 >
+ 1c0b7b6:    69 41             	r1 = b[r6+1] (u)
+ 1c0b7b8:    6a 40             	r2 = b[r6+0] (u)
+ 1c0b7ba:    a2 e1 20 14       	r2 <= insert(r1, p:8, l:8)
+ 1c0b7be:    41 ff 00 02 ba fe 	if (r0 != r2) goto -652 <ldr_main+0x80 : 1c0b538 >
+ 1c0b7c4:    48 e0 00 40       	r8 = 16384 <firmware/loader/loader.c+0x4000 : 4000 >
+ 1c0b7c8:    b4 e0 f0 c8       	r12 = r15 + r8
+ 1c0b7cc:    47 20             	r7 = 0
+ 1c0b7ce:    b4 e0 c0 07       	r0 = r12 + r7
+ 1c0b7d2:    c1 ff 1c d2 c0 01 	r1 = 29413916 <ldr_session.sec : 1c0d21c >
+ 1c0b7d8:    71 18             	r1 += r7
+ 1c0b7da:    42 e0 00 02       	r2 = 512 <firmware/loader/loader.c+0x200 : 200 >
+ 1c0b7de:    bf ea a8 fd       	call -1200 <ota_read : 1c0b332 >
+ 1c0b7e2:    07 e1 00 72       	r7 = r7 + 512
+ 1c0b7e6:    01 ff 00 00 a6 fe 	if (r0 != 0) goto -692 <ldr_main+0x80 : 1c0b538 >
+ 1c0b7ec:    09 ff ff 7f ee ff 	if (r7 <= 4095) goto -36 <ldr_main+0x316 : 1c0b7ce >
+ 1c0b7f2:    42 e0 00 10       	r2 = 4096 <firmware/loader/loader.c+0x1000 : 1000 >
+ 1c0b7f6:    80 16             	r0 = r8
+ 1c0b7f8:    c1 ff 1c e2 c0 01 	r1 = 29418012 <ldr_session.cur : 1c0e21c >
+ 1c0b7fe:    80 ea d0 05       	call 2976 <fl_read_ram : 1c0c3a2 >
+ 1c0b802:    01 ff 00 00 98 fe 	if (r0 != 0) goto -720 <ldr_main+0x80 : 1c0b538 >
+ 1c0b808:    40 20             	r0 = 0
+ 1c0b80a:    20 ff 80 0d 4d 00 	if (r0 == 4096) goto 154 <ldr_main+0x3F2 : 1c0b8aa >
+ 1c0b810:    c1 ff 1c e2 c0 01 	r1 = 29418012 <ldr_session.cur : 1c0e21c >
+ 1c0b816:    d8 ee 00 11       	r1 = b[r0+r1] (u)
+ 1c0b81a:    c2 ff 1c d2 c0 01 	r2 = 29413916 <ldr_session.sec : 1c0d21c >
+ 1c0b820:    d8 ee 00 22       	r2 = b[r0+r2] (u)
+ 1c0b824:    c0 21             	r0 += 1
+ 1c0b826:    01 e8 f0 21       	if (r2 == r1) goto -32 <ldr_main+0x352 : 1c0b80a >
+ 1c0b82a:    46 20             	r6 = 0
+ 1c0b82c:    f8 e8 a8 10       	r1 = sp + 168
+ 1c0b830:    80 16             	r0 = r8
+ 1c0b832:    80 ea 57 02       	call 1198 <fl_erase4k_ram : 1c0bce4 >
+ 1c0b836:    01 ff 00 00 7e fe 	if (r0 != 0) goto -772 <ldr_main+0x80 : 1c0b538 >
+ 1c0b83c:    47 20             	r7 = 0
+ 1c0b83e:    b4 e0 80 07       	r0 = r8 + r7
+ 1c0b842:    c1 ff 1c d2 c0 01 	r1 = 29413916 <ldr_session.sec : 1c0d21c >
+ 1c0b848:    71 18             	r1 += r7
+ 1c0b84a:    f8 e8 ac 30       	r3 = sp + 172
+ 1c0b84e:    42 e0 00 01       	r2 = 256 <firmware/loader/loader.c+0x100 : 100 >
+ 1c0b852:    80 ea e5 03       	call 1994 <fl_prog_ram : 1c0c020 >
+ 1c0b856:    07 e1 00 71       	r7 = r7 + 256
+ 1c0b85a:    01 ff 00 00 6c fe 	if (r0 != 0) goto -808 <ldr_main+0x80 : 1c0b538 >
+ 1c0b860:    09 ff ff 7f ec ff 	if (r7 <= 4095) goto -40 <ldr_main+0x386 : 1c0b83e >
+ 1c0b866:    42 e0 00 10       	r2 = 4096 <firmware/loader/loader.c+0x1000 : 1000 >
+ 1c0b86a:    80 16             	r0 = r8
+ 1c0b86c:    c1 ff 1c e2 c0 01 	r1 = 29418012 <ldr_session.cur : 1c0e21c >
+ 1c0b872:    80 ea 96 05       	call 2860 <fl_read_ram : 1c0c3a2 >
+ 1c0b876:    01 ff 00 00 5e fe 	if (r0 != 0) goto -836 <ldr_main+0x80 : 1c0b538 >
+ 1c0b87c:    40 20             	r0 = 0
+ 1c0b87e:    c3 ff 1c d2 c0 01 	r3 = 29413916 <ldr_session.sec : 1c0d21c >
+ 1c0b884:    20 ff 80 0d 0d 00 	if (r0 == 4096) goto 26 <ldr_main+0x3EC : 1c0b8a4 >
+ 1c0b88a:    c1 ff 1c e2 c0 01 	r1 = 29418012 <ldr_session.cur : 1c0e21c >
+ 1c0b890:    d8 ee 00 11       	r1 = b[r0+r1] (u)
+ 1c0b894:    d8 ee 00 23       	r2 = b[r0+r3] (u)
+ 1c0b898:    c0 21             	r0 += 1
+ 1c0b89a:    01 e8 f3 21       	if (r2 == r1) goto -26 <ldr_main+0x3CC : 1c0b884 >
+ 1c0b89e:    c6 21             	r6 += 1
+ 1c0b8a0:    86 f9 c4 05       	if (r6 < 2) goto -120 <ldr_main+0x374 : 1c0b82c >
+ 1c0b8a4:    00 ff 02 60 47 fe 	if (r6 == 2) goto -882 <ldr_main+0x80 : 1c0b538 >
+ 1c0b8aa:    bf ea 12 f9       	call -3548 <ldr_poll : 1c0aad2 >
+ 1c0b8ae:    18 e1 00 80       	r8 = r8 + 4096
+ 1c0b8b2:    23 ff 13 8a 88 ff 	if (r8 < 602112) goto -240 <ldr_main+0x310 : 1c0b7c8 >
+ 1c0b8b8:    40 21             	r0 = 1
+ 1c0b8ba:    c7 ff 1c d2 c0 01 	r7 = 29413916 <ldr_session.sec : 1c0d21c >
+ 1c0b8c0:    06 16             	r6 = r0
+ 1c0b8c2:    60 e0 70 04       	r0 = 0xF0000000
+ 1c0b8c6:    42 28             	r2 = 8
+ 1c0b8c8:    71 16             	r1 = r7
+ 1c0b8ca:    bf ea 32 fd       	call -1436 <ota_read : 1c0b332 >
+ 1c0b8ce:    00 43             	if (r0 == 0) goto 6 <ldr_main+0x41E : 1c0b8d6 >
+ 1c0b8d0:    68 81             	r0 = r6 + 1
+ 1c0b8d2:    86 f9 f5 09       	if (r6 < 4) goto -22 <ldr_main+0x408 : 1c0b8c0 >
+ 1c0b8d6:    40 20             	r0 = 0
+ 1c0b8d8:    c1 ff 88 fd c7 01 	r1 = 29883784 <_sstack_top+0xDD88 : 1c7fd88 >
+ 1c0b8de:    42 20             	r2 = 0
+ 1c0b8e0:    d8 ee 21 01       	b[r2+r1] = r0
+ 1c0b8e4:    c2 21             	r2 += 1
+ 1c0b8e6:    82 f8 fb e1       	if (r2 != 112) goto -10 <ldr_main+0x428 : 1c0b8e0 >
+ 1c0b8ea:    f8 e8 16 a0       	r10 = sp + 22
+ 1c0b8ee:    08 e1 02 a0       	r8 = r10 + 2
+ 1c0b8f2:    60 e0 7b 0a       	r0 = 0xFB000
+ 1c0b8f6:    49 e0 41 54       	r9 = 21569 <firmware/loader/loader.c+0x5440 : 5440 >
+ 1c0b8fa:    06 16             	r6 = r0
+ 1c0b8fc:    00 e1 00 6f       	r0 = r6 + 3840
+ 1c0b900:    89 96             	r1 = sp + 22
+ 1c0b902:    52 30             	r2 = 80
+ 1c0b904:    80 ea 4d 05       	call 2714 <fl_read_ram : 1c0c3a2 >
+ 1c0b908:    80 5f             	if (r0 != 0) goto 62 <ldr_main+0x490 : 1c0b948 >
+ 1c0b90a:    50 ee a7 00       	r0 = b[r10+7] (u)
+ 1c0b90e:    50 ee a6 10       	r1 = b[r10+6] (u)
+ 1c0b912:    a1 e1 20 04       	r1 <= insert(r0, p:8, l:8)
+ 1c0b916:    89 e8 12 10       	if (r1 != r9) goto 36 <ldr_main+0x486 : 1c0b93e >
+ 1c0b91a:    50 ee a1 00       	r0 = b[r10+1] (u)
+ 1c0b91e:    dc e9 16 70       	r7 = b[sp+22] (u)
+ 1c0b922:    a7 e1 20 04       	r7 <= insert(r0, p:8, l:8)
+ 1c0b926:    07 4b             	if (r7 == 0) goto 22 <ldr_main+0x486 : 1c0b93e >
+ 1c0b928:    51 2e             	r1 = 78
+ 1c0b92a:    80 16             	r0 = r8
+ 1c0b92c:    bf ea ac fd       	call -1192 <ota_crc16 : 1c0b488 >
+ 1c0b930:    17 e8 00 80       	if (r7 == r0) {
+ 1c0b934:    f8 e8 b0 10       		r1 = sp + 176
+ 1c0b938:    60 16             		r0 = r6
+ 1c0b93a:    80 ea d3 01       		call 934
+                               	} <fl_erase4k_ram : 1c0bce4 >
+ 1c0b93e:    30 e1 00 60       	r0 = r6 + -4096
+ 1c0b942:    28 ff 13 6a d9 ff 	if (r6 > 602112) goto -78 <ldr_main+0x442 : 1c0b8fa >
+ 1c0b948:    70 28             	r0 = 200
+ 1c0b94a:    51 61             	r1 = [r5+4] 
+ 1c0b94c:    52 61             	r2 = [r5+4] 
+ 1c0b94e:    2a 1e             	r2 = r2 - r1
+ 1c0b950:    a2 a6             	r2 = r2 >> 6
+ 1c0b952:    a2 f9 fb ef       	if (r2 < 375) goto -10 <ldr_main+0x494 : 1c0b94c >
+ 1c0b956:    00 ea f8 ff       	if (--r0 != 0) goto -16 <ldr_main+0x492 : 1c0b94a >
+ 1c0b95a:    40 21             	r0 = 1
+ 1c0b95c:    52 ee 48 0d       	b[r4+216] = r0
+ 1c0b960:    40 20             	r0 = 0
+ 1c0b962:    52 ee 48 09       	b[r4+152] = r0
+ 1c0b966:    60 e0 8c 1b       	r1 = 0x11800
+ 1c0b96a:    60 f0 a2 0a       	r0 = 0x51000  #
+ 1c0b96e:    90 60             		 [r1+0] = r0
+ 1c0b970:    40 ea 0c 00       	[r0+0] = 0xC
+ 1c0b974:    40 3e             	r0 = 30
+ 1c0b976:    51 61             	r1 = [r5+4] 
+ 1c0b978:    52 61             	r2 = [r5+4] 
+ 1c0b97a:    2a 1e             	r2 = r2 - r1
+ 1c0b97c:    a2 a6             	r2 = r2 >> 6
+ 1c0b97e:    a2 f9 fb ef       	if (r2 < 375) goto -10 <ldr_main+0x4C0 : 1c0b978 >
+ 1c0b982:    00 ea f8 ff       	if (--r0 != 0) goto -16 <ldr_main+0x4BE : 1c0b976 >
+ 1c0b986:    60 e0 80 0b       	r0 = 0x10000
+ 1c0b98a:    00 ef 10 00       	[r0+0] |= 0x10
+ 1c0b98e:    f7 9f             	goto -2 <ldr_main+0x4D6 : 1c0b98e >
+ 1c0b990:    40 21             	r0 = 1
+ 1c0b992:    52 ee 48 0d       	b[r4+216] = r0
+ 1c0b996:    40 20             	r0 = 0
+ 1c0b998:    52 ee 48 09       	b[r4+152] = r0
+ 1c0b99c:    60 e0 8c 1b       	r1 = 0x11800
+ 1c0b9a0:    60 f0 a2 0a       	r0 = 0x51000  #
+ 1c0b9a4:    90 60             		 [r1+0] = r0
+ 1c0b9a6:    40 ea 0c 00       	[r0+0] = 0xC
+ 1c0b9aa:    40 3e             	r0 = 30
+ 1c0b9ac:    51 61             	r1 = [r5+4] 
+ 1c0b9ae:    52 61             	r2 = [r5+4] 
+ 1c0b9b0:    2a 1e             	r2 = r2 - r1
+ 1c0b9b2:    a2 a6             	r2 = r2 >> 6
+ 1c0b9b4:    a2 f9 fb ef       	if (r2 < 375) goto -10 <ldr_main+0x4F6 : 1c0b9ae >
+ 1c0b9b8:    00 ea f8 ff       	if (--r0 != 0) goto -16 <ldr_main+0x4F4 : 1c0b9ac >
+ 1c0b9bc:    60 00             	cli
+ 1c0b9be:    c1 ff 40 e2 ee 01 	r1 = 32432704 <_sstack_top+0x27C240 : 1eee240 >
+ 1c0b9c4:    10 60             	r0 = [r1+0] 
+ 1c0b9c6:    20 ea 01 00       	if ((r0 & 0x1) == 0) {
+ 1c0b9ca:    40 ea e7 10       		[r1+0] = 0xE7
+                               	}
+ 1c0b9ce:    40 20             	r0 = 0
+ 1c0b9d0:    d1 ec 19 00       	[r1+264] = r0
+ 1c0b9d4:    c1 ff 15 c6 c0 01 	r1 = 29410837 <sysex_byte.UBOOT_KEY+0x5 : 1c0c614 >
+ 1c0b9da:    c2 ff 80 fd c7 01 	r2 = 29883776 <_sstack_top+0xDD80 : 1c7fd80 >
+ 1c0b9e0:    d8 ee 00 31       	r3 = b[r0+r1] (u)
+ 1c0b9e4:    d8 ee 01 32       	b[r0+r2] = r3
+ 1c0b9e8:    c0 21             	r0 += 1
+ 1c0b9ea:    80 f8 f9 21       	if (r0 != 16) goto -14 <ldr_main+0x528 : 1c0b9e0 >
+ 1c0b9ee:    40 21             	r0 = 1
+ 1c0b9f0:    69 20             	r1 = 160
+ 1c0b9f2:    42 30             	r2 = 16
+ 1c0b9f4:    bf ea 2d f7       	call -4518 <fm1__p33_op : 1c0a852 >
+ 1c0b9f8:    f7 9f             	goto -2 <ldr_main+0x540 : 1c0b9f8 >
+
+
+ldr_cstart:
+ 1c0b9fa:    40 20             	r0 = 0
+ 1c0b9fc:    c1 ff 88 fd c7 01 	r1 = 29883784 <_sstack_top+0xDD88 : 1c7fd88 >
+ 1c0ba02:    42 20             	r2 = 0
+ 1c0ba04:    d8 ee 21 01       	b[r2+r1] = r0
+ 1c0ba08:    c2 21             	r2 += 1
+ 1c0ba0a:    82 f8 fb e1       	if (r2 != 112) goto -10 <ldr_cstart+0xA : 1c0ba04 >
+ 1c0ba0e:    c0 ff 18 f3 c0 01 	r0 = 29422360 <_bss_end : 1c0f318 >
+ 1c0ba14:    c1 ff 50 c6 c0 01 	r1 = 29410896 <fm1_p33_timeouts : 1c0c650 >
+ 1c0ba1a:    00 e9 04 10       	if (r1 >= r0) goto 8 <ldr_cstart+0x2C : 1c0ba26 >
+ 1c0ba1e:    42 20             	r2 = 0
+ 1c0ba20:    92 05             	[r1++=4] = r2
+ 1c0ba22:    80 e9 fd 11       	if (r1 < r0) goto -6 <ldr_cstart+0x26 : 1c0ba20 >
+ 1c0ba26:    bf ea 47 fd       	call -1394 <ldr_main : 1c0b4b8 >
+ 1c0ba2a:    f7 9f             	goto -2 <ldr_cstart+0x30 : 1c0ba2a >
+
+
+fl_jedec_ram:
+ 1c0ba2c:    78 04             	[--sp] = {rets, r8-r4}
+ 1c0ba2e:    e2 9e             	sp += -8
+ 1c0ba30:    c0 ff 08 e0 ee 01 	r0 = 32432136 <_sstack_top+0x27C008 : 1eee008 >
+ 1c0ba36:    01 60             	r1 = [r0+0] 
+ 1c0ba38:    51 e8 fd 71       	if ((r1 & 16384) == 0) goto -6 <fl_jedec_ram+0xA : 1c0ba36 >
+ 1c0ba3c:    c1 ff 00 02 04 00 	r1 = 262656 <firmware/loader/loader.c+0x40200 : 40200 >
+ 1c0ba42:    60 f0 8e 3b       	r3 = 0x11C00  #
+ 1c0ba46:    12 60             		 r2 = [r1+0] 
+ 1c0ba48:    a0 a8             	r0 = r2 >> 8
+ 1c0ba4a:    60 f1 0e 00       	r0 = r0 & 0xE  #
+ 1c0ba4e:    34 60             		 r4 = [r3+0] 
+ 1c0ba50:    45 e1 01 00       	r5 = r0 | 0x1
+ 1c0ba54:    40 20             	r0 = 0
+ 1c0ba56:    05 f8 8d 0e       	if (r5 == 7) goto 282 <fl_jedec_ram+0x148 : 1c0bb74 >
+ 1c0ba5a:    20 00             	csync
+ 1c0ba5c:    10 60             	r0 = [r1+0] 
+ 1c0ba5e:    80 fd fd 01       	ifs (r0 < 0) goto -6 <fl_jedec_ram+0x30 : 1c0ba5c >
+ 1c0ba62:    45 20             	r5 = 0
+ 1c0ba64:    95 60             	[r1+0] = r5
+ 1c0ba66:    c8 ff 1c 10 05 00 	r8 = 331804 <firmware/loader/loader.c+0x5101C : 5101c >
+ 1c0ba6c:    c0 ef 20 80       	[r8+0] &= 0xFFFFFFDF
+ 1c0ba70:    45 f0 29 10       	r5 = 4137  # <firmware/loader/loader.c+0x1028 : 1028 >
+ 1c0ba74:    b5 60             		 [r3+0] = r5
+ 1c0ba76:    b5 60             	[r3+0] = r5
+ 1c0ba78:    20 00             	csync
+ 1c0ba7a:    35 e1 a4 80       	r5 = r8 + -3932
+ 1c0ba7e:    c2 ef 01 50       	[r5+8] &= 0xFFFFFFFE
+ 1c0ba82:    c0 ef 01 50       	[r5+0] &= 0xFFFFFFFE
+ 1c0ba86:    46 2a             	r6 = 10
+ 1c0ba88:    86 20             	[sp] = r6
+ 1c0ba8a:    06 20             	r6 = [sp]
+ 1c0ba8c:    37 e1 ff 6f       	r7 = r6 + -1
+ 1c0ba90:    87 20             	[sp] = r7
+ 1c0ba92:    f6 5b             	if (r6 != 0) goto -10 <fl_jedec_ram+0x5E : 1c0ba8a >
+ 1c0ba94:    00 ef 08 30       	[r3+0] |= 0x8
+ 1c0ba98:    c0 ef 80 3d       	[r3+0] &= 0xFFFFEFFF
+ 1c0ba9c:    42 ea 9f 30       	[r3+8] = 0x9F
+ 1c0baa0:    20 00             	csync
+ 1c0baa2:    c6 ff 80 0f 05 fd 	r6 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0baa8:    37 60             	r7 = [r3+0] 
+ 1c0baaa:    ff 17             	r7 = r7.l (s)
+ 1c0baac:    87 fd 02 00       	ifs (r7 < 0) goto 4 <fl_jedec_ram+0x88 : 1c0bab4 >
+ 1c0bab0:    c6 21             	r6 += 1
+ 1c0bab2:    f6 5a             	if (r6 != 0) goto -12 <fl_jedec_ram+0x7C : 1c0baa8 >
+ 1c0bab4:    00 ef 80 3c       	[r3+0] |= 0x4000
+ 1c0bab8:    c0 ef 08 30       	[r3+0] &= 0xFFFFFFF7
+ 1c0babc:    00 ef 08 30       	[r3+0] |= 0x8
+ 1c0bac0:    00 ef 80 3d       	[r3+0] |= 0x1000
+ 1c0bac4:    42 ea ff 30       	[r3+8] = 0xFF
+ 1c0bac8:    20 00             	csync
+ 1c0baca:    c6 ff 80 0f 05 fd 	r6 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bad0:    37 60             	r7 = [r3+0] 
+ 1c0bad2:    ff 17             	r7 = r7.l (s)
+ 1c0bad4:    87 fd 02 00       	ifs (r7 < 0) goto 4 <fl_jedec_ram+0xB0 : 1c0badc >
+ 1c0bad8:    c6 21             	r6 += 1
+ 1c0bada:    f6 5a             	if (r6 != 0) goto -12 <fl_jedec_ram+0xA4 : 1c0bad0 >
+ 1c0badc:    00 ef 80 3c       	[r3+0] |= 0x4000
+ 1c0bae0:    36 62             	r6 = [r3+8] 
+ 1c0bae2:    c0 ef 08 30       	[r3+0] &= 0xFFFFFFF7
+ 1c0bae6:    00 ef 08 30       	[r3+0] |= 0x8
+ 1c0baea:    00 ef 80 3d       	[r3+0] |= 0x1000
+ 1c0baee:    42 ea ff 30       	[r3+8] = 0xFF
+ 1c0baf2:    20 00             	csync
+ 1c0baf4:    66 b0             	r6 = r6 << 16
+ 1c0baf6:    66 e1 7f 68       	r6 = r6 & 0xFF0000
+ 1c0bafa:    c7 ff 80 0f 05 fd 	r7 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bb00:    30 60             	r0 = [r3+0] 
+ 1c0bb02:    88 17             	r0 = r0.l (s)
+ 1c0bb04:    80 fd 02 00       	ifs (r0 < 0) goto 4 <fl_jedec_ram+0xE0 : 1c0bb0c >
+ 1c0bb08:    c7 21             	r7 += 1
+ 1c0bb0a:    f7 5a             	if (r7 != 0) goto -12 <fl_jedec_ram+0xD4 : 1c0bb00 >
+ 1c0bb0c:    00 ef 80 3c       	[r3+0] |= 0x4000
+ 1c0bb10:    30 62             	r0 = [r3+8] 
+ 1c0bb12:    c0 ef 08 30       	[r3+0] &= 0xFFFFFFF7
+ 1c0bb16:    00 ef 08 30       	[r3+0] |= 0x8
+ 1c0bb1a:    00 ef 80 3d       	[r3+0] |= 0x1000
+ 1c0bb1e:    42 ea ff 30       	[r3+8] = 0xFF
+ 1c0bb22:    00 a8             	r0 = r0 << 8
+ 1c0bb24:    20 00             	csync
+ 1c0bb26:    80 17             	r0 = r0.l (u)
+ 1c0bb28:    06 19             	r6 |= r0
+ 1c0bb2a:    c7 ff 80 0f 05 fd 	r7 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bb30:    30 60             	r0 = [r3+0] 
+ 1c0bb32:    88 17             	r0 = r0.l (s)
+ 1c0bb34:    80 fd 02 00       	ifs (r0 < 0) goto 4 <fl_jedec_ram+0x110 : 1c0bb3c >
+ 1c0bb38:    c7 21             	r7 += 1
+ 1c0bb3a:    f7 5a             	if (r7 != 0) goto -12 <fl_jedec_ram+0x104 : 1c0bb30 >
+ 1c0bb3c:    00 ef 80 3c       	[r3+0] |= 0x4000
+ 1c0bb40:    30 62             	r0 = [r3+8] 
+ 1c0bb42:    c0 ef 08 30       	[r3+0] &= 0xFFFFFFF7
+ 1c0bb46:    c2 ef 01 50       	[r5+8] &= 0xFFFFFFFE
+ 1c0bb4a:    00 ef 01 50       	[r5+0] |= 0x1
+ 1c0bb4e:    45 2a             	r5 = 10
+ 1c0bb50:    05 d7             	r5 = r0.b0 (u)  #
+ 1c0bb52:    85 21             		 [sp+4] = r5
+ 1c0bb54:    00 21             	r0 = [sp+4]
+ 1c0bb56:    37 e1 ff 0f       	r7 = r0 + -1
+ 1c0bb5a:    87 21             	[sp+4] = r7
+ 1c0bb5c:    f0 5b             	if (r0 != 0) goto -10 <fl_jedec_ram+0x128 : 1c0bb54 >
+ 1c0bb5e:    b4 60             	[r3+0] = r4
+ 1c0bb60:    00 ef 20 80       	[r8+0] |= 0x20
+ 1c0bb64:    20 00             	csync
+ 1c0bb66:    90 e1 60 05       	r0 = r6 | r5
+ 1c0bb6a:    13 60             	r3 = [r1+0] 
+ 1c0bb6c:    83 fd fd 01       	ifs (r3 < 0) goto -6 <fl_jedec_ram+0x13E : 1c0bb6a >
+ 1c0bb70:    92 60             	[r1+0] = r2
+ 1c0bb72:    20 00             	csync
+ 1c0bb74:    02 82             	sp += 8
+ 1c0bb76:    58 04             	{pc, r8-r4} = [sp++]
+
+
+fl_status_ram:
+ 1c0bb78:    78 04             	[--sp] = {rets, r8-r4}
+ 1c0bb7a:    e2 9c             	sp += -16
+ 1c0bb7c:    c0 ff 08 e0 ee 01 	r0 = 32432136 <_sstack_top+0x27C008 : 1eee008 >
+ 1c0bb82:    01 60             	r1 = [r0+0] 
+ 1c0bb84:    51 e8 fd 71       	if ((r1 & 16384) == 0) goto -6 <fl_status_ram+0xA : 1c0bb82 >
+ 1c0bb88:    c1 ff 00 02 04 00 	r1 = 262656 <firmware/loader/loader.c+0x40200 : 40200 >
+ 1c0bb8e:    60 f0 8e 3b       	r3 = 0x11C00  #
+ 1c0bb92:    12 60             		 r2 = [r1+0] 
+ 1c0bb94:    a0 a8             	r0 = r2 >> 8
+ 1c0bb96:    60 f1 0e 00       	r0 = r0 & 0xE  #
+ 1c0bb9a:    34 60             		 r4 = [r3+0] 
+ 1c0bb9c:    45 e1 01 00       	r5 = r0 | 0x1
+ 1c0bba0:    10 3f             	r0 = -1
+ 1c0bba2:    05 f8 9d 0e       	if (r5 == 7) goto 314 <fl_status_ram+0x168 : 1c0bce0 >
+ 1c0bba6:    20 00             	csync
+ 1c0bba8:    10 60             	r0 = [r1+0] 
+ 1c0bbaa:    80 fd fd 01       	ifs (r0 < 0) goto -6 <fl_status_ram+0x30 : 1c0bba8 >
+ 1c0bbae:    45 20             	r5 = 0
+ 1c0bbb0:    95 60             	[r1+0] = r5
+ 1c0bbb2:    c8 ff 1c 10 05 00 	r8 = 331804 <firmware/loader/loader.c+0x5101C : 5101c >
+ 1c0bbb8:    c0 ef 20 80       	[r8+0] &= 0xFFFFFFDF
+ 1c0bbbc:    45 f0 29 10       	r5 = 4137  # <firmware/loader/loader.c+0x1028 : 1028 >
+ 1c0bbc0:    b5 60             		 [r3+0] = r5
+ 1c0bbc2:    b5 60             	[r3+0] = r5
+ 1c0bbc4:    20 00             	csync
+ 1c0bbc6:    35 e1 a4 80       	r5 = r8 + -3932
+ 1c0bbca:    c2 ef 01 50       	[r5+8] &= 0xFFFFFFFE
+ 1c0bbce:    c0 ef 01 50       	[r5+0] &= 0xFFFFFFFE
+ 1c0bbd2:    46 2a             	r6 = 10
+ 1c0bbd4:    86 20             	[sp] = r6
+ 1c0bbd6:    06 20             	r6 = [sp]
+ 1c0bbd8:    37 e1 ff 6f       	r7 = r6 + -1
+ 1c0bbdc:    87 20             	[sp] = r7
+ 1c0bbde:    f6 5b             	if (r6 != 0) goto -10 <fl_status_ram+0x5E : 1c0bbd6 >
+ 1c0bbe0:    00 ef 08 30       	[r3+0] |= 0x8
+ 1c0bbe4:    c0 ef 80 3d       	[r3+0] &= 0xFFFFEFFF
+ 1c0bbe8:    42 ea 05 30       	[r3+8] = 0x5
+ 1c0bbec:    20 00             	csync
+ 1c0bbee:    c6 ff 80 0f 05 fd 	r6 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bbf4:    37 60             	r7 = [r3+0] 
+ 1c0bbf6:    ff 17             	r7 = r7.l (s)
+ 1c0bbf8:    87 fd 02 00       	ifs (r7 < 0) goto 4 <fl_status_ram+0x88 : 1c0bc00 >
+ 1c0bbfc:    c6 21             	r6 += 1
+ 1c0bbfe:    f6 5a             	if (r6 != 0) goto -12 <fl_status_ram+0x7C : 1c0bbf4 >
+ 1c0bc00:    00 ef 80 3c       	[r3+0] |= 0x4000
+ 1c0bc04:    c0 ef 08 30       	[r3+0] &= 0xFFFFFFF7
+ 1c0bc08:    00 ef 08 30       	[r3+0] |= 0x8
+ 1c0bc0c:    00 ef 80 3d       	[r3+0] |= 0x1000
+ 1c0bc10:    42 ea ff 30       	[r3+8] = 0xFF
+ 1c0bc14:    20 00             	csync
+ 1c0bc16:    c6 ff 80 0f 05 fd 	r6 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bc1c:    37 60             	r7 = [r3+0] 
+ 1c0bc1e:    ff 17             	r7 = r7.l (s)
+ 1c0bc20:    87 fd 02 00       	ifs (r7 < 0) goto 4 <fl_status_ram+0xB0 : 1c0bc28 >
+ 1c0bc24:    c6 21             	r6 += 1
+ 1c0bc26:    f6 5a             	if (r6 != 0) goto -12 <fl_status_ram+0xA4 : 1c0bc1c >
+ 1c0bc28:    00 ef 80 3c       	[r3+0] |= 0x4000
+ 1c0bc2c:    36 62             	r6 = [r3+8] 
+ 1c0bc2e:    c0 ef 08 30       	[r3+0] &= 0xFFFFFFF7
+ 1c0bc32:    c2 ef 01 50       	[r5+8] &= 0xFFFFFFFE
+ 1c0bc36:    00 ef 01 50       	[r5+0] |= 0x1
+ 1c0bc3a:    47 2a             	r7 = 10
+ 1c0bc3c:    87 21             	[sp+4] = r7
+ 1c0bc3e:    07 21             	r7 = [sp+4]
+ 1c0bc40:    30 e1 ff 7f       	r0 = r7 + -1
+ 1c0bc44:    80 21             	[sp+4] = r0
+ 1c0bc46:    f7 5b             	if (r7 != 0) goto -10 <fl_status_ram+0xC6 : 1c0bc3e >
+ 1c0bc48:    c2 ef 01 50       	[r5+8] &= 0xFFFFFFFE
+ 1c0bc4c:    c0 ef 01 50       	[r5+0] &= 0xFFFFFFFE
+ 1c0bc50:    40 2a             	r0 = 10
+ 1c0bc52:    80 22             	[sp+8] = r0
+ 1c0bc54:    00 22             	r0 = [sp+8]
+ 1c0bc56:    37 e1 ff 0f       	r7 = r0 + -1
+ 1c0bc5a:    87 22             	[sp+8] = r7
+ 1c0bc5c:    f0 5b             	if (r0 != 0) goto -10 <fl_status_ram+0xDC : 1c0bc54 >
+ 1c0bc5e:    00 ef 08 30       	[r3+0] |= 0x8
+ 1c0bc62:    c0 ef 80 3d       	[r3+0] &= 0xFFFFEFFF
+ 1c0bc66:    42 ea 35 30       	[r3+8] = 0x35
+ 1c0bc6a:    20 00             	csync
+ 1c0bc6c:    66 17             	r6 = r6.b0 (u)
+ 1c0bc6e:    c7 ff 80 0f 05 fd 	r7 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bc74:    30 60             	r0 = [r3+0] 
+ 1c0bc76:    88 17             	r0 = r0.l (s)
+ 1c0bc78:    80 fd 02 00       	ifs (r0 < 0) goto 4 <fl_status_ram+0x108 : 1c0bc80 >
+ 1c0bc7c:    c7 21             	r7 += 1
+ 1c0bc7e:    f7 5a             	if (r7 != 0) goto -12 <fl_status_ram+0xFC : 1c0bc74 >
+ 1c0bc80:    00 ef 80 3c       	[r3+0] |= 0x4000
+ 1c0bc84:    c0 ef 08 30       	[r3+0] &= 0xFFFFFFF7
+ 1c0bc88:    00 ef 08 30       	[r3+0] |= 0x8
+ 1c0bc8c:    00 ef 80 3d       	[r3+0] |= 0x1000
+ 1c0bc90:    42 ea ff 30       	[r3+8] = 0xFF
+ 1c0bc94:    20 00             	csync
+ 1c0bc96:    c7 ff 80 0f 05 fd 	r7 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bc9c:    30 60             	r0 = [r3+0] 
+ 1c0bc9e:    88 17             	r0 = r0.l (s)
+ 1c0bca0:    80 fd 02 00       	ifs (r0 < 0) goto 4 <fl_status_ram+0x130 : 1c0bca8 >
+ 1c0bca4:    c7 21             	r7 += 1
+ 1c0bca6:    f7 5a             	if (r7 != 0) goto -12 <fl_status_ram+0x124 : 1c0bc9c >
+ 1c0bca8:    00 ef 80 3c       	[r3+0] |= 0x4000
+ 1c0bcac:    37 62             	r7 = [r3+8] 
+ 1c0bcae:    c0 ef 08 30       	[r3+0] &= 0xFFFFFFF7
+ 1c0bcb2:    c2 ef 01 50       	[r5+8] &= 0xFFFFFFFE
+ 1c0bcb6:    00 ef 01 50       	[r5+0] |= 0x1
+ 1c0bcba:    40 2a             	r0 = 10
+ 1c0bcbc:    80 23             	[sp+12] = r0
+ 1c0bcbe:    00 23             	r0 = [sp+12]
+ 1c0bcc0:    35 e1 ff 0f       	r5 = r0 + -1
+ 1c0bcc4:    85 23             	[sp+12] = r5
+ 1c0bcc6:    f0 5b             	if (r0 != 0) goto -10 <fl_status_ram+0x146 : 1c0bcbe >
+ 1c0bcc8:    b4 60             	[r3+0] = r4
+ 1c0bcca:    00 ef 20 80       	[r8+0] |= 0x20
+ 1c0bcce:    20 00             	csync
+ 1c0bcd0:    70 a8             	r0 = r7 << 8
+ 1c0bcd2:    80 17             	r0 = r0.l (u)
+ 1c0bcd4:    13 60             	r3 = [r1+0] 
+ 1c0bcd6:    83 fd fd 01       	ifs (r3 < 0) goto -6 <fl_status_ram+0x15C : 1c0bcd4 >
+ 1c0bcda:    92 60             	[r1+0] = r2
+ 1c0bcdc:    20 00             	csync
+ 1c0bcde:    60 19             	r0 |= r6
+ 1c0bce0:    02 84             	sp += 16
+ 1c0bce2:    58 04             	{pc, r8-r4} = [sp++]
+
+
+fl_erase4k_ram:
+ 1c0bce4:    7f 04             	[--sp] = {rets, r15-r4}
+ 1c0bce6:    e2 98             	sp += -32
+ 1c0bce8:    f2 e0 80 0c       	r2 = r0 - 0x4000
+ 1c0bcec:    28 ff 0f 2a 0b 00 	if (r2 > 585728) goto 22 <fl_erase4k_ram+0x24 : 1c0bd08 >
+ 1c0bcf2:    a2 e0 13 0a       	r2 = 0x93000 - r0
+ 1c0bcf6:    09 ff ff 2f 06 00 	if (r2 <= 4095) goto 12 <fl_erase4k_ram+0x24 : 1c0bd08 >
+ 1c0bcfc:    43 e0 ff 0f       	r3 = 4095 <firmware/loader/loader.c+0xFFE : ffe >
+ 1c0bd00:    12 3f             	r2 = -1
+ 1c0bd02:    30 fb 8a 01       	if ((r0 & r3) != 0) goto 788 <fl_erase4k_ram+0x336 : 1c0c01a >
+ 1c0bd06:    04 8f             	goto 30 <fl_erase4k_ram+0x42 : 1c0bd26 >
+ 1c0bd08:    43 e0 ff 0f       	r3 = 4095 <firmware/loader/loader.c+0xFFE : ffe >
+ 1c0bd0c:    12 3f             	r2 = -1
+ 1c0bd0e:    30 fb 84 01       	if ((r0 & r3) != 0) goto 776 <fl_erase4k_ram+0x336 : 1c0c01a >
+ 1c0bd12:    f3 e0 13 0a       	r3 = r0 - 0x93000
+ 1c0bd16:    28 ff d2 3a 7f 01 	if (r3 > 430080) goto 766 <fl_erase4k_ram+0x336 : 1c0c01a >
+ 1c0bd1c:    a3 e0 7c 0a       	r3 = 0xFC000 - r0
+ 1c0bd20:    09 ff ff 3f 7a 01 	if (r3 <= 4095) goto 756 <fl_erase4k_ram+0x336 : 1c0c01a >
+ 1c0bd26:    c6 ff 08 e0 ee 01 	r6 = 32432136 <_sstack_top+0x27C008 : 1eee008 >
+ 1c0bd2c:    62 60             	r2 = [r6+0] 
+ 1c0bd2e:    52 e8 fd 71       	if ((r2 & 16384) == 0) goto -6 <fl_erase4k_ram+0x48 : 1c0bd2c >
+ 1c0bd32:    ce ff 00 02 04 00 	r14 = 262656 <firmware/loader/loader.c+0x40200 : 40200 >
+ 1c0bd38:    d0 ec e0 a0       	r10 = [r14+0]
+ 1c0bd3c:    60 e0 8e 5b       	r5 = 0x11C00
+ 1c0bd40:    d0 ec 50 90       	r9 = [r5+0]
+ 1c0bd44:    c0 e1 a8 28       	r2 = r10 >> 8
+ 1c0bd48:    62 e1 0e 20       	r2 = r2 & 0xE
+ 1c0bd4c:    44 e1 01 20       	r4 = r2 | 0x1
+ 1c0bd50:    12 3e             	r2 = -2
+ 1c0bd52:    00 ff 07 40 61 01 	if (r4 == 7) goto 706 <fl_erase4k_ram+0x336 : 1c0c01a >
+ 1c0bd58:    20 00             	csync
+ 1c0bd5a:    d0 ec e0 20       	r2 = [r14+0]
+ 1c0bd5e:    82 fd fc 01       	ifs (r2 < 0) goto -8 <fl_erase4k_ram+0x76 : 1c0bd5a >
+ 1c0bd62:    42 20             	r2 = 0
+ 1c0bd64:    d0 ec e1 20       	[r14+0] = r2
+ 1c0bd68:    c8 ff 1c 10 05 00 	r8 = 331804 <firmware/loader/loader.c+0x5101C : 5101c >
+ 1c0bd6e:    c0 ef 20 80       	[r8+0] &= 0xFFFFFFDF
+ 1c0bd72:    42 f0 29 10       	r2 = 4137  # <firmware/loader/loader.c+0x1028 : 1028 >
+ 1c0bd76:    d2 60             		 [r5+0] = r2
+ 1c0bd78:    d2 60             	[r5+0] = r2
+ 1c0bd7a:    20 00             	csync
+ 1c0bd7c:    3d e1 a4 80       	r13 = r8 + -3932
+ 1c0bd80:    c2 ef 01 d0       	[r13+8] &= 0xFFFFFFFE
+ 1c0bd84:    c0 ef 01 d0       	[r13+0] &= 0xFFFFFFFE
+ 1c0bd88:    42 2a             	r2 = 10
+ 1c0bd8a:    82 20             	[sp] = r2
+ 1c0bd8c:    02 20             	r2 = [sp]
+ 1c0bd8e:    34 e1 ff 2f       	r4 = r2 + -1
+ 1c0bd92:    84 20             	[sp] = r4
+ 1c0bd94:    f2 5b             	if (r2 != 0) goto -10 <fl_erase4k_ram+0xA8 : 1c0bd8c >
+ 1c0bd96:    00 ef 08 50       	[r5+0] |= 0x8
+ 1c0bd9a:    c0 ef 80 5d       	[r5+0] &= 0xFFFFEFFF
+ 1c0bd9e:    42 ea 06 50       	[r5+8] = 0x6
+ 1c0bda2:    20 00             	csync
+ 1c0bda4:    c2 ff 80 0f 05 fd 	r2 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bdaa:    54 60             	r4 = [r5+0] 
+ 1c0bdac:    cc 17             	r4 = r4.l (s)
+ 1c0bdae:    84 fd 02 00       	ifs (r4 < 0) goto 4 <fl_erase4k_ram+0xD2 : 1c0bdb6 >
+ 1c0bdb2:    c2 21             	r2 += 1
+ 1c0bdb4:    f2 5a             	if (r2 != 0) goto -12 <fl_erase4k_ram+0xC6 : 1c0bdaa >
+ 1c0bdb6:    00 ef 80 5c       	[r5+0] |= 0x4000
+ 1c0bdba:    c0 ef 08 50       	[r5+0] &= 0xFFFFFFF7
+ 1c0bdbe:    c2 ef 01 d0       	[r13+8] &= 0xFFFFFFFE
+ 1c0bdc2:    00 ef 01 d0       	[r13+0] |= 0x1
+ 1c0bdc6:    42 2a             	r2 = 10
+ 1c0bdc8:    82 21             	[sp+4] = r2
+ 1c0bdca:    02 21             	r2 = [sp+4]
+ 1c0bdcc:    34 e1 ff 2f       	r4 = r2 + -1
+ 1c0bdd0:    84 21             	[sp+4] = r4
+ 1c0bdd2:    f2 5b             	if (r2 != 0) goto -10 <fl_erase4k_ram+0xE6 : 1c0bdca >
+ 1c0bdd4:    c2 ef 01 d0       	[r13+8] &= 0xFFFFFFFE
+ 1c0bdd8:    c0 ef 01 d0       	[r13+0] &= 0xFFFFFFFE
+ 1c0bddc:    42 2a             	r2 = 10
+ 1c0bdde:    82 22             	[sp+8] = r2
+ 1c0bde0:    02 22             	r2 = [sp+8]
+ 1c0bde2:    34 e1 ff 2f       	r4 = r2 + -1
+ 1c0bde6:    84 22             	[sp+8] = r4
+ 1c0bde8:    f2 5b             	if (r2 != 0) goto -10 <fl_erase4k_ram+0xFC : 1c0bde0 >
+ 1c0bdea:    00 ef 08 50       	[r5+0] |= 0x8
+ 1c0bdee:    c0 ef 80 5d       	[r5+0] &= 0xFFFFEFFF
+ 1c0bdf2:    42 ea 05 50       	[r5+8] = 0x5
+ 1c0bdf6:    20 00             	csync
+ 1c0bdf8:    c2 ff 80 0f 05 fd 	r2 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bdfe:    54 60             	r4 = [r5+0] 
+ 1c0be00:    cc 17             	r4 = r4.l (s)
+ 1c0be02:    84 fd 02 00       	ifs (r4 < 0) goto 4 <fl_erase4k_ram+0x126 : 1c0be0a >
+ 1c0be06:    c2 21             	r2 += 1
+ 1c0be08:    f2 5a             	if (r2 != 0) goto -12 <fl_erase4k_ram+0x11A : 1c0bdfe >
+ 1c0be0a:    00 ef 80 5c       	[r5+0] |= 0x4000
+ 1c0be0e:    c0 ef 08 50       	[r5+0] &= 0xFFFFFFF7
+ 1c0be12:    00 ef 08 50       	[r5+0] |= 0x8
+ 1c0be16:    00 ef 80 5d       	[r5+0] |= 0x1000
+ 1c0be1a:    42 ea ff 50       	[r5+8] = 0xFF
+ 1c0be1e:    20 00             	csync
+ 1c0be20:    c2 ff 80 0f 05 fd 	r2 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0be26:    54 60             	r4 = [r5+0] 
+ 1c0be28:    cc 17             	r4 = r4.l (s)
+ 1c0be2a:    84 fd 02 00       	ifs (r4 < 0) goto 4 <fl_erase4k_ram+0x14E : 1c0be32 >
+ 1c0be2e:    c2 21             	r2 += 1
+ 1c0be30:    f2 5a             	if (r2 != 0) goto -12 <fl_erase4k_ram+0x142 : 1c0be26 >
+ 1c0be32:    00 ef 80 5c       	[r5+0] |= 0x4000
+ 1c0be36:    54 62             	r4 = [r5+8] 
+ 1c0be38:    c0 ef 08 50       	[r5+0] &= 0xFFFFFFF7
+ 1c0be3c:    c2 ef 01 d0       	[r13+8] &= 0xFFFFFFFE
+ 1c0be40:    00 ef 01 d0       	[r13+0] |= 0x1
+ 1c0be44:    42 2a             	r2 = 10
+ 1c0be46:    82 23             	[sp+12] = r2
+ 1c0be48:    02 23             	r2 = [sp+12]
+ 1c0be4a:    37 e1 ff 2f       	r7 = r2 + -1
+ 1c0be4e:    87 23             	[sp+12] = r7
+ 1c0be50:    f2 5b             	if (r2 != 0) goto -10 <fl_erase4k_ram+0x164 : 1c0be48 >
+ 1c0be52:    12 3d             	r2 = -3
+ 1c0be54:    54 e8 d5 08       	if ((r4 & 2) == 0) goto 426 <fl_erase4k_ram+0x31E : 1c0c002 >
+ 1c0be58:    c2 ef 01 d0       	[r13+8] &= 0xFFFFFFFE
+ 1c0be5c:    c0 ef 01 d0       	[r13+0] &= 0xFFFFFFFE
+ 1c0be60:    42 2a             	r2 = 10
+ 1c0be62:    82 24             	[sp+16] = r2
+ 1c0be64:    02 24             	r2 = [sp+16]
+ 1c0be66:    34 e1 ff 2f       	r4 = r2 + -1
+ 1c0be6a:    84 24             	[sp+16] = r4
+ 1c0be6c:    f2 5b             	if (r2 != 0) goto -10 <fl_erase4k_ram+0x180 : 1c0be64 >
+ 1c0be6e:    00 ef 08 50       	[r5+0] |= 0x8
+ 1c0be72:    c0 ef 80 5d       	[r5+0] &= 0xFFFFEFFF
+ 1c0be76:    42 ea 20 50       	[r5+8] = 0x20
+ 1c0be7a:    20 00             	csync
+ 1c0be7c:    c2 ff 80 0f 05 fd 	r2 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0be82:    54 60             	r4 = [r5+0] 
+ 1c0be84:    cc 17             	r4 = r4.l (s)
+ 1c0be86:    84 fd 02 00       	ifs (r4 < 0) goto 4 <fl_erase4k_ram+0x1AA : 1c0be8e >
+ 1c0be8a:    c2 21             	r2 += 1
+ 1c0be8c:    f2 5a             	if (r2 != 0) goto -12 <fl_erase4k_ram+0x19E : 1c0be82 >
+ 1c0be8e:    00 ef 80 5c       	[r5+0] |= 0x4000
+ 1c0be92:    c0 ef 08 50       	[r5+0] &= 0xFFFFFFF7
+ 1c0be96:    00 ef 08 50       	[r5+0] |= 0x8
+ 1c0be9a:    c0 ef 80 5d       	[r5+0] &= 0xFFFFEFFF
+ 1c0be9e:    b2 e1 20 08       	r2 = uextra(r0, p:16, l:8)
+ 1c0bea2:    d2 62             	[r5+8] = r2
+ 1c0bea4:    20 00             	csync
+ 1c0bea6:    c2 ff 80 0f 05 fd 	r2 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0beac:    54 60             	r4 = [r5+0] 
+ 1c0beae:    cc 17             	r4 = r4.l (s)
+ 1c0beb0:    84 fd 02 00       	ifs (r4 < 0) goto 4 <fl_erase4k_ram+0x1D4 : 1c0beb8 >
+ 1c0beb4:    c2 21             	r2 += 1
+ 1c0beb6:    f2 5a             	if (r2 != 0) goto -12 <fl_erase4k_ram+0x1C8 : 1c0beac >
+ 1c0beb8:    00 ef 80 5c       	[r5+0] |= 0x4000
+ 1c0bebc:    c0 ef 08 50       	[r5+0] &= 0xFFFFFFF7
+ 1c0bec0:    00 ef 08 50       	[r5+0] |= 0x8
+ 1c0bec4:    c0 ef 80 5d       	[r5+0] &= 0xFFFFEFFF
+ 1c0bec8:    b2 e1 20 04       	r2 = uextra(r0, p:8, l:8)
+ 1c0becc:    d2 62             	[r5+8] = r2
+ 1c0bece:    20 00             	csync
+ 1c0bed0:    c2 ff 80 0f 05 fd 	r2 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bed6:    54 60             	r4 = [r5+0] 
+ 1c0bed8:    cc 17             	r4 = r4.l (s)
+ 1c0beda:    84 fd 02 00       	ifs (r4 < 0) goto 4 <fl_erase4k_ram+0x1FE : 1c0bee2 >
+ 1c0bede:    c2 21             	r2 += 1
+ 1c0bee0:    f2 5a             	if (r2 != 0) goto -12 <fl_erase4k_ram+0x1F2 : 1c0bed6 >
+ 1c0bee2:    00 ef 80 5c       	[r5+0] |= 0x4000
+ 1c0bee6:    c0 ef 08 50       	[r5+0] &= 0xFFFFFFF7
+ 1c0beea:    00 ef 08 50       	[r5+0] |= 0x8
+ 1c0beee:    c0 ef 80 5d       	[r5+0] &= 0xFFFFEFFF
+ 1c0bef2:    02 17             	r2 = r0.b0 (u)
+ 1c0bef4:    d2 62             	[r5+8] = r2
+ 1c0bef6:    20 00             	csync
+ 1c0bef8:    c2 ff 80 0f 05 fd 	r2 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0befe:    54 60             	r4 = [r5+0] 
+ 1c0bf00:    cc 17             	r4 = r4.l (s)
+ 1c0bf02:    84 fd 02 00       	ifs (r4 < 0) goto 4 <fl_erase4k_ram+0x226 : 1c0bf0a >
+ 1c0bf06:    c2 21             	r2 += 1
+ 1c0bf08:    f2 5a             	if (r2 != 0) goto -12 <fl_erase4k_ram+0x21A : 1c0befe >
+ 1c0bf0a:    00 ef 80 5c       	[r5+0] |= 0x4000
+ 1c0bf0e:    c0 ef 08 50       	[r5+0] &= 0xFFFFFFF7
+ 1c0bf12:    c2 ef 01 d0       	[r13+8] &= 0xFFFFFFFE
+ 1c0bf16:    00 ef 01 d0       	[r13+0] |= 0x1
+ 1c0bf1a:    42 2a             	r2 = 10
+ 1c0bf1c:    82 25             	[sp+20] = r2
+ 1c0bf1e:    02 25             	r2 = [sp+20]
+ 1c0bf20:    34 e1 ff 2f       	r4 = r2 + -1
+ 1c0bf24:    84 25             	[sp+20] = r4
+ 1c0bf26:    f2 5b             	if (r2 != 0) goto -10 <fl_erase4k_ram+0x23A : 1c0bf1e >
+ 1c0bf28:    c2 ff 00 c0 ff 01 	r2 = 33538048 <_sstack_top+0x38A000 : 1ffc000 >
+ 1c0bf2e:    02 18             	r2 += r0
+ 1c0bf30:    64 60             	r4 = [r6+0] 
+ 1c0bf32:    54 e8 fd 71       	if ((r4 & 16384) == 0) goto -6 <fl_erase4k_ram+0x24C : 1c0bf30 >
+ 1c0bf36:    c4 ff 00 d0 ff 01 	r4 = 33542144 <_sstack_top+0x38B000 : 1ffd000 >
+ 1c0bf3c:    40 18             	r0 += r4
+ 1c0bf3e:    72 e1 1f 20       	r2 = r2 & 0xFFFFFFE0
+ 1c0bf42:    00 e9 09 20       	if (r2 >= r0) goto 18 <fl_erase4k_ram+0x274 : 1c0bf58 >
+ 1c0bf46:    20 00             	csync
+ 1c0bf48:    32 02             	flushinv [r2]
+ 1c0bf4a:    20 00             	csync
+ 1c0bf4c:    64 60             	r4 = [r6+0] 
+ 1c0bf4e:    54 e8 fd 71       	if ((r4 & 16384) == 0) goto -6 <fl_erase4k_ram+0x268 : 1c0bf4c >
+ 1c0bf52:    ca 20             	r2 += 32
+ 1c0bf54:    80 e9 f7 21       	if (r2 < r0) goto -18 <fl_erase4k_ram+0x262 : 1c0bf46 >
+ 1c0bf58:    2c e1 04 5c       	r12 = r5 + -5116
+ 1c0bf5c:    d0 ec c0 20       	r2 = [r12+0]
+ 1c0bf60:    4f e0 0a 00       	r15 = 10 <firmware/loader/loader.c+0xA : a >
+ 1c0bf64:    c4 ff 80 0f 05 fd 	r4 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0bf6a:    cb ff 18 1b b7 00 	r11 = 12000024 <firmware/loader/loader.c+0xB71B18 : b71b18 >
+ 1c0bf70:    d0 ec c0 00       	r0 = [r12+0]
+ 1c0bf74:    c2 ef 01 d0       	[r13+8] &= 0xFFFFFFFE
+ 1c0bf78:    c0 ef 01 d0       	[r13+0] &= 0xFFFFFFFE
+ 1c0bf7c:    d4 e9 19 f0       	[sp+24] = r15
+ 1c0bf80:    07 26             	r7 = [sp+24]
+ 1c0bf82:    33 e1 ff 7f       	r3 = r7 + -1
+ 1c0bf86:    83 26             	[sp+24] = r3
+ 1c0bf88:    f7 5b             	if (r7 != 0) goto -10 <fl_erase4k_ram+0x29C : 1c0bf80 >
+ 1c0bf8a:    00 ef 08 50       	[r5+0] |= 0x8
+ 1c0bf8e:    c0 ef 80 5d       	[r5+0] &= 0xFFFFEFFF
+ 1c0bf92:    42 ea 05 50       	[r5+8] = 0x5
+ 1c0bf96:    20 00             	csync
+ 1c0bf98:    80 1e             	r0 = r0 - r2
+ 1c0bf9a:    47 16             	r7 = r4
+ 1c0bf9c:    53 60             	r3 = [r5+0] 
+ 1c0bf9e:    bb 17             	r3 = r3.l (s)
+ 1c0bfa0:    83 fd 02 00       	ifs (r3 < 0) goto 4 <fl_erase4k_ram+0x2C4 : 1c0bfa8 >
+ 1c0bfa4:    c7 21             	r7 += 1
+ 1c0bfa6:    f7 5a             	if (r7 != 0) goto -12 <fl_erase4k_ram+0x2B8 : 1c0bf9c >
+ 1c0bfa8:    00 ef 80 5c       	[r5+0] |= 0x4000
+ 1c0bfac:    c0 ef 08 50       	[r5+0] &= 0xFFFFFFF7
+ 1c0bfb0:    00 ef 08 50       	[r5+0] |= 0x8
+ 1c0bfb4:    00 ef 80 5d       	[r5+0] |= 0x1000
+ 1c0bfb8:    42 ea ff 50       	[r5+8] = 0xFF
+ 1c0bfbc:    20 00             	csync
+ 1c0bfbe:    47 16             	r7 = r4
+ 1c0bfc0:    53 60             	r3 = [r5+0] 
+ 1c0bfc2:    bb 17             	r3 = r3.l (s)
+ 1c0bfc4:    83 fd 02 00       	ifs (r3 < 0) goto 4 <fl_erase4k_ram+0x2E8 : 1c0bfcc >
+ 1c0bfc8:    c7 21             	r7 += 1
+ 1c0bfca:    f7 5a             	if (r7 != 0) goto -12 <fl_erase4k_ram+0x2DC : 1c0bfc0 >
+ 1c0bfcc:    00 ef 80 5c       	[r5+0] |= 0x4000
+ 1c0bfd0:    57 62             	r7 = [r5+8] 
+ 1c0bfd2:    c0 ef 08 50       	[r5+0] &= 0xFFFFFFF7
+ 1c0bfd6:    c2 ef 01 d0       	[r13+8] &= 0xFFFFFFFE
+ 1c0bfda:    00 ef 01 d0       	[r13+0] |= 0x1
+ 1c0bfde:    d4 e9 1d f0       	[sp+28] = r15
+ 1c0bfe2:    03 27             	r3 = [sp+28]
+ 1c0bfe4:    36 e1 ff 3f       	r6 = r3 + -1
+ 1c0bfe8:    86 27             	[sp+28] = r6
+ 1c0bfea:    f3 5b             	if (r3 != 0) goto -10 <fl_erase4k_ram+0x2FE : 1c0bfe2 >
+ 1c0bfec:    57 e8 04 00       	if ((r7 & 1) == 0) goto 8 <fl_erase4k_ram+0x314 : 1c0bff8 >
+ 1c0bff0:    8b e9 be 01       	if (r0 < r11) goto -132 <fl_erase4k_ram+0x28C : 1c0bf70 >
+ 1c0bff4:    12 3c             	r2 = -4
+ 1c0bff6:    04 81             	goto 2 <fl_erase4k_ram+0x316 : 1c0bffa >
+ 1c0bff8:    42 20             	r2 = 0
+ 1c0bffa:    43 38             	r3 = 24
+ 1c0bffc:    f4 e1 00 03       	r0 = r0 / r3 (u)
+ 1c0c000:    90 60             	[r1+0] = r0
+ 1c0c002:    d0 ec 51 90       	[r5+0] = r9
+ 1c0c006:    00 ef 20 80       	[r8+0] |= 0x20
+ 1c0c00a:    20 00             	csync
+ 1c0c00c:    d0 ec e0 00       	r0 = [r14+0]
+ 1c0c010:    80 fd fc 01       	ifs (r0 < 0) goto -8 <fl_erase4k_ram+0x328 : 1c0c00c >
+ 1c0c014:    d0 ec e1 a0       	[r14+0] = r10
+ 1c0c018:    20 00             	csync
+ 1c0c01a:    20 16             	r0 = r2
+ 1c0c01c:    02 88             	sp += 32
+ 1c0c01e:    5f 04             	{pc, r15-r4} = [sp++]
+
+
+fl_prog_ram:
+ 1c0c020:    7f 04             	[--sp] = {rets, r15-r4}
+ 1c0c022:    e2 98             	sp += -32
+ 1c0c024:    f4 e0 80 0c       	r4 = r0 - 0x4000
+ 1c0c028:    28 ff 0f 4a 0a 00 	if (r4 > 585728) goto 20 <fl_prog_ram+0x22 : 1c0c042 >
+ 1c0c02e:    a4 e0 13 0a       	r4 = 0x93000 - r0
+ 1c0c032:    82 e9 06 40       	if (r4 < r2) goto 12 <fl_prog_ram+0x22 : 1c0c042 >
+ 1c0c036:    35 e1 ff 2f       	r5 = r2 + -1
+ 1c0c03a:    14 3f             	r4 = -1
+ 1c0c03c:    95 fc 11 fe       	if (r5 <= 255) goto 34 <fl_prog_ram+0x42 : 1c0c062 >
+ 1c0c040:    d4 8d             	goto 858 <fl_prog_ram+0x37C : 1c0c39c >
+ 1c0c042:    f5 e0 13 0a       	r5 = r0 - 0x93000
+ 1c0c046:    14 3f             	r4 = -1
+ 1c0c048:    28 ff d2 5a a7 01 	if (r5 > 430080) goto 846 <fl_prog_ram+0x37C : 1c0c39c >
+ 1c0c04e:    08 ff 00 21 a4 01 	if (r2 > 256) goto 840 <fl_prog_ram+0x37C : 1c0c39c >
+ 1c0c054:    a5 e0 7c 0a       	r5 = 0xFC000 - r0
+ 1c0c058:    36 e1 ff 2f       	r6 = r2 + -1
+ 1c0c05c:    42 ff 00 65 9d 01 	if (r6 >= r5) goto 826 <fl_prog_ram+0x37C : 1c0c39c >
+ 1c0c062:    bc e1 20 00       	r12 = uextra(r0, p:0, l:8)
+ 1c0c066:    b4 e0 c0 52       	r5 = r12 + r2
+ 1c0c06a:    08 ff 00 51 96 01 	if (r5 > 256) goto 812 <fl_prog_ram+0x37C : 1c0c39c >
+ 1c0c070:    cf ff 08 e0 ee 01 	r15 = 32432136 <_sstack_top+0x27C008 : 1eee008 >
+ 1c0c076:    d0 ec f0 40       	r4 = [r15+0]
+ 1c0c07a:    54 e8 fc 71       	if ((r4 & 16384) == 0) goto -8 <fl_prog_ram+0x56 : 1c0c076 >
+ 1c0c07e:    cd ff 00 02 04 00 	r13 = 262656 <firmware/loader/loader.c+0x40200 : 40200 >
+ 1c0c084:    d0 ec d0 a0       	r10 = [r13+0]
+ 1c0c088:    60 e0 8e 7b       	r7 = 0x11C00
+ 1c0c08c:    d0 ec 70 80       	r8 = [r7+0]
+ 1c0c090:    c0 e1 a8 48       	r4 = r10 >> 8
+ 1c0c094:    64 e1 0e 40       	r4 = r4 & 0xE
+ 1c0c098:    45 e1 01 40       	r5 = r4 | 0x1
+ 1c0c09c:    14 3e             	r4 = -2
+ 1c0c09e:    00 ff 07 50 7c 01 	if (r5 == 7) goto 760 <fl_prog_ram+0x37C : 1c0c39c >
+ 1c0c0a4:    20 00             	csync
+ 1c0c0a6:    d0 ec d0 40       	r4 = [r13+0]
+ 1c0c0aa:    84 fd fc 01       	ifs (r4 < 0) goto -8 <fl_prog_ram+0x86 : 1c0c0a6 >
+ 1c0c0ae:    44 20             	r4 = 0
+ 1c0c0b0:    d0 ec d1 40       	[r13+0] = r4
+ 1c0c0b4:    c9 ff 1c 10 05 00 	r9 = 331804 <firmware/loader/loader.c+0x5101C : 5101c >
+ 1c0c0ba:    c0 ef 20 90       	[r9+0] &= 0xFFFFFFDF
+ 1c0c0be:    44 f0 29 10       	r4 = 4137  # <firmware/loader/loader.c+0x1028 : 1028 >
+ 1c0c0c2:    f4 60             		 [r7+0] = r4
+ 1c0c0c4:    f4 60             	[r7+0] = r4
+ 1c0c0c6:    20 00             	csync
+ 1c0c0c8:    3b e1 a4 90       	r11 = r9 + -3932
+ 1c0c0cc:    c2 ef 01 b0       	[r11+8] &= 0xFFFFFFFE
+ 1c0c0d0:    c0 ef 01 b0       	[r11+0] &= 0xFFFFFFFE
+ 1c0c0d4:    44 2a             	r4 = 10
+ 1c0c0d6:    84 20             	[sp] = r4
+ 1c0c0d8:    04 20             	r4 = [sp]
+ 1c0c0da:    35 e1 ff 4f       	r5 = r4 + -1
+ 1c0c0de:    85 20             	[sp] = r5
+ 1c0c0e0:    f4 5b             	if (r4 != 0) goto -10 <fl_prog_ram+0xB8 : 1c0c0d8 >
+ 1c0c0e2:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c0e6:    c0 ef 80 7d       	[r7+0] &= 0xFFFFEFFF
+ 1c0c0ea:    42 ea 06 70       	[r7+8] = 0x6
+ 1c0c0ee:    20 00             	csync
+ 1c0c0f0:    c4 ff 80 0f 05 fd 	r4 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c0f6:    75 60             	r5 = [r7+0] 
+ 1c0c0f8:    dd 17             	r5 = r5.l (s)
+ 1c0c0fa:    85 fd 02 00       	ifs (r5 < 0) goto 4 <fl_prog_ram+0xE2 : 1c0c102 >
+ 1c0c0fe:    c4 21             	r4 += 1
+ 1c0c100:    f4 5a             	if (r4 != 0) goto -12 <fl_prog_ram+0xD6 : 1c0c0f6 >
+ 1c0c102:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c106:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c10a:    c2 ef 01 b0       	[r11+8] &= 0xFFFFFFFE
+ 1c0c10e:    00 ef 01 b0       	[r11+0] |= 0x1
+ 1c0c112:    44 2a             	r4 = 10
+ 1c0c114:    84 21             	[sp+4] = r4
+ 1c0c116:    04 21             	r4 = [sp+4]
+ 1c0c118:    35 e1 ff 4f       	r5 = r4 + -1
+ 1c0c11c:    85 21             	[sp+4] = r5
+ 1c0c11e:    f4 5b             	if (r4 != 0) goto -10 <fl_prog_ram+0xF6 : 1c0c116 >
+ 1c0c120:    c2 ef 01 b0       	[r11+8] &= 0xFFFFFFFE
+ 1c0c124:    c0 ef 01 b0       	[r11+0] &= 0xFFFFFFFE
+ 1c0c128:    44 2a             	r4 = 10
+ 1c0c12a:    84 22             	[sp+8] = r4
+ 1c0c12c:    04 22             	r4 = [sp+8]
+ 1c0c12e:    35 e1 ff 4f       	r5 = r4 + -1
+ 1c0c132:    85 22             	[sp+8] = r5
+ 1c0c134:    f4 5b             	if (r4 != 0) goto -10 <fl_prog_ram+0x10C : 1c0c12c >
+ 1c0c136:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c13a:    c0 ef 80 7d       	[r7+0] &= 0xFFFFEFFF
+ 1c0c13e:    42 ea 05 70       	[r7+8] = 0x5
+ 1c0c142:    20 00             	csync
+ 1c0c144:    c4 ff 80 0f 05 fd 	r4 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c14a:    75 60             	r5 = [r7+0] 
+ 1c0c14c:    dd 17             	r5 = r5.l (s)
+ 1c0c14e:    85 fd 02 00       	ifs (r5 < 0) goto 4 <fl_prog_ram+0x136 : 1c0c156 >
+ 1c0c152:    c4 21             	r4 += 1
+ 1c0c154:    f4 5a             	if (r4 != 0) goto -12 <fl_prog_ram+0x12A : 1c0c14a >
+ 1c0c156:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c15a:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c15e:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c162:    00 ef 80 7d       	[r7+0] |= 0x1000
+ 1c0c166:    42 ea ff 70       	[r7+8] = 0xFF
+ 1c0c16a:    20 00             	csync
+ 1c0c16c:    c4 ff 80 0f 05 fd 	r4 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c172:    75 60             	r5 = [r7+0] 
+ 1c0c174:    dd 17             	r5 = r5.l (s)
+ 1c0c176:    85 fd 02 00       	ifs (r5 < 0) goto 4 <fl_prog_ram+0x15E : 1c0c17e >
+ 1c0c17a:    c4 21             	r4 += 1
+ 1c0c17c:    f4 5a             	if (r4 != 0) goto -12 <fl_prog_ram+0x152 : 1c0c172 >
+ 1c0c17e:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c182:    d0 ec 78 e0       	r14 = [r7+8]
+ 1c0c186:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c18a:    c2 ef 01 b0       	[r11+8] &= 0xFFFFFFFE
+ 1c0c18e:    00 ef 01 b0       	[r11+0] |= 0x1
+ 1c0c192:    44 2a             	r4 = 10
+ 1c0c194:    84 23             	[sp+12] = r4
+ 1c0c196:    04 23             	r4 = [sp+12]
+ 1c0c198:    35 e1 ff 4f       	r5 = r4 + -1
+ 1c0c19c:    85 23             	[sp+12] = r5
+ 1c0c19e:    f4 5b             	if (r4 != 0) goto -10 <fl_prog_ram+0x176 : 1c0c196 >
+ 1c0c1a0:    14 3d             	r4 = -3
+ 1c0c1a2:    5e e8 ef 08       	if ((r14 & 2) == 0) goto 478 <fl_prog_ram+0x364 : 1c0c384 >
+ 1c0c1a6:    c2 ef 01 b0       	[r11+8] &= 0xFFFFFFFE
+ 1c0c1aa:    c0 ef 01 b0       	[r11+0] &= 0xFFFFFFFE
+ 1c0c1ae:    44 2a             	r4 = 10
+ 1c0c1b0:    84 24             	[sp+16] = r4
+ 1c0c1b2:    04 24             	r4 = [sp+16]
+ 1c0c1b4:    35 e1 ff 4f       	r5 = r4 + -1
+ 1c0c1b8:    85 24             	[sp+16] = r5
+ 1c0c1ba:    f4 5b             	if (r4 != 0) goto -10 <fl_prog_ram+0x192 : 1c0c1b2 >
+ 1c0c1bc:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c1c0:    c0 ef 80 7d       	[r7+0] &= 0xFFFFEFFF
+ 1c0c1c4:    42 ea 02 70       	[r7+8] = 0x2
+ 1c0c1c8:    20 00             	csync
+ 1c0c1ca:    c4 ff 80 0f 05 fd 	r4 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c1d0:    75 60             	r5 = [r7+0] 
+ 1c0c1d2:    dd 17             	r5 = r5.l (s)
+ 1c0c1d4:    85 fd 02 00       	ifs (r5 < 0) goto 4 <fl_prog_ram+0x1BC : 1c0c1dc >
+ 1c0c1d8:    c4 21             	r4 += 1
+ 1c0c1da:    f4 5a             	if (r4 != 0) goto -12 <fl_prog_ram+0x1B0 : 1c0c1d0 >
+ 1c0c1dc:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c1e0:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c1e4:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c1e8:    c0 ef 80 7d       	[r7+0] &= 0xFFFFEFFF
+ 1c0c1ec:    b4 e1 20 08       	r4 = uextra(r0, p:16, l:8)
+ 1c0c1f0:    f4 62             	[r7+8] = r4
+ 1c0c1f2:    20 00             	csync
+ 1c0c1f4:    c4 ff 80 0f 05 fd 	r4 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c1fa:    75 60             	r5 = [r7+0] 
+ 1c0c1fc:    dd 17             	r5 = r5.l (s)
+ 1c0c1fe:    85 fd 02 00       	ifs (r5 < 0) goto 4 <fl_prog_ram+0x1E6 : 1c0c206 >
+ 1c0c202:    c4 21             	r4 += 1
+ 1c0c204:    f4 5a             	if (r4 != 0) goto -12 <fl_prog_ram+0x1DA : 1c0c1fa >
+ 1c0c206:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c20a:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c20e:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c212:    c0 ef 80 7d       	[r7+0] &= 0xFFFFEFFF
+ 1c0c216:    b4 e1 20 04       	r4 = uextra(r0, p:8, l:8)
+ 1c0c21a:    f4 62             	[r7+8] = r4
+ 1c0c21c:    20 00             	csync
+ 1c0c21e:    c4 ff 80 0f 05 fd 	r4 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c224:    75 60             	r5 = [r7+0] 
+ 1c0c226:    dd 17             	r5 = r5.l (s)
+ 1c0c228:    85 fd 02 00       	ifs (r5 < 0) goto 4 <fl_prog_ram+0x210 : 1c0c230 >
+ 1c0c22c:    c4 21             	r4 += 1
+ 1c0c22e:    f4 5a             	if (r4 != 0) goto -12 <fl_prog_ram+0x204 : 1c0c224 >
+ 1c0c230:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c234:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c238:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c23c:    c0 ef 80 7d       	[r7+0] &= 0xFFFFEFFF
+ 1c0c240:    d0 ec 79 c0       	[r7+8] = r12
+ 1c0c244:    20 00             	csync
+ 1c0c246:    c4 ff 80 0f 05 fd 	r4 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c24c:    75 60             	r5 = [r7+0] 
+ 1c0c24e:    dd 17             	r5 = r5.l (s)
+ 1c0c250:    85 fd 02 00       	ifs (r5 < 0) goto 4 <fl_prog_ram+0x238 : 1c0c258 >
+ 1c0c254:    c4 21             	r4 += 1
+ 1c0c256:    f4 5a             	if (r4 != 0) goto -12 <fl_prog_ram+0x22C : 1c0c24c >
+ 1c0c258:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c25c:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c260:    02 5a             	if (r2 == 0) goto 52 <fl_prog_ram+0x276 : 1c0c296 >
+ 1c0c262:    44 20             	r4 = 0
+ 1c0c264:    cc ff 80 0f 05 fd 	r12 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c26a:    d8 ee 10 54       	r5 = b[r1+r4] (u)
+ 1c0c26e:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c272:    c0 ef 80 7d       	[r7+0] &= 0xFFFFEFFF
+ 1c0c276:    f5 62             	[r7+8] = r5
+ 1c0c278:    20 00             	csync
+ 1c0c27a:    c5 16             	r5 = r12
+ 1c0c27c:    76 60             	r6 = [r7+0] 
+ 1c0c27e:    ee 17             	r6 = r6.l (s)
+ 1c0c280:    86 fd 02 00       	ifs (r6 < 0) goto 4 <fl_prog_ram+0x268 : 1c0c288 >
+ 1c0c284:    c5 21             	r5 += 1
+ 1c0c286:    f5 5a             	if (r5 != 0) goto -12 <fl_prog_ram+0x25C : 1c0c27c >
+ 1c0c288:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c28c:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c290:    c4 21             	r4 += 1
+ 1c0c292:    82 e8 ea 41       	if (r4 != r2) goto -44 <fl_prog_ram+0x24A : 1c0c26a >
+ 1c0c296:    c2 ef 01 b0       	[r11+8] &= 0xFFFFFFFE
+ 1c0c29a:    00 ef 01 b0       	[r11+0] |= 0x1
+ 1c0c29e:    41 2a             	r1 = 10
+ 1c0c2a0:    81 25             	[sp+20] = r1
+ 1c0c2a2:    01 25             	r1 = [sp+20]
+ 1c0c2a4:    34 e1 ff 1f       	r4 = r1 + -1
+ 1c0c2a8:    84 25             	[sp+20] = r4
+ 1c0c2aa:    f1 5b             	if (r1 != 0) goto -10 <fl_prog_ram+0x282 : 1c0c2a2 >
+ 1c0c2ac:    c1 ff 00 c0 ff 01 	r1 = 33538048 <_sstack_top+0x38A000 : 1ffc000 >
+ 1c0c2b2:    01 18             	r1 += r0
+ 1c0c2b4:    d0 ec f0 00       	r0 = [r15+0]
+ 1c0c2b8:    50 e8 fc 71       	if ((r0 & 16384) == 0) goto -8 <fl_prog_ram+0x294 : 1c0c2b4 >
+ 1c0c2bc:    90 1c             	r0 = r1 + r2
+ 1c0c2be:    71 e1 1f 10       	r1 = r1 & 0xFFFFFFE0
+ 1c0c2c2:    00 e9 0a 10       	if (r1 >= r0) goto 20 <fl_prog_ram+0x2BA : 1c0c2da >
+ 1c0c2c6:    20 00             	csync
+ 1c0c2c8:    31 02             	flushinv [r1]
+ 1c0c2ca:    20 00             	csync
+ 1c0c2cc:    d0 ec f0 20       	r2 = [r15+0]
+ 1c0c2d0:    52 e8 fc 71       	if ((r2 & 16384) == 0) goto -8 <fl_prog_ram+0x2AC : 1c0c2cc >
+ 1c0c2d4:    c9 20             	r1 += 32
+ 1c0c2d6:    80 e9 f6 11       	if (r1 < r0) goto -20 <fl_prog_ram+0x2A6 : 1c0c2c6 >
+ 1c0c2da:    2e e1 04 7c       	r14 = r7 + -5116
+ 1c0c2de:    d0 ec e0 10       	r1 = [r14+0]
+ 1c0c2e2:    4f e0 0a 00       	r15 = 10 <firmware/loader/loader.c+0xA : a >
+ 1c0c2e6:    c4 ff 80 0f 05 fd 	r4 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c2ec:    cc ff 98 a9 03 00 	r12 = 240024 <firmware/loader/loader.c+0x3A998 : 3a998 >
+ 1c0c2f2:    d0 ec e0 50       	r5 = [r14+0]
+ 1c0c2f6:    c2 ef 01 b0       	[r11+8] &= 0xFFFFFFFE
+ 1c0c2fa:    c0 ef 01 b0       	[r11+0] &= 0xFFFFFFFE
+ 1c0c2fe:    d4 e9 19 f0       	[sp+24] = r15
+ 1c0c302:    06 26             	r6 = [sp+24]
+ 1c0c304:    30 e1 ff 6f       	r0 = r6 + -1
+ 1c0c308:    80 26             	[sp+24] = r0
+ 1c0c30a:    f6 5b             	if (r6 != 0) goto -10 <fl_prog_ram+0x2E2 : 1c0c302 >
+ 1c0c30c:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c310:    c0 ef 80 7d       	[r7+0] &= 0xFFFFEFFF
+ 1c0c314:    42 ea 05 70       	[r7+8] = 0x5
+ 1c0c318:    20 00             	csync
+ 1c0c31a:    5e 1e             	r6 = r5 - r1
+ 1c0c31c:    45 16             	r5 = r4
+ 1c0c31e:    70 60             	r0 = [r7+0] 
+ 1c0c320:    88 17             	r0 = r0.l (s)
+ 1c0c322:    80 fd 02 00       	ifs (r0 < 0) goto 4 <fl_prog_ram+0x30A : 1c0c32a >
+ 1c0c326:    c5 21             	r5 += 1
+ 1c0c328:    f5 5a             	if (r5 != 0) goto -12 <fl_prog_ram+0x2FE : 1c0c31e >
+ 1c0c32a:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c32e:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c332:    00 ef 08 70       	[r7+0] |= 0x8
+ 1c0c336:    00 ef 80 7d       	[r7+0] |= 0x1000
+ 1c0c33a:    42 ea ff 70       	[r7+8] = 0xFF
+ 1c0c33e:    20 00             	csync
+ 1c0c340:    45 16             	r5 = r4
+ 1c0c342:    70 60             	r0 = [r7+0] 
+ 1c0c344:    88 17             	r0 = r0.l (s)
+ 1c0c346:    80 fd 02 00       	ifs (r0 < 0) goto 4 <fl_prog_ram+0x32E : 1c0c34e >
+ 1c0c34a:    c5 21             	r5 += 1
+ 1c0c34c:    f5 5a             	if (r5 != 0) goto -12 <fl_prog_ram+0x322 : 1c0c342 >
+ 1c0c34e:    00 ef 80 7c       	[r7+0] |= 0x4000
+ 1c0c352:    75 62             	r5 = [r7+8] 
+ 1c0c354:    c0 ef 08 70       	[r7+0] &= 0xFFFFFFF7
+ 1c0c358:    c2 ef 01 b0       	[r11+8] &= 0xFFFFFFFE
+ 1c0c35c:    00 ef 01 b0       	[r11+0] |= 0x1
+ 1c0c360:    d4 e9 1d f0       	[sp+28] = r15
+ 1c0c364:    00 27             	r0 = [sp+28]
+ 1c0c366:    32 e1 ff 0f       	r2 = r0 + -1
+ 1c0c36a:    82 27             	[sp+28] = r2
+ 1c0c36c:    f0 5b             	if (r0 != 0) goto -10 <fl_prog_ram+0x344 : 1c0c364 >
+ 1c0c36e:    55 e8 04 00       	if ((r5 & 1) == 0) goto 8 <fl_prog_ram+0x35A : 1c0c37a >
+ 1c0c372:    8c e9 be 61       	if (r6 < r12) goto -132 <fl_prog_ram+0x2D2 : 1c0c2f2 >
+ 1c0c376:    14 3c             	r4 = -4
+ 1c0c378:    04 81             	goto 2 <fl_prog_ram+0x35C : 1c0c37c >
+ 1c0c37a:    44 20             	r4 = 0
+ 1c0c37c:    40 38             	r0 = 24
+ 1c0c37e:    f4 e1 60 00       	r0 = r6 / r0 (u)
+ 1c0c382:    b0 60             	[r3+0] = r0
+ 1c0c384:    d0 ec 71 80       	[r7+0] = r8
+ 1c0c388:    00 ef 20 90       	[r9+0] |= 0x20
+ 1c0c38c:    20 00             	csync
+ 1c0c38e:    d0 ec d0 00       	r0 = [r13+0]
+ 1c0c392:    80 fd fc 01       	ifs (r0 < 0) goto -8 <fl_prog_ram+0x36E : 1c0c38e >
+ 1c0c396:    d0 ec d1 a0       	[r13+0] = r10
+ 1c0c39a:    20 00             	csync
+ 1c0c39c:    40 16             	r0 = r4
+ 1c0c39e:    02 88             	sp += 32
+ 1c0c3a0:    5f 04             	{pc, r15-r4} = [sp++]
+
+
+fl_read_ram:
+ 1c0c3a2:    7b 04             	[--sp] = {rets, r11-r4}
+ 1c0c3a4:    e2 9e             	sp += -8
+ 1c0c3a6:    c3 ff 08 e0 ee 01 	r3 = 32432136 <_sstack_top+0x27C008 : 1eee008 >
+ 1c0c3ac:    34 60             	r4 = [r3+0] 
+ 1c0c3ae:    54 e8 fd 71       	if ((r4 & 16384) == 0) goto -6 <fl_read_ram+0xA : 1c0c3ac >
+ 1c0c3b2:    c4 ff 00 02 04 00 	r4 = 262656 <firmware/loader/loader.c+0x40200 : 40200 >
+ 1c0c3b8:    d0 ec 40 b0       	r11 = [r4+0]
+ 1c0c3bc:    60 e0 8e 6b       	r6 = 0x11C00
+ 1c0c3c0:    d0 ec 60 a0       	r10 = [r6+0]
+ 1c0c3c4:    c0 e1 b8 38       	r3 = r11 >> 8
+ 1c0c3c8:    63 e1 0e 30       	r3 = r3 & 0xE
+ 1c0c3cc:    47 e1 01 30       	r7 = r3 | 0x1
+ 1c0c3d0:    13 3e             	r3 = -2
+ 1c0c3d2:    07 f8 b7 0e       	if (r7 == 7) goto 366 <fl_read_ram+0x1A2 : 1c0c544 >
+ 1c0c3d6:    20 00             	csync
+ 1c0c3d8:    43 60             	r3 = [r4+0] 
+ 1c0c3da:    83 fd fd 01       	ifs (r3 < 0) goto -6 <fl_read_ram+0x36 : 1c0c3d8 >
+ 1c0c3de:    43 20             	r3 = 0
+ 1c0c3e0:    c3 60             	[r4+0] = r3
+ 1c0c3e2:    c8 ff 1c 10 05 00 	r8 = 331804 <firmware/loader/loader.c+0x5101C : 5101c >
+ 1c0c3e8:    c0 ef 20 80       	[r8+0] &= 0xFFFFFFDF
+ 1c0c3ec:    43 f0 29 10       	r3 = 4137  # <firmware/loader/loader.c+0x1028 : 1028 >
+ 1c0c3f0:    e3 60             		 [r6+0] = r3
+ 1c0c3f2:    e3 60             	[r6+0] = r3
+ 1c0c3f4:    20 00             	csync
+ 1c0c3f6:    39 e1 a4 80       	r9 = r8 + -3932
+ 1c0c3fa:    c2 ef 01 90       	[r9+8] &= 0xFFFFFFFE
+ 1c0c3fe:    c0 ef 01 90       	[r9+0] &= 0xFFFFFFFE
+ 1c0c402:    43 2a             	r3 = 10
+ 1c0c404:    83 20             	[sp] = r3
+ 1c0c406:    03 20             	r3 = [sp]
+ 1c0c408:    37 e1 ff 3f       	r7 = r3 + -1
+ 1c0c40c:    87 20             	[sp] = r7
+ 1c0c40e:    f3 5b             	if (r3 != 0) goto -10 <fl_read_ram+0x64 : 1c0c406 >
+ 1c0c410:    00 ef 08 60       	[r6+0] |= 0x8
+ 1c0c414:    c0 ef 80 6d       	[r6+0] &= 0xFFFFEFFF
+ 1c0c418:    42 ea 0b 60       	[r6+8] = 0xB
+ 1c0c41c:    20 00             	csync
+ 1c0c41e:    c3 ff 80 0f 05 fd 	r3 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c424:    67 60             	r7 = [r6+0] 
+ 1c0c426:    ff 17             	r7 = r7.l (s)
+ 1c0c428:    87 fd 02 00       	ifs (r7 < 0) goto 4 <fl_read_ram+0x8E : 1c0c430 >
+ 1c0c42c:    c3 21             	r3 += 1
+ 1c0c42e:    f3 5a             	if (r3 != 0) goto -12 <fl_read_ram+0x82 : 1c0c424 >
+ 1c0c430:    00 ef 80 6c       	[r6+0] |= 0x4000
+ 1c0c434:    c0 ef 08 60       	[r6+0] &= 0xFFFFFFF7
+ 1c0c438:    00 ef 08 60       	[r6+0] |= 0x8
+ 1c0c43c:    c0 ef 80 6d       	[r6+0] &= 0xFFFFEFFF
+ 1c0c440:    b3 e1 20 08       	r3 = uextra(r0, p:16, l:8)
+ 1c0c444:    e3 62             	[r6+8] = r3
+ 1c0c446:    20 00             	csync
+ 1c0c448:    c3 ff 80 0f 05 fd 	r3 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c44e:    67 60             	r7 = [r6+0] 
+ 1c0c450:    ff 17             	r7 = r7.l (s)
+ 1c0c452:    87 fd 02 00       	ifs (r7 < 0) goto 4 <fl_read_ram+0xB8 : 1c0c45a >
+ 1c0c456:    c3 21             	r3 += 1
+ 1c0c458:    f3 5a             	if (r3 != 0) goto -12 <fl_read_ram+0xAC : 1c0c44e >
+ 1c0c45a:    00 ef 80 6c       	[r6+0] |= 0x4000
+ 1c0c45e:    c0 ef 08 60       	[r6+0] &= 0xFFFFFFF7
+ 1c0c462:    00 ef 08 60       	[r6+0] |= 0x8
+ 1c0c466:    c0 ef 80 6d       	[r6+0] &= 0xFFFFEFFF
+ 1c0c46a:    b3 e1 20 04       	r3 = uextra(r0, p:8, l:8)
+ 1c0c46e:    e3 62             	[r6+8] = r3
+ 1c0c470:    20 00             	csync
+ 1c0c472:    c3 ff 80 0f 05 fd 	r3 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c478:    67 60             	r7 = [r6+0] 
+ 1c0c47a:    ff 17             	r7 = r7.l (s)
+ 1c0c47c:    87 fd 02 00       	ifs (r7 < 0) goto 4 <fl_read_ram+0xE2 : 1c0c484 >
+ 1c0c480:    c3 21             	r3 += 1
+ 1c0c482:    f3 5a             	if (r3 != 0) goto -12 <fl_read_ram+0xD6 : 1c0c478 >
+ 1c0c484:    00 ef 80 6c       	[r6+0] |= 0x4000
+ 1c0c488:    c0 ef 08 60       	[r6+0] &= 0xFFFFFFF7
+ 1c0c48c:    00 ef 08 60       	[r6+0] |= 0x8
+ 1c0c490:    c0 ef 80 6d       	[r6+0] &= 0xFFFFEFFF
+ 1c0c494:    00 17             	r0 = r0.b0 (u)
+ 1c0c496:    e0 62             	[r6+8] = r0
+ 1c0c498:    20 00             	csync
+ 1c0c49a:    c0 ff 80 0f 05 fd 	r0 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c4a0:    63 60             	r3 = [r6+0] 
+ 1c0c4a2:    bb 17             	r3 = r3.l (s)
+ 1c0c4a4:    83 fd 02 00       	ifs (r3 < 0) goto 4 <fl_read_ram+0x10A : 1c0c4ac >
+ 1c0c4a8:    c0 21             	r0 += 1
+ 1c0c4aa:    f0 5a             	if (r0 != 0) goto -12 <fl_read_ram+0xFE : 1c0c4a0 >
+ 1c0c4ac:    00 ef 80 6c       	[r6+0] |= 0x4000
+ 1c0c4b0:    c0 ef 08 60       	[r6+0] &= 0xFFFFFFF7
+ 1c0c4b4:    00 ef 08 60       	[r6+0] |= 0x8
+ 1c0c4b8:    c0 ef 80 6d       	[r6+0] &= 0xFFFFEFFF
+ 1c0c4bc:    42 ea ff 60       	[r6+8] = 0xFF
+ 1c0c4c0:    20 00             	csync
+ 1c0c4c2:    c0 ff 80 0f 05 fd 	r0 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c4c8:    63 60             	r3 = [r6+0] 
+ 1c0c4ca:    bb 17             	r3 = r3.l (s)
+ 1c0c4cc:    83 fd 02 00       	ifs (r3 < 0) goto 4 <fl_read_ram+0x132 : 1c0c4d4 >
+ 1c0c4d0:    c0 21             	r0 += 1
+ 1c0c4d2:    f0 5a             	if (r0 != 0) goto -12 <fl_read_ram+0x126 : 1c0c4c8 >
+ 1c0c4d4:    00 ef 80 6c       	[r6+0] |= 0x4000
+ 1c0c4d8:    c0 ef 08 60       	[r6+0] &= 0xFFFFFFF7
+ 1c0c4dc:    02 5c             	if (r2 == 0) goto 56 <fl_read_ram+0x174 : 1c0c516 >
+ 1c0c4de:    40 20             	r0 = 0
+ 1c0c4e0:    c7 ff 80 0f 05 fd 	r7 = 4244967296 <_sstack_top+0xFB3DEF80 : fd050f80 >
+ 1c0c4e6:    00 ef 08 60       	[r6+0] |= 0x8
+ 1c0c4ea:    00 ef 80 6d       	[r6+0] |= 0x1000
+ 1c0c4ee:    42 ea ff 60       	[r6+8] = 0xFF
+ 1c0c4f2:    20 00             	csync
+ 1c0c4f4:    73 16             	r3 = r7
+ 1c0c4f6:    65 60             	r5 = [r6+0] 
+ 1c0c4f8:    dd 17             	r5 = r5.l (s)
+ 1c0c4fa:    85 fd 02 00       	ifs (r5 < 0) goto 4 <fl_read_ram+0x160 : 1c0c502 >
+ 1c0c4fe:    c3 21             	r3 += 1
+ 1c0c500:    f3 5a             	if (r3 != 0) goto -12 <fl_read_ram+0x154 : 1c0c4f6 >
+ 1c0c502:    00 ef 80 6c       	[r6+0] |= 0x4000
+ 1c0c506:    63 62             	r3 = [r6+8] 
+ 1c0c508:    c0 ef 08 60       	[r6+0] &= 0xFFFFFFF7
+ 1c0c50c:    d8 ee 11 30       	b[r1+r0] = r3
+ 1c0c510:    c0 21             	r0 += 1
+ 1c0c512:    82 e8 e8 01       	if (r0 != r2) goto -48 <fl_read_ram+0x144 : 1c0c4e6 >
+ 1c0c516:    c2 ef 01 90       	[r9+8] &= 0xFFFFFFFE
+ 1c0c51a:    00 ef 01 90       	[r9+0] |= 0x1
+ 1c0c51e:    40 2a             	r0 = 10
+ 1c0c520:    80 21             	[sp+4] = r0
+ 1c0c522:    00 21             	r0 = [sp+4]
+ 1c0c524:    31 e1 ff 0f       	r1 = r0 + -1
+ 1c0c528:    81 21             	[sp+4] = r1
+ 1c0c52a:    f0 5b             	if (r0 != 0) goto -10 <fl_read_ram+0x180 : 1c0c522 >
+ 1c0c52c:    d0 ec 61 a0       	[r6+0] = r10
+ 1c0c530:    00 ef 20 80       	[r8+0] |= 0x20
+ 1c0c534:    20 00             	csync
+ 1c0c536:    40 60             	r0 = [r4+0] 
+ 1c0c538:    80 fd fd 01       	ifs (r0 < 0) goto -6 <fl_read_ram+0x194 : 1c0c536 >
+ 1c0c53c:    d0 ec 41 b0       	[r4+0] = r11
+ 1c0c540:    20 00             	csync
+ 1c0c542:    43 20             	r3 = 0
+ 1c0c544:    30 16             	r0 = r3
+ 1c0c546:    02 82             	sp += 8
+ 1c0c548:    5b 04             	{pc, r11-r4} = [sp++]
+
+
+ep0_service.zero2:
+ 1c0c54a:	 00 00                           ..
+
+
+DEV_DESC:
+ 1c0c54c:	 12 01 10 01 00 00 00 40         .......@
+ 1c0c554:	 09 12 02 00 00 03 01 02         ........
+ 1c0c55c:	 00 01                           ..
+
+
+CFG_DESC:
+ 1c0c55e:	 09 02 65 00 02 01 00 80         ..e.....
+ 1c0c566:	 32 09 04 00 00 00 01 01         2.......
+ 1c0c56e:	 00 00 09 24 01 00 01 09         ...$....
+ 1c0c576:	 00 01 01 09 04 01 00 02         ........
+ 1c0c57e:	 01 03 00 00 07 24 01 00         .....$..
+ 1c0c586:	 01 41 00 06 24 02 01 01         .A..$...
+ 1c0c58e:	 00 06 24 02 02 02 00 09         ..$.....
+ 1c0c596:	 24 03 01 03 01 02 01 00         $.......
+ 1c0c59e:	 09 24 03 02 04 01 01 01         .$......
+ 1c0c5a6:	 00 09 05 01 02 40 00 00         .....@..
+ 1c0c5ae:	 00 00 05 25 01 01 01 09         ...%....
+ 1c0c5b6:	 05 81 02 40 00 00 00 00         ...@....
+ 1c0c5be:	 05 25 01 01 03                  .%...
+
+
+STR0:
+ 1c0c5c3:	 04 03 09 04                     ....
+
+
+STR1:
+ 1c0c5c7:	 2a 03 48 00 fc 00 67 00         *.H...g.
+ 1c0c5cf:	 65 00 6c 00 74 00 6f 00         e.l.t.o.
+ 1c0c5d7:	 6e 00 20 00 49 00 6e 00         n. .I.n.
+ 1c0c5df:	 73 00 74 00 72 00 75 00         s.t.r.u.
+ 1c0c5e7:	 6d 00 65 00 6e 00 74 00         m.e.n.t.
+ 1c0c5ef:	 73 00                           s.
+
+
+STR2:
+ 1c0c5f1:	 1e 03 46 00 65 00 6c 00         ..F.e.l.
+ 1c0c5f9:	 75 00 63 00 63 00 61 00         u.c.c.a.
+ 1c0c601:	 20 00 55 00 70 00 64 00          .U.p.d.
+ 1c0c609:	 61 00 74 00 65 00               a.t.e.
+
+
+sysex_byte.UBOOT_KEY:
+ 1c0c60f:	 f0 22 24 35 7d f7               ."$5}.
+
+
+fm1_enter_uboot.k:
+ 1c0c615:	 75 73 62 5f 75 70 64 61         usb_upda
+ 1c0c61d:	 74 65 5f 6d 6f 64 65 00         te_mode.
+
+
+ota_reply_identity.ID:
+ 1c0c625:	 6f 74 61 2d 46 4d 2d 31         ota-FM-1
+ 1c0c62d:	 5f 39 30 30 00 69 73 64         _900.isd
+ 1c0c635:	 5f 63 6f 6e 66 69 67 2e         _config.
+ 1c0c63d:	 69 6e 69 00 00 00 00            ini....
+

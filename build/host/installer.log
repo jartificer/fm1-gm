@@ -1,0 +1,33 @@
+pack7 / unpack7 round trip                                       ok
+response: header, address, data, checksum                        ok
+product_of / logical_image (synthetic)                           ok
+product_of: a 12-character identity                              ok
+install: running -> loader -> Felucca (11 reads)                 ok
+install: 0.9 (FM-1_909) -> 0.10 (FM-1_9001000), the longer identity verified after ok
+install: device already in update mode -> finishes the write     ok
+install: answer no -> nothing sent but the handshake             ok
+--info: identity of the connected FM-1                           ok
+--info: device in update mode                                    ok
+no FM-1 port -> exit 3, lists the MIDI inputs                    ok
+--port that matches nothing -> exit 3                            ok
+--port picks a port the default match skips                      ok
+unplugged in step 1 -> exit 4 'lost', nothing written            ok
+unplugged during the write -> exit 4 at once                     ok
+loader stops answering -> exit 4 after the idle time             ok
+read past the package -> exit 4                                  ok
+another identity after the restart -> exit 6                     ok
+another model -> exit 6, nothing sent                            ok
+no loader after step 1 -> exit 5                                 ok
+package without the loader marker -> exit 2, no MIDI             ok
+... installs with --force                                        ok
+not a package -> exit 2                                          ok
+missing file -> exit 2                                           ok
+Open -> stock V15: armed (length, SHA-256), no --force needed    ok
+... a community build (FM1_COMMUNITY_n) too                      ok
+Open -> one of ours: refused, nothing sent (stock first)         ok
+Open refuses the arming -> exit 4, nothing written               ok
+--info finds Open on its own port name                           ok
+fm1gm.fwsc identity FM-1_600 (FM-1_6...)                         ok
+fm1gm.fwsc has a logical image                                   ok
+fm1gm.fwsc carries the Felucca loader marker                     ok
+install tests passed

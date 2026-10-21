@@ -1,0 +1,6 @@
+  ok   running status and a clock inside a message (4 packets)
+  ok   one-byte messages (3 packets)
+  ok   start, continue, stop (active sensing ignored) (3 packets)
+  ok   SysEx skipped, running status not resumed after it (3 packets)
+  ok   overrun: resync on the next status (1 packets)
+trs: ok

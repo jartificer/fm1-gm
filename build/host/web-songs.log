@@ -1,0 +1,40 @@
+format: a song survives bytes -> song -> bytes                   ok
+format: the header is the firmware's                             ok
+format: a cut-off song is refused                                ok
+format: a tempo of 400 is a problem                              ok
+format: a new song is 149 bytes                                  ok
+midi: type 1, 48 ticks a quarter                                 ok
+midi: a tempo track and 16 tracks with notes                     ok
+midi: every track is whole and ends                              ok
+midi: a note-on for each note in the song (61)                   ok
+midi: with a solo and skipMuted, the soloed track only           ok
+midi: track 10's drums on channel 10, GM numbers, not transposed ok
+midi: the drums at the track's velocity                          ok
+midi: a melodic track is transposed                              ok
+midi: no program change on the drum channel                      ok
+midi: any track on channel 10 is drums                           ok
+midi: track 10 on channel 3 plays as an instrument (transposed)  ok
+hello: protocol 1, format 2, 64 slots (DEV)                      ok
+hello: 71 sectors, all free                                      ok
+write: slot 6 holds it                                           ok
+write: no other slot changed                                     ok
+read: slot 6 gives the same bytes back                           ok
+read: the song in memory is it too                               ok
+write: slot 6 is the song in use, saved                          ok
+write: 8192 notes, 32585 bytes, in 64 parts                      ok
+read: the song in memory is the big one                          ok
+write to memory: not saved, slot 6 still in use                  ok
+write: not a song is refused                                     ok
+write: and the song in memory is left as it was                  ok
+write: and nothing saved                                         ok
+read: an empty slot says so                                      ok
+delete: slot 6 is empty                                          ok
+delete: every sector free again                                  ok
+preview: silent before Play                                      ok
+preview: the song sounds (RMS 0.0282)                            ok
+preview: its notes in order, drums on channel 10                 ok
+preview: it loops each bar (2 s at 120 BPM)                      ok
+preview: an edit is heard as it plays (transpose)                ok
+preview: a muted track goes quiet                                ok
+preview: Stop silences it                                        ok
+all ok

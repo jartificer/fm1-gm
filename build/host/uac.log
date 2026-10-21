@@ -1,0 +1,4 @@
+  in 44145 Hz: out 999.975 Hz, residual -82.2 dB, 0 short packets after 10 s, low point 197 (UA_MID 200)
+  in 44100 Hz: out 999.975 Hz, residual -82.0 dB, 0 short packets after 10 s, low point 198 (UA_MID 200)
+  in 44300 Hz: out 999.975 Hz, residual -82.1 dB, 0 short packets after 10 s, low point 199 (UA_MID 200)
+uac: ok

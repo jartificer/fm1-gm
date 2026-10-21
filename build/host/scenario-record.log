@@ -1,0 +1,18 @@
+  ok view == 0
+  ok sel == 0
+  ok tempo == 120
+  ok bars == 4
+  ok nev == 0
+  ok peak -15.8 dBFS (min -40)
+  ok rec == 1
+  ok playing == 1
+  ok trknev1 == 3
+  ok rec == 0
+  ok playing == 0
+  ok dirty == 1
+  ok dirty == 0
+  ok slotused1 == 1
+  ok nev == 3
+  ok trknev1 == 3
+  ok song == 0
+host: 15582 ms simulated, 274 blits, render 0.1% of real time (host CPU)
