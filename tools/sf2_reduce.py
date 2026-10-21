@@ -76,8 +76,10 @@ FAMILY = [
     (60, 0.12, 0.15),           # percussive
     (60, 0.15, 0.25),           # sound effects
 ]
-# Contrabass, Tuba, Bassoon, Piccolo, Flute, Timpani, Fiddle (Bassoon's and Fiddle's: the longer recordings)
-CENTRE = {43: 40, 58: 40, 70: 54, 72: 84, 73: 72, 47: 48, 110: 56}
+# Violin, Contrabass, Tuba, Bassoon, Piccolo, Flute, Timpani, Fiddle (Bassoon's and Fiddle's: the longer
+# recordings; Violin's from the middle of its range, as a violin is mostly played above middle C: one from
+# lower down, raised an octave and more, makes its vibrato a fast flutter)
+CENTRE = {40: 68, 43: 40, 58: 40, 70: 54, 72: 84, 73: 72, 47: 48, 110: 56}
 # programs whose recording wants an attack and a loop (s) of its own: Harmonica and Alto Sax start a
 # little flat and slide up to pitch (a loop there replays the slide), Contrabass bows on with a slow
 # swell, and Alto Sax's vibrato wants a
@@ -87,12 +89,12 @@ TIMING = {22: (0.17, 0.15), 43: (0.15, 0.40), 65: (0.28, 0.22), 86: (0.05, 0.80)
 # least this long (s): a guitar or a bass still rings with its pluck or slap for a while (a loop there is
 # heard as an echo at every pass), and a reed's, a voice's or a fiddle's vibrato and bowing want a longer
 # loop than a quarter of a second, or the repeat is heard
-SPLICE = {24: (0.8, 0.4), 25: (1.5, 0.4), 34: (0.8, 0.4), 36: (0.8, 0.4), 37: (0.8, 0.4), 54: (0.0, 0.4),
+SPLICE = {24: (0.8, 0.4), 25: (1.5, 0.4), 34: (0.8, 0.4), 36: (0.8, 0.4), 37: (0.8, 0.4), 40: (0.0, 0.5), 54: (0.0, 0.4),
           62: (0.0, 0.5), 63: (0.0, 0.5), 68: (0.0, 0.6), 69: (0.0, 0.45), 70: (0.0, 0.6), 110: (0.0, 0.6)}
 # programs whose recorded vibrato is made shallower, by this share (devibrato): Alto Sax's is deeper than
-# Tenor's and Baritone's, Violin's than Viola's and Cello's, and Fiddle (Violin's recordings, at another key)
-# wants hardly any
-DEVIBRATO = {40: 0.6, 65: 0.4, 110: 0.85}
+# Tenor's and Baritone's, and Violin's than Viola's and Cello's, so Violin and Fiddle (Violin's recordings, at
+# another key) want hardly any
+DEVIBRATO = {40: 1.0, 65: 0.4, 110: 0.85}
 LAYERED = {86}                  # programs whose layers (on the centre key) are mixed into their sample
 STATIC_LOOP = 0.04              # the loop when the recording is over before a loop of its own fits (s)
 UNPITCHED = {119, 120, 121, 122, 124, 125, 126, 127}   # GM programs whose loops are noise, not periods
