@@ -84,11 +84,11 @@ CENTRE = {43: 40, 58: 40, 70: 54, 72: 84, 73: 72, 47: 48, 110: 56}
 # whole cycle; Fifth Sawtooth's loop holds one beat of its detuned layers (LAYERED)
 TIMING = {22: (0.17, 0.15), 43: (0.15, 0.40), 65: (0.28, 0.22), 86: (0.05, 0.80)}
 # programs whose spliced loop (splice_loop) is taken no earlier than this in the recording (s), and is at
-# least this long (s): a plucked or slapped bass still rings with its pick or slap for a while (a loop
-# there is heard as an echo at every pass), and a reed's, a voice's or a fiddle's vibrato and bowing
-# want a longer loop than a quarter of a second, or the repeat is heard
-SPLICE = {34: (0.8, 0.4), 36: (0.8, 0.4), 37: (0.8, 0.4), 54: (0.0, 0.4), 62: (0.0, 0.5), 63: (0.0, 0.5),
-          68: (0.0, 0.6), 69: (0.0, 0.45), 70: (0.0, 0.6), 110: (0.0, 0.6)}
+# least this long (s): a guitar or a bass still rings with its pluck or slap for a while (a loop there is
+# heard as an echo at every pass), and a reed's, a voice's or a fiddle's vibrato and bowing want a longer
+# loop than a quarter of a second, or the repeat is heard
+SPLICE = {24: (0.8, 0.4), 25: (1.5, 0.4), 34: (0.8, 0.4), 36: (0.8, 0.4), 37: (0.8, 0.4), 54: (0.0, 0.4),
+          62: (0.0, 0.5), 63: (0.0, 0.5), 68: (0.0, 0.6), 69: (0.0, 0.45), 70: (0.0, 0.6), 110: (0.0, 0.6)}
 # programs whose recorded vibrato is made shallower, by this share (devibrato): Alto Sax's is deeper than
 # Tenor's and Baritone's, Violin's than Viola's and Cello's, and Fiddle (Violin's recordings, at another key)
 # wants hardly any
@@ -790,6 +790,10 @@ def out_gens(z, root, loop, extra, key, tremolo=False):
 DROP = {G[n] for n in ("vibLfoToPitch", "modLfoToPitch", "modLfoToVolume", "modLfoToFilterFc", "delayVibLFO",
                        "freqVibLFO", "delayModLFO", "freqModLFO")}
 TREMOLO = {44}
+# programs that are plucked or struck, no sustain of their own: let go, a note stops within half a second
+# (100 dB in DAMP s), as a damper stops a piano's or a guitar's string; FluidR3 lets some ring on for 4 s
+DAMPED = set(range(0, 8)) | set(range(24, 40)) | {45, 46, 104, 105, 106, 107}
+DAMP = 0.5
 TREMOLO_GENS = {G["modLfoToVolume"], G["freqModLFO"], G["delayModLFO"]}
 
 
@@ -859,6 +863,8 @@ def reduce(src, verbose=False):
                                           MEM_COST if prog in STANDARD or prog in TIMING else MEM_COST_EXOTIC,
                                           src_min, DEVIBRATO.get(prog, 0.0))
         gz = out_gens(z, root, loop, extra, (0, 127), prog in TREMOLO)
+        if prog in DAMPED:
+            gz[G["releaseVolEnv"]] = min(gz.get(G["releaseVolEnv"], -12000), int(round(1200 * np.log2(DAMP))))
         level(gz, str(prog))
         gz[G["sampleID"]] = si
         instruments.append(sf2.Instrument(p.name, [sf2.Zone(gz)]))
