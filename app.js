@@ -213,7 +213,7 @@ $("erase").addEventListener("click", async () => {
 boot();
 
 // ----------------------------------------------------------------- MIDI ---
-let access = null, kbIn = null, busy = false, device_ = null, pkg = null, pkgName = "";
+let access = null, kbIn = null, busy = false, device_ = null, pkg = null, pkgName = "", pkgCount = null;
 const log = s => { const l = $("log"); l.textContent += s + "\n"; l.scrollTop = l.scrollHeight; };
 
 function fillInputs() {
@@ -288,10 +288,11 @@ const esc = s => s.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&g
 
 function ready() { $("go").disabled = !(device_ && pkg) || busy; }
 
-async function usePackage(bytes, name) {
+async function usePackage(bytes, name, count = null) {
     try {
         pkg = await OTA.loadPackage(bytes);
         pkgName = name;
+        pkgCount = count;
         $("pkg").textContent = `${pkg.product} · ${name} · ${(pkg.size / 1024).toFixed(1)} KB`;
         $("pkg-sha").textContent = pkg.digest;
     } catch (e) {
@@ -301,8 +302,33 @@ async function usePackage(bytes, name) {
     }
     ready();
 }
-fetch("fm1gm.fwsc").then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status)))
-    .then(b => usePackage(new Uint8Array(b), "this page's build"))
+
+// The package is the newest GitHub release's fm1gm.fwsc, so that the release's download count counts
+// installs. GitHub's release downloads send no CORS headers, so the page cannot read them: it reads the
+// same file from the release's tag on raw.githubusercontent.com (which does), checks it against the
+// asset's SHA-256, and after an install fetches the asset once, unread (no-cors), which GitHub counts.
+// Without GitHub (offline, or its 60 an hour API limit) it uses the copy bundled with the page.
+const REPO = "jartificer/fm1-gm", ASSET = "fm1gm.fwsc";
+async function latestRelease() {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    const rel = await r.json();
+    const asset = rel.assets.find(a => a.name === ASSET);
+    if (!asset) throw new Error(`no ${ASSET} in ${rel.tag_name}`);
+    const f = await fetch(`https://raw.githubusercontent.com/${REPO}/${encodeURIComponent(rel.tag_name)}/web/${ASSET}`);
+    if (!f.ok) throw new Error(`${rel.tag_name}: ${f.status}`);
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    const sha = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), b => b.toString(16).padStart(2, "0")).join("");
+    if (asset.digest && asset.digest !== `sha256:${sha}`) throw new Error(`${rel.tag_name}: web/${ASSET} is not the release's`);
+    return {bytes, name: `release ${rel.tag_name}`, count: asset.browser_download_url};
+}
+latestRelease()
+    .then(r => usePackage(r.bytes, r.name, r.count))
+    .catch(e => {
+        console.warn("newest release:", e.message);
+        return fetch(ASSET).then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status)))
+            .then(b => usePackage(new Uint8Array(b), "this page's build", `https://github.com/${REPO}/releases/latest/download/${ASSET}`));
+    })
     .catch(() => { $("pkg").textContent = "none bundled: choose a .fwsc"; });
 fetch("build.txt").then(r => r.ok ? r.text() : "").then(t => { $("build").textContent = t.trim(); }).catch(() => {});
 $("file").addEventListener("change", async e => {
@@ -336,6 +362,7 @@ $("yes").addEventListener("click", async () => {
     device_ = null;
     try {
         await up.install(dev, pkg, step);
+        if (pkgCount) fetch(pkgCount, {mode: "no-cors", cache: "no-store"}).catch(() => {});   // one install
         $("dev").innerHTML = `<span class="pill ok">running</span> ${esc(pkg.product)}`;
     } catch (e) {
         log(`error: ${e.message}`);
