@@ -169,6 +169,10 @@ kbd { font: 500 12px var(--f-mono); border: 1px solid var(--rule); border-bottom
 .progress div { height: 100%; width: 0; background: var(--amber); transition: width .2s; }
 .log { font: 400 12.5px/1.5 var(--f-mono); color: var(--ink-2); max-height: 160px; overflow: auto; white-space: pre-wrap; margin: 0; }
 .warn { border-left: 3px solid var(--amber); padding: 6px 0 6px 12px; font-size: 14px; }
+.alert { border: 1px solid var(--bad); border-left-width: 5px; border-radius: 10px; background: var(--sheet); padding: 12px 16px; font-size: 15px; }
+.alert p { margin: 0; }
+.alert p + p { margin-top: 6px; }
+.alert strong { color: var(--bad); font: 700 16px var(--f-panel); letter-spacing: .06em; text-transform: uppercase; margin-right: 6px; }
 .confirm { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--amber); border-radius: 10px; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 footer { font-size: 13px; color: var(--ink-2); }
@@ -180,6 +184,10 @@ footer a, .panel a { color: inherit; }
 </head>
 <body>
 <div class="wrap">
+  <section class="alert" role="note" aria-label="Safety notice">
+    <p><strong>Safety notice</strong>Firmware versions up to and including 0.9.8 can make a sudden, very loud noise when the highest notes are played, from the keys, over MIDI or in a song. Please update to 0.9.9 with the installer below. The older releases have been deleted.</p>
+    <p>Do not try to reproduce the problem: the noise is loud enough to damage speakers, headphones or your hearing.</p>
+  </section>
   <header>
     <h1>FM1-GM<small>emulator &amp; installer</small></h1>
     <div class="status" id="status"><span>firmware <b id="st-fw">loading</b></span><span>sound <b id="st-audio">off</b></span><span>flash <b id="st-flash">new</b></span><a href="editor.html" style="font-family:var(--f-body);font-size:15px;color:var(--ink)">Song editor</a></div>
