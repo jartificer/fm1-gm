@@ -337,8 +337,11 @@ static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int ve
 
 static void note_on(int c, int note, int vel)
 {
-    const gmw_zone_t *z = zone_for(ch[c].prog, note);
+    const gmw_zone_t *z;
     int i, n = ch[c].prog == HONKY ? 2 : 1;
+    if (note > GM_NOTE_MAX)                     /* above C9: ignored (the samples have nothing up there) */
+        return;
+    z = zone_for(ch[c].prog, note);
     for (i = 0; z && i < n; i++) {
         voice_t *v = voice_alloc(c, note, i);
         voice_start(v, z, c, note, vel, 0, n == 1 ? 0.0f : i ? HONKY_CENTS : -HONKY_CENTS);
@@ -499,10 +502,11 @@ void gm_midi(uint32_t st, uint32_t d1, uint32_t d2)
 /* -------------------------------------------------------------- render --- */
 static float mix_l[GM_CHUNK], mix_r[GM_CHUNK], mix_rev[GM_CHUNK], vsrc[GM_CHUNK];
 
-/* 1 / n for the points decoded in one frame (at most 12: the highest pitch) */
-static const float INV_N[13] = {1.0f, 1.0f, 1.0f / 2, 1.0f / 3, 1.0f / 4, 1.0f / 5, 1.0f / 6, 1.0f / 7, 1.0f / 8,
-                                1.0f / 9, 1.0f / 10, 1.0f / 11, 1.0f / 12};
+/* 1 / n for the points decoded in one frame: at most INC_MAX, and one more on a note's first frame
+ * (frac starts at 1). A read past the end here was the full-scale noise on the highest notes. */
 #define INC_MAX 12.0f
+static const float INV_N[14] = {1.0f, 1.0f, 1.0f / 2, 1.0f / 3, 1.0f / 4, 1.0f / 5, 1.0f / 6, 1.0f / 7, 1.0f / 8,
+                                1.0f / 9, 1.0f / 10, 1.0f / 11, 1.0f / 12, 1.0f / 13};
 
 /* one voice for n frames, added to the mix; 0 when it has finished */
 static int voice_render(voice_t *v, uint32_t n)
@@ -637,7 +641,7 @@ static int voice_render(voice_t *v, uint32_t n)
                 }
                 cnt++;
             }
-            if (box && cnt > 1)
+            if (box && cnt > 1 && cnt < sizeof INV_N / sizeof INV_N[0])
                 src[j] = acc * INV_N[cnt];
             else if (lin) {
                 const float *h = hist + hp + NTAP / 2 - 1;
