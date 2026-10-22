@@ -1,5 +1,10 @@
 # FM1-GM
 
+> [!CAUTION]
+> **Safety notice:** firmware versions up to and including 0.9.8 can make a sudden, very loud noise when the highest notes are played, from the keys, over MIDI or in a song. Please update to [0.9.9](https://github.com/jartificer/fm1-gm/releases/tag/v0.9.9) or later. The older releases have been deleted.
+>
+> Do not try to reproduce the problem: the noise is loud enough to damage speakers, headphones or your hearing.
+
 Custom firmware that turns the M-VAVE FM-1 into a General MIDI sound module and 16-track sequencer.
 
 ![FM1-GM: the logo above a white FM-1 panel, with thumbnails for 128 sampled GM sounds, the 16-track sequencer, 64 song slots, the web song editor, the browser emulator and the 5 colour themes](docs/fm1gm-promo.png)
