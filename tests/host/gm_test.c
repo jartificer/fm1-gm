@@ -239,6 +239,40 @@ static void test_controllers(void)
     run(44100 * 3);
 }
 
+/* the top of the range: up to C9 with the bend (24 semitones up) and the vibrato, which take the
+ * pitch to the engine's limit (a read past INV_N there gave full-scale noise on the device); the
+ * notes above C9 are ignored */
+static void test_top_notes(void)
+{
+    int p, n;
+    for (p = 0; p < 128; p++) {
+        midi(0xC0, (uint32_t)p, 0);
+        midi(0xB0, 101, 0);                     /* RPN 0: the bend range, 24 */
+        midi(0xB0, 100, 0);
+        midi(0xB0, 6, 24);
+        midi(0xE0, 127, 127);
+        midi(0xB0, 1, 127);
+        meter_reset();
+        for (n = 108; n <= GM_NOTE_MAX; n += 4)
+            midi(0x90, (uint32_t)n, 127);
+        run(4410);
+        CHECK(peak < 0.99, "program %d (%s) at the top: peak %.3f", p, gm_prog_name(p), peak);
+        midi(0xB0, 120, 0);                     /* all sound off */
+        midi(0xB0, 121, 0);
+        run(44100 * 2);                         /* the reverb tails off */
+        meter_reset();
+        for (n = GM_NOTE_MAX + 1; n < 128; n++)
+            midi(0x90, (uint32_t)n, 127);
+        run(2205);
+        CHECK(gm_voices_used == 0 && peak < 0.002, "program %d: notes above C9 sound (%d voices, %.4f)", p,
+              gm_voices_used, peak);
+        for (n = GM_NOTE_MAX + 1; n < 128; n++)
+            midi(0x80, (uint32_t)n, 0);
+    }
+    midi(0xC0, 0, 0);
+    run(44100 * 3);
+}
+
 static void test_polyphony_cost(void)
 {
     int i, p;
@@ -577,6 +611,7 @@ int main(int argc, char **argv)
     test_drums(dir);
     test_sustain();
     test_controllers();
+    test_top_notes();
     test_polyphony_cost();
     test_record_play();
     test_step();

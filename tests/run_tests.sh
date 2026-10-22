@@ -27,6 +27,13 @@ run trs sh -c "$CC -O2 -w -Ifirmware/src -Ifirmware/hal -o $OUT/trs_test tests/h
 sh tools/gen_wavetable.sh
 run gm sh -c "$CC -O2 -ffp-contract=off -std=c99 -Wall -Wextra -Wdouble-promotion -Werror -DOM_HOST -Ifirmware/src/dsp -Ibuild/gen \
     -o $OUT/gm_test tests/host/gm_test.c firmware/src/dsp/gm.c firmware/src/dsp/seq.c -lm && $OUT/gm_test"
+# the engine again under AddressSanitizer: a read past a table is silent on the host, noise on the device
+if echo 'int main(void){return 0;}' | $CC -fsanitize=address -x c -o $OUT/asan_probe - >/dev/null 2>&1; then
+    run gm-asan sh -c "$CC -O1 -g -fsanitize=address -std=c99 -DOM_HOST -Ifirmware/src/dsp -Ibuild/gen \
+        -o $OUT/gm_test_asan tests/host/gm_test.c firmware/src/dsp/gm.c firmware/src/dsp/seq.c -lm && $OUT/gm_test_asan"
+else
+    echo "  skip gm-asan (the compiler has no AddressSanitizer)"
+fi
 run storage sh -c "$CC -O2 -Wall -Werror -o $OUT/storage_test tests/storage_test.c && $OUT/storage_test"
 # the update path, against the firmware package (Felucca's tests; needs ./build.sh)
 if [ -f build/fm1gm.fwsc ]; then

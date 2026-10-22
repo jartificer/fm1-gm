@@ -28,6 +28,7 @@
 #define GM_CHUNK 32                    /* frames per gm_render call, at most */
 #define GM_DRUM_LO 35
 #define GM_DRUM_HI 81
+#define GM_NOTE_MAX 120                /* C9 (middle C is C4, 60): higher notes are ignored */
 
 /* big zero-initialised buffers go in the .pool RAM region on the device (app.ld) */
 #ifdef OM_HOST
