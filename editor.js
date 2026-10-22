@@ -151,7 +151,6 @@ function render() {
             else if (document.activeElement !== el) el.value = t[k];
         }
         tr.querySelector("[data-k=prog]").disabled = t.chan === S.DRUM_CH;
-        tr.querySelector("[data-k=transpose]").disabled = t.chan === S.DRUM_CH;
         tr.cells[tr.cells.length - 1].textContent = t.notes.length;
     });
     const t = song.tracks[sel];
@@ -199,10 +198,10 @@ function draw() {
     c.fillRect(0, 0, w, h);
     const lo = clamp(Math.floor(127 - (roll.scrollTop + h - RULER) / RH), 0, 127);
     const hi = clamp(Math.ceil(127 - roll.scrollTop / RH), 0, 127);
-    // rows: black keys darker; for the drums, the kit's notes lighter
+    // rows: black keys darker; for the drums, the kit's notes lighter (named as they play: transposed)
     for (let n = lo; n <= hi; n++) {
         const y = noteY(n), black = [1, 3, 6, 8, 10].includes(n % 12);
-        if (drums ? !S.drumName(n) : black) { c.fillStyle = col.alt; c.fillRect(KW, y, w, RH); }
+        if (drums ? !S.drumName(n + t.transpose) : black) { c.fillStyle = col.alt; c.fillRect(KW, y, w, RH); }
         if (n % 12 === 0 && !drums) { c.fillStyle = col.line; c.fillRect(KW, y + RH - 1, w, 1); }
     }
     // the grid: steps, beats, bars; past the end shaded
@@ -248,7 +247,7 @@ function draw() {
         c.fillStyle = col.kw;
         c.fillRect(0, y, KW - 1, RH - (n % 12 === 4 || n % 12 === 11 ? 1 : 0));
         if (black) { c.fillStyle = col.kb; c.fillRect(0, y + 1, KW * .62, RH - 2); }
-        const label = drums ? S.drumName(n) : n % 12 === 0 ? S.noteName(n) : "";
+        const label = drums ? S.drumName(n + t.transpose) : n % 12 === 0 ? S.noteName(n) : "";
         if (label) {
             c.fillStyle = black ? col.kw : col.ink;
             c.fillText(drums ? label.slice(0, 10) : label, 3, y + RH / 2);

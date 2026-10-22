@@ -114,7 +114,7 @@ export class Preview {
 
     noteOn(t, note, ticks) {
         const s = this.getSong(), k = s.tracks[t], chan = k.chan;
-        const key = chan === S.DRUM_CH ? note : Math.max(0, Math.min(127, note + k.transpose));
+        const key = Math.max(0, Math.min(127, note + k.transpose));   // the drums too, as on the FM-1
         const i = this.on.findIndex(v => v.chan === chan && v.key === key);
         if (i >= 0) { this.midi(0x80 | chan, key); this.on.splice(i, 1); }
         this.midi(0x90 | chan, key, k.vel);
