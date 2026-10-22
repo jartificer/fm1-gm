@@ -329,10 +329,9 @@ static int audible(int t)
     return solo ? S->trk[t].solo : !S->trk[t].mute;
 }
 
-static int out_note(const seq_trk_t *k, int note)
+static int out_note(const seq_trk_t *k, int note)   /* the drums too: +6 puts Kick 2 back on the lowest key */
 {
-    if (k->chan != GM_DRUM_CH)
-        note += k->transpose;
+    note += k->transpose;
     return note < 0 ? 0 : note > 127 ? 127 : note;
 }
 

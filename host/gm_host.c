@@ -91,6 +91,7 @@ void plat_play_red(int red) { (void)red; }      /* the device's PLAY colour: gre
 static uint32_t min_q[MQ], mi_w, mi_r;
 static FILE *midi_log;
 static uint32_t midi_out_count, clock_out_count;
+static int out_on_note = -1, out_on_chan = -1;   /* the last note on sent on MIDI out */
 int plat_midi_in(uint32_t *pkt)
 {
     if (mi_r == mi_w)
@@ -104,6 +105,10 @@ void plat_midi_out(uint32_t pkt)
     if (((pkt >> 8) & 0xFF) == 0xF8) {
         clock_out_count++;
         return;
+    }
+    if (((pkt >> 8) & 0xF0) == 0x90 && (pkt >> 24)) {
+        out_on_note = (int)((pkt >> 16) & 0x7F);
+        out_on_chan = (int)((pkt >> 8) & 0x0F) + 1;
     }
     if (midi_log)
         fprintf(midi_log, "%u ms: %02X %02X %02X\n", now_ms, (pkt >> 8) & 0xFF, (pkt >> 16) & 0xFF, (pkt >> 24) & 0xFF);
@@ -407,6 +412,14 @@ static int expect(const char *what, const char *val)
         got = (int)clock_out_count;
     else if (!strcmp(what, "midi_out"))
         got = (int)midi_out_count;
+    else if (!strcmp(what, "out_note"))             /* the last note on sent on MIDI out (-1: none) */
+        got = out_on_note;
+    else if (!strcmp(what, "out_chan"))             /* its channel, 1..16 */
+        got = out_on_chan;
+    else if (!strcmp(what, "last_drum"))            /* the drum named on the TRACK page */
+        got = ui.last_drum;
+    else if (!strncmp(what, "transpose", 9))        /* transposeT */
+        got = seq_song.trk[atoi(what + 9) - 1].transpose;
     else if (!strncmp(what, "trknev", 6))           /* trknevT: track T's notes (1..16) */
         got = seq_song.trk[atoi(what + 6) - 1].nev;
     else if (!strncmp(what, "prog", 4))             /* progT: track T's program (0..127) */

@@ -47,7 +47,7 @@ typedef struct {
     uint8_t vol, pan, rev;              /* CC7, CC10, CC91 */
     uint8_t vel;                        /* the velocity its notes play at (and the panel's keys) */
     uint8_t mute, solo;
-    int8_t transpose;                   /* semitones, -24..24, applied when it plays (not on channel 10) */
+    int8_t transpose;                   /* semitones, -24..24, applied when it plays (the drums too) */
     uint8_t rsv;
     uint16_t nev;                       /* its notes in ev[] */
 } seq_trk_t;

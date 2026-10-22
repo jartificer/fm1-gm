@@ -1,0 +1,90 @@
+# The drum track's keys: the GM kit as on any keyboard, two octaves down (Kick 2 on B, Kick 1 on C);
+# the octave and the track's transpose move it; MIDI out sends the GM notes that play, MIDI in (TRACK
+# and MULTI) plays them as sent.
+wait 600
+expect out_note -1
+# MIDI out on (Setup, K2)
+tap GLO
+turn K2 1
+turn SELECT 9
+expect sel 9
+expect chan10 10
+tap EDIT
+# octave 0: F..G, 29..55. B is Kick 2, C Kick 1, D the snare, F# the closed hat
+tapkey 6
+expect out_note 35
+expect out_chan 10
+expect last_drum 35
+tapkey 7
+expect out_note 36
+tapkey 9
+expect out_note 38
+tapkey 13
+expect out_note 42
+tapkey 18
+expect out_note 47
+tapkey 26
+expect out_note 55
+# the octave: +1 from 41, +3 reaches the top of the kit (81, Open Triangle, on A)
+tap OCT+
+tapkey 0
+expect out_note 41
+tap OCT+
+tap OCT+
+expect oct 3
+tapkey 16
+expect out_note 81
+tap OCT-
+tap OCT-
+tap OCT-
+expect oct 0
+# transpose +6 (TRACK, second page, K3): the old layout, Kick 2 on the lowest key (F)
+tap EDIT
+turn K3 6
+expect transpose10 6
+tapkey 0
+expect out_note 35
+expect last_drum 35
+tapkey 1
+expect out_note 36
+# step-record it: the note is kept as played on the keys (29), and plays as 35 (transposed)
+tap SEQ
+tapkey 0
+tap SEQ
+expect trknev10 1
+expect evnote0 29
+shot drums_transposed.png
+tap PLAY
+wait 300
+tap PLAY
+expect out_note 35
+expect out_chan 10
+# transpose back to 0: the keys are the GM kit again
+turn K3 -6
+expect transpose10 0
+tapkey 7
+expect out_note 36
+# MIDI in, TRACK: a note plays the selected (drum) track as sent: 36 is Kick 1, 42 the closed hat
+midi 90 24 64
+wait 20
+midi 80 24 00
+wait 20
+expect out_note 36
+expect out_chan 10
+expect last_drum 36
+midi 95 2A 64
+wait 20
+midi 85 2A 00
+wait 20
+expect out_note 42
+expect last_drum 42
+# MIDI in, MULTI (Setup, K1): channel 10 is the drums, played as sent
+tap GLO
+turn K1 1
+expect midi_in 1
+midi 99 26 64
+wait 20
+midi 89 26 00
+wait 20
+expect out_note 38
+expect out_chan 10

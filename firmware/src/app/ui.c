@@ -3,7 +3,7 @@
  * host simulator includes it too.
  *
  *   keys           play the selected track's sound (and record into it); on a drum track the keys
- *                  are the GM kit, from Kick 2 (note 35) up
+ *                  are the GM kit as on any keyboard, two octaves down: the kicks (35, 36) on B and C
  *   OCT- / OCT+    the keys' octave (both held 5 s: update mode)
  *   PLAY           play / stop (from the top)
  *   REC            arm real-time recording into the selected track (overdub, quantized); from stop,
@@ -84,7 +84,7 @@ static const theme_t *thm = &THEME[0];
 
 #define LONG_MS 1000u
 #define KEY_BASE 53                    /* F3, the lowest key, at octave 0 */
-#define DRUM_BASE 35                   /* the lowest key on a drum track: Kick 2 */
+#define DRUM_BASE (KEY_BASE - 24)      /* the lowest key on a drum track: F1, so B is Kick 2 (35), C Kick 1 */
 
 static struct {
     uint8_t view, kpage[NVIEWS];
@@ -416,13 +416,19 @@ static int key_to_note(int key)
     return n < 0 ? 0 : n > 127 ? 127 : n;
 }
 
+static void drum_played(int n)                  /* the drum's name on the TRACK page: the one it plays (transposed) */
+{
+    n += sel_trk()->transpose;
+    ui.last_drum = (uint8_t)(n < 0 ? 0 : n > 127 ? 127 : n);
+}
+
 static void key_down(int key)
 {
     int n = key_to_note(key);
     ui.key_note[key] = (uint8_t)n;
     ui.key_trk[key] = seq_sel;
     if (is_drum(sel_trk()))
-        ui.last_drum = (uint8_t)n;
+        drum_played(n);
     post(SC_NOTE_ON, seq_sel, (uint32_t)n, sel_trk()->vel, 0);
 }
 
@@ -462,7 +468,7 @@ static void midi_in(void)
         if (ty == 0x90u && d2) {
             ui.midi_trk[d1] = (uint8_t)(seq_sel + 1u);
             if (is_drum(sel_trk()))
-                ui.last_drum = (uint8_t)d1;
+                drum_played((int)d1);
             post(SC_NOTE_ON, seq_sel, d1, sel_trk()->vel, 0);   /* as the keys: the track's velocity */
         } else if (ty == 0x80u || ty == 0x90u) {
             if (ui.midi_trk[d1])
