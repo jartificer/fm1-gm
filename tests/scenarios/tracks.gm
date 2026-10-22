@@ -6,13 +6,14 @@ expect chan10 10
 tap EDIT
 expect view 1
 shot track_drums.png
-# step recording on the drum track: kick, hat, snare, hat (keys are drums from note 35)
+# step recording on the drum track: kick, hat, snare, hat (Kick 1 on C, the closed hat on F#, the
+# snare on D)
 tap SEQ
 expect step 1
-tapkey 1
 tapkey 7
-tapkey 3
-tapkey 7
+tapkey 13
+tapkey 9
+tapkey 13
 expect trknev10 4
 expect step_tick 48
 tap ARP

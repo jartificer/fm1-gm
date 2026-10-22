@@ -33,7 +33,7 @@ https://jartificer.github.io/fm1-gm/
 
 - **Preview:** Play (or Space) plays the song in a loop with the firmware's own sound engine and samples, the same WebAssembly build the emulator runs, so it sounds as the FM-1 would. Edits are heard as it plays, and a note sounds when you add it, click it or move it to another pitch. Click the ruler to choose where Play starts.
 - **On the FM-1:** with the FM-1 connected over USB (Chrome, Edge or Opera, which have Web MIDI with SysEx), Connect FM-1 lists its 64 slots. Open in editor reads a slot (or the song the FM-1 has in memory, saved or not); Write editor song here saves the editor's song to a slot, and the FM-1 switches to it (its song before is one press of ARP away); Delete empties a slot. With the emulator open in another tab, Use the emulator does the same with the emulator's songs. This needs FM1-GM from this version on: older versions do not answer the editor.
-- **MIDI:** Export MIDI writes a Standard MIDI File (type 1, 48 ticks a quarter note) of one pass through the song: GM System On, the tempo, then a track for each track with notes, with its program, volume, pan and reverb, its transpose applied and its velocity on every note. Notes past the song's end are left out, as the FM-1 does not play them. MIDI files cannot be imported.
+- **MIDI:** Export MIDI writes a Standard MIDI File (type 1, 48 ticks a quarter note) of one pass through the song: GM System On, the tempo, then a track for each track with notes, with its program, volume, pan and reverb, its transpose applied (the drums' too) and its velocity on every note. Notes past the song's end are left out, as the FM-1 does not play them. MIDI files cannot be imported.
 
 The editor and the FM-1 talk SysEx (`F0 7D 46 47 ...`, 7D being MIDI's ID for non-commercial use): the protocol is described at the top of `firmware/src/app/link.c`, and `web/fm1link.js` is its host side.
 
@@ -95,7 +95,7 @@ The screen has six views. EDIT or GLO again flips its view's four knobs to their
 
 Encoders: **SELECT** picks the track (or the slot in the Songs view), **ALGORITHM** the program of the selected track, **PRESETS** the tempo.
 
-The keys play the selected track. On a drum track (channel 10) the lowest key is note 35 (Acoustic Bass Drum) and the keys go up the kit.
+The keys play the selected track. On a drum track (channel 10) the keys are the GM kit laid out as on any GM keyboard, two octaves down: the two kicks are on B and C (notes 35 and 36), the snare on D, the closed hi-hat on F#, and so on up. At octave 0 the keys reach from the kicks to note 55 (Splash Cymbal); OCT+ moves up the kit, and +3 reaches its top (81, Open Triangle). The track's transpose moves the drums too: +6 puts Acoustic Bass Drum back on the lowest key, as in earlier versions. MIDI out sends, and MIDI in plays, the GM drum notes as they sound (with the track's transpose, which is 0 unless you set it).
 
 Loading a different song while the current one has changes asks for a second SEL.
 
