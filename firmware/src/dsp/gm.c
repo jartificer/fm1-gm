@@ -78,6 +78,7 @@ static void pan_gains(int32_t pan, float *l, float *r)  /* 0 .. 127, equal power
  * Nyquist), its taps for NPH + 1 places between two points, interpolated between: flat to 0.3 of the
  * sample's rate, and the images of what lies below that 50-60 dB down (a cubic leaves them 20 dB
  * down, heard as a fizz over the sound) */
+#define VEL_100 0.66966f                 /* the velocity curve's level at 100: (100/127) (0.3 + 0.7 x 100/127) */
 #define TREM_DELAY 0.2f                         /* a zone's tremolo starts this long (s) into the note */
 #define NTAP 8
 #define NPH 32
@@ -324,7 +325,9 @@ static void voice_start(voice_t *v, const gmw_zone_t *z, int c, int note, int ve
     v->fg = q > 1.0f ? fm_rsqrtf(q) : 1.0f;
     v->vph = 0.0f;
     v->t = 0.0f;
-    v->vgain = vn * (0.3f + 0.7f * vn) * z->gain;
+    /* velocity: up to 100 (where the levels were matched) a gentle curve, so soft parts stay a little
+     * louder than in FluidSynth; above it 40 log10, as FluidSynth, so hard hits are as loud as there */
+    v->vgain = (vel <= 100 ? vn * (0.3f + 0.7f * vn) : VEL_100 * (float)(vel * vel) * 1e-4f) * z->gain;
     v->pl = v->pr = 1.0f;
     if (drum)
         pan_gains(64 + z->pan, &v->pl, &v->pr);

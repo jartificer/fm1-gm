@@ -139,7 +139,7 @@ Mute and solo are on the other views. To add a bar at the end, turn up Bars in t
 - **Song length:** 1–128 bars of 4/4, 48 PPQN, up to 8192 notes per song across all tracks, 30–300 BPM.
 - **No velocity in songs.** The FM-1 keys are not velocity-sensitive, so each track has one velocity (default 100) and every note it plays uses it. Notes from MIDI in are recorded without velocity too, and in TRACK mode they also sound at the track's velocity, so you hear what will play back. In MULTI mode MIDI in sounds as sent.
 - **No chorus.** CC93 is accepted and ignored, to keep CPU for voices.
-- **One velocity layer.** MIDI velocity sets the level only; the samples are FluidR3's velocity-100 layer.
+- **One velocity layer.** MIDI velocity sets the level only; the samples are FluidR3's velocity-100 layer. Above velocity 100 the level rises as it does in FluidSynth, so hard hits (most often the drums) are as loud as there; below it, it falls more gently, so soft parts stay a little louder.
 - **No external clock sync.** MIDI Start and Stop are followed, the tempo is the song's own.
 - **Notes only are recorded** (no velocity, controllers or bend); per-track volume, pan and reverb are part of the song.
 - **Song format.** A song is stored like a stripped-down MIDI file: the song and track settings (133 bytes), then per track its notes as delta time, note and length, with MIDI's variable-length numbers, and the length left out when it repeats (like MIDI running status). That is 2 to 4 bytes a note; a step-recorded song averages about 2.
