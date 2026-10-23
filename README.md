@@ -1,7 +1,7 @@
 # FM1-GM
 
 > [!CAUTION]
-> **Safety notice:** firmware versions up to and including 0.9.8 can make a sudden, very loud noise when the highest notes are played, from the keys, over MIDI or in a song. Please update to [0.9.9](https://github.com/jartificer/fm1-gm/releases/tag/v0.9.9) or later. The older releases have been deleted.
+> **Safety notice:** firmware versions up to and including 0.9.8 can make a sudden, very loud noise when the highest notes are played, from the keys, over MIDI or in a song. Please update to the latest version (https://github.com/jartificer/fm1-gm/releases). Releases older than 0.9.9 have been deleted.
 >
 > Do not try to reproduce the problem: the noise is loud enough to damage speakers, headphones or your hearing.
 
