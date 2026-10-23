@@ -21,6 +21,7 @@ volatile float gm_ch_level[GM_NCH];
 volatile uint8_t gm_voices_used, gm_drums_used;
 volatile uint8_t gm_ch_prog[GM_NCH];
 volatile uint8_t gm_voice_max = GM_NVOICE_DEF;
+volatile uint32_t gm_resets;
 
 #define INV_SR (1.0f / GM_SR)
 #define MASTER (1.5f * 3.1623f)                 /* the mix level: about as loud as the synthesized engine was
@@ -696,9 +697,38 @@ static int voice_render(voice_t *v, uint32_t n)
     return v->st != ST_FREE;
 }
 
+/* the safety net: a NaN or an infinity anywhere in the voices or the reverb reaches the chunk's sum
+ * (a NaN times 0 is still a NaN), and would stay in the reverb until a reboot, at full scale after the
+ * clipper (0.9.8's noise on the highest notes). Then the chunk is dropped and the engine goes quiet:
+ * a click, not the noise. */
+static int not_finite(float x)
+{
+    fm_bits_t b;
+    b.f = x;
+    return (b.u & 0x7F800000u) == 0x7F800000u;
+}
+
+#ifdef OM_HOST
+void gm_test_poison(int what)                   /* tests only: a NaN in a voice's filter (0) or the reverb (1) */
+{
+    int i;
+    float nan;
+    fm_bits_t b;
+    b.u = 0x7FC00000u;
+    nan = b.f;
+    if (what)
+        comb_buf[0] = nan;
+    else
+        for (i = 0; i < GM_NVOICE; i++)
+            if (vo[i].st != ST_FREE)
+                vo[i].ic1 = vo[i].hist[0] = vo[i].hist[NTAP] = nan;
+}
+#endif
+
 void gm_render(float *l, float *r, uint32_t n)
 {
     uint32_t i, j, nv = 0, nd = 0;
+    float sum = 0.0f;
     if (n > GM_CHUNK)
         n = GM_CHUNK;
     for (j = 0; j < n; j++)
@@ -737,9 +767,21 @@ void gm_render(float *l, float *r, uint32_t n)
             if (++ap_i[i] >= AP_LEN[i])
                 ap_i[i] = 0;
         }
-        l[j] += mix_l[j] + ol * 0.3f;
-        r[j] += mix_r[j] + orr * 0.3f;
+        mix_l[j] += ol * 0.3f;
+        mix_r[j] += orr * 0.3f;
+        sum += mix_l[j] + mix_r[j];
     }
-    for (i = 0; i < NCOMB; i++)
+    for (i = 0; i < NCOMB; i++) {
+        sum += comb_z[i];
         comb_z[i] = fm_flush(comb_z[i]);
+    }
+    if (not_finite(sum)) {
+        gm_panic();
+        gm_resets++;
+        return;
+    }
+    for (j = 0; j < n; j++) {
+        l[j] += mix_l[j];
+        r[j] += mix_r[j];
+    }
 }

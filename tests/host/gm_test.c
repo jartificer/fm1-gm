@@ -273,6 +273,31 @@ static void test_top_notes(void)
     run(44100 * 3);
 }
 
+/* the safety net: a NaN inside the engine (a voice's filter, the reverb) gives one dropped chunk and
+ * silence, not noise until a reboot; the next note plays */
+static void test_nan_guard(void)
+{
+    int w;
+    for (w = 0; w < 2; w++) {
+        uint32_t r0 = gm_resets;
+        midi(0xC0, 48, 0);
+        midi(0x90, 60, 100);
+        run(4410);
+        gm_test_poison(w);
+        run(4410);                              /* the reverb's NaN comes round within a comb's length */
+        CHECK(gm_resets == r0 + 1, "%s NaN: %u resets, expected 1", w ? "reverb" : "voice", gm_resets - r0);
+        meter_reset();
+        run(4410);
+        CHECK(peak < 1e-6 && gm_voices_used == 0, "%s NaN: still sounding (%.4f)", w ? "reverb" : "voice", peak);
+        midi(0x90, 60, 100);
+        run(4410);
+        CHECK(peak > 0.01 && peak < 1.0, "%s NaN: no sound after the reset (%.4f)", w ? "reverb" : "voice", peak);
+        midi(0x80, 60, 0);
+        run(44100);
+    }
+    midi(0xC0, 0, 0);
+}
+
 static void test_polyphony_cost(void)
 {
     int i, p;
@@ -612,6 +637,7 @@ int main(int argc, char **argv)
     test_sustain();
     test_controllers();
     test_top_notes();
+    test_nan_guard();
     test_polyphony_cost();
     test_record_play();
     test_step();
