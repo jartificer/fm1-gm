@@ -56,7 +56,7 @@ extern volatile float gm_ch_level[GM_NCH];     /* loudness of what each channel 
 extern volatile uint8_t gm_voices_used, gm_drums_used;
 extern volatile uint8_t gm_ch_prog[GM_NCH];
 extern volatile uint8_t gm_voice_max;          /* melodic voices in use, 8..GM_NVOICE (the main loop sets it) */
-extern volatile uint32_t gm_resets;            /* times the safety net found a NaN / infinity / absurd level and went quiet */
+extern volatile uint32_t gm_resets;            /* times the safety net found a NaN / infinity and went quiet */
 #ifdef OM_HOST
-void gm_test_poison(int what);                 /* tests only: a NaN in a voice (0) or the reverb (1); 3e32 in a voice (2) */
+void gm_test_poison(int what);                 /* tests only: a NaN in a voice (0) or the reverb (1) */
 #endif
