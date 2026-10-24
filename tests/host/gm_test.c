@@ -440,6 +440,37 @@ static void test_record_play(void)
     run(256);
 }
 
+/* MIDI Start while recording with a key held: the note ends at the restart, its length right (it was
+ * measured across abs_t going back to 0: a wrapped length, 1 tick or the whole song) */
+static void test_restart_held(void)
+{
+    double spt = SPT(120);
+    uint32_t i, s;
+    seq_cfg.countin = 0;
+    post(SC_SELECT, 5, 0, 0, 0);
+    post(SC_ERASE, 5, 0, 0, 0);
+    post(SC_REC, 1, 0, 0, 0);
+    post(SC_PLAY, 0, 0, 0, 0);
+    run((uint32_t)(spt * 30));
+    post(SC_NOTE_ON, 5, 70, 100, 0);
+    run((uint32_t)(spt * 40));
+    post(SC_PLAY, 0, 0, 0, 0);                  /* what MIDI Start (FA) posts, while playing */
+    run((uint32_t)(spt * 20));
+    post(SC_NOTE_OFF, 5, 70, 0, 0);
+    run(256);
+    post(SC_REC, 0, 0, 0, 0);
+    post(SC_STOP, 0, 0, 0, 0);
+    run(256);
+    for (i = 0, s = 0; i < 5; i++)
+        s += seq_song.trk[i].nev;
+    CHECK(seq_song.trk[5].nev == 1, "track 6 has %d notes, expected 1", seq_song.trk[5].nev);
+    if (seq_song.trk[5].nev == 1)
+        CHECK(abs((int)seq_song.ev[s].len - 40) <= 2, "the held note is %d ticks, expected 40", seq_song.ev[s].len);
+    post(SC_ERASE, 5, 0, 0, 0);
+    post(SC_SELECT, 0, 0, 0, 0);
+    run(256);
+}
+
 static void test_step(void)
 {
     int i;
@@ -642,6 +673,7 @@ int main(int argc, char **argv)
     test_nan_guard();
     test_polyphony_cost();
     test_record_play();
+    test_restart_held();
     test_step();
     test_bars();
     test_countin();

@@ -441,9 +441,13 @@ static void play_tick(void)
     abs_t++;
 }
 
+static void rec_flush(void);
+
 static void start(void)
 {
     uint32_t i;
+    if (seq_playing)                            /* again while playing (MIDI Start): the notes still held end */
+        rec_flush();                            /* here, before abs_t goes back to 0 under them */
     for (i = 0; i < NACT; i++)
         act[i].on = 0;
     cur = reg_lo();
