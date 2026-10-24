@@ -61,5 +61,16 @@ for s in tests/scenarios/*.gm; do
     mkdir -p "build/scenarios/$n"
     run "scenario-$n" build/host/gm_host "$s" "build/scenarios/$n"
 done
+# the whole app again under AddressSanitizer / UBSan: a write past a buffer in the UI is silent otherwise
+if echo 'int main(void){return 0;}' | $CC -fsanitize=address,undefined -x c -o $OUT/asan_probe - >/dev/null 2>&1; then
+    run host-build-asan sh -c "$CC -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-sanitize=shift \
+        -ffp-contract=off -std=c99 -w -DOM_HOST -Ifirmware/src -Ifirmware/src/dsp -Ibuild/gen -o $OUT/gm_host_asan \
+        host/gm_host.c firmware/src/dsp/gm.c firmware/src/dsp/seq.c -lm"
+    for s in tests/scenarios/*.gm; do
+        n=$(basename "$s" .gm)
+        mkdir -p "build/scenarios-asan/$n"
+        run "scenario-$n-asan" "$OUT/gm_host_asan" "$s" "build/scenarios-asan/$n"
+    done
+fi
 [ $FAIL -eq 0 ] && echo "all tests passed" || echo "TESTS FAILED"
 exit $FAIL
