@@ -713,7 +713,7 @@ static void button(int b, int held_long)
             post(SC_BAR_CLEAR, seq_sel, 0, 0, bar_cur());
             say("BAR CLEARED", "");
         } else if (held_long) {
-            char t[8] = "TRACK ";
+            char t[10] = "TRACK ";              /* "TRACK 16" and its 0 */
             itoa_s(seq_sel + 1, t + 6);
             post(SC_ERASE, seq_sel, 0, 0, 0);
             say("ERASED", t);
