@@ -18,7 +18,8 @@
  *   BAR            one bar of the selected track, close up: KNOB 1 the bar, 2 the step, 3 the length
  *                  of the step's notes in steps (with keys held: of those notes only), 4 quantize (the
  *                  step's size). HOME held loops the bar (playback and recording stay in it). ENV
- *                  deletes the step's notes (held: deletes the bar, every track), LFO copies the bar
+ *                  deletes the step's notes (with keys held: those notes only; held: deletes the bar,
+ *                  every track), LFO copies the bar
  *                  (held: pastes it over this one), ARP held clears the bar; ARP undoes any of them.
  *                  SEQ step-records from the step.
  *   SAVE           saves the song to its slot (on SONGS: to the slot highlighted)
@@ -211,6 +212,14 @@ static int len_get(void)                       /* the longest picked note, in st
             n = k ? k : 1u;
     }
     return (int)n;
+}
+static int len_keys(void)                       /* keys held for the selected track */
+{
+    uint32_t i;
+    for (i = 0; i < NKEYS; i++)
+        if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel)
+            return 1;
+    return 0;
 }
 static void len_add(int d)
 {
@@ -736,6 +745,12 @@ static void button(int b, int held_long)
             itoa_s(bar_cur() + 1, t + 4);
             post(SC_BAR_DELETE, 0, 0, 0, bar_cur());
             say("BAR DELETED", t);
+        } else if (ui.view == V_BAR && !seq_step && len_keys()) {   /* keys held: only their notes */
+            uint32_t i, n = 0;
+            for (i = 0; i < NKEYS; i++)
+                if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel)
+                    post(SC_STEP_DELETE, seq_sel, ui.key_note[i], n++ ? 2u : 1u, 0);
+            say(n > 1 ? "NOTES DELETED" : "NOTE DELETED", "");
         } else if (ui.view == V_BAR || seq_step) {
             post(SC_STEP_DELETE, seq_sel, 0, 0, 0);
             say("STEP DELETED", "");

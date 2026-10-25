@@ -650,6 +650,20 @@ static void test_step_len(void)
     post(SC_STEP_LEN, 4, 60, 0, -1);
     run(256);
     CHECK(seq_changes == k && seq_undo_ok, "nothing to change changed the song: %u -> %u", k, seq_changes);
+    /* the keys held and ENV: only those notes of the step go; two keys, one undo */
+    post(SC_CURSOR, 0, 0, 0, 48);
+    post(SC_STEP_DELETE, 4, 64, 1, 0);
+    run(256);
+    CHECK(seq_song.trk[4].nev == 3 && seq_song.ev[s].note == 60 && seq_song.ev[s + 1].note == 67 &&
+          seq_song.ev[s + 2].note == 72, "delete one note: %d notes", seq_song.trk[4].nev);
+    post(SC_STEP_DELETE, 4, 60, 1, 0);
+    post(SC_STEP_DELETE, 4, 67, 2, 0);
+    run(256);
+    CHECK(seq_song.trk[4].nev == 1 && seq_song.ev[s].note == 72, "delete two notes: %d notes", seq_song.trk[4].nev);
+    post(SC_UNDO, 0, 0, 0, 0);
+    run(256);
+    CHECK(seq_song.trk[4].nev == 3 && seq_song.ev[s].note == 60 && seq_song.ev[s + 1].note == 67,
+          "undo the two: %d notes", seq_song.trk[4].nev);
     /* played: the E 6 steps long sounds 6 steps */
     post(SC_UNDO, 0, 0, 0, 0);
     post(SC_ERASE, 4, 0, 0, 0);

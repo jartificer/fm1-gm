@@ -631,11 +631,12 @@ static void rec_flush(void)                     /* stop: the notes still held en
             rec_off(n);
 }
 
-static void step_clear(int t, uint32_t t0, uint32_t sl)   /* track t's notes that start in t0 .. t0 + sl - 1 */
+/* track t's notes (note < 0: all, else that one) that start in t0 .. t0 + sl - 1 */
+static void step_clear(int t, uint32_t t0, uint32_t sl, int note)
 {
     uint32_t s = trk_start(t), e = s + S->trk[t].nev, i;
     for (i = s; i < e;) {
-        if (S->ev[i].tick >= t0 && S->ev[i].tick < t0 + sl) {
+        if (S->ev[i].tick >= t0 && S->ev[i].tick < t0 + sl && (note < 0 || S->ev[i].note == note)) {
             ev_remove(i, t);
             e--;
         } else {
@@ -649,7 +650,7 @@ static void step_back(void)
     uint32_t sl = step_len(), lo = reg_lo(), len = reg_hi() - lo, t0;
     t0 = lo + (reg_wrap(seq_step_tick) - lo + len - sl % len) % len;
     seq_step_tick = (uint16_t)t0;
-    step_clear(seq_sel, t0, sl);
+    step_clear(seq_sel, t0, sl, -1);
 }
 
 /* a note's length in steps of sl: what step_len() notes are (a step less its eighth), rounded */
@@ -693,7 +694,7 @@ static void step_len_add(int t, int note, int32_t d)
 static void bar_clear(int t, uint32_t bar)      /* track t's notes in the bar */
 {
     tracks_off(t);
-    step_clear(t, bar * SEQ_BAR, SEQ_BAR);
+    step_clear(t, bar * SEQ_BAR, SEQ_BAR, -1);
 }
 
 static void bar_copy(int t, uint32_t bar)
@@ -988,9 +989,10 @@ static void exec(const cmd_t *c)
         changed();
         break;
     case SC_STEP_DELETE:
-        snapshot();
+        if (c->c != 2)
+            snapshot();
         tracks_off(t);
-        step_clear(t, reg_wrap(seq_step_tick), step_len());
+        step_clear(t, reg_wrap(seq_step_tick), step_len(), c->c ? c->b & 127 : -1);
         break;
     case SC_STEP_LEN:
         step_len_add(t, c->b > 127 ? 128 : c->b, c->w);

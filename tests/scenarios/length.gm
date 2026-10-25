@@ -80,6 +80,19 @@ expect length 0
 shot length_held.png
 turn K1 -1
 expect bar 1
+# ENV with a key held: only that note of the step goes; ARP brings it back
+turn K2 1
+turn K2 -1
+expect step_tick 0
+key 11 down
+tap ENV
+key 11 up
+expect trknev1 2
+expect evnote0 60
+expect evnote1 67
+tap ARP
+expect trknev1 3
+expect evnote1 64
 # the loop: HOME held, on and off; HOME short still leaves the view
 hold HOME 1200
 expect loop 1

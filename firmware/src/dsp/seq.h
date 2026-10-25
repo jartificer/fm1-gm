@@ -98,7 +98,8 @@ enum {
     SC_BAR_COPY,    /* a: track: its notes in bar w to the clipboard */
     SC_BAR_PASTE,   /* a: track: bar w's notes replaced by the clipboard's */
     SC_BAR_DELETE,  /* bar w out of the song, every track; the bars after it move up one */
-    SC_STEP_DELETE, /* a: track: its notes in the step at the step cursor (a quantize step long) */
+    SC_STEP_DELETE, /* a: track: its notes in the step at the step cursor (a quantize step long); c 1: only
+                     * note b; c 2: only note b, and the undo copy kept (the next of a chord of keys) */
     SC_STEP_LEN,    /* a: track, b: note (128: every note): its notes in the step at the step cursor, w steps
                      * longer (w < 0: shorter), a step at least; one undo for the changes at a step in a row */
     SC_INIT,        /* a new song in place of this one: no notes, every track and setting at its default
