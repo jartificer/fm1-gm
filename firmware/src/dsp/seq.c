@@ -652,6 +652,43 @@ static void step_back(void)
     step_clear(seq_sel, t0, sl);
 }
 
+/* a note's length in steps of sl: what step_len() notes are (a step less its eighth), rounded */
+static uint32_t len_steps(uint32_t len, uint32_t sl)
+{
+    uint32_t n = (len + sl / 8u + sl / 2u) / sl;
+    return n ? n : 1u;
+}
+
+/* track t's notes (note 128: all) that start in the step at the step cursor: d steps longer */
+static void step_len_add(int t, int note, int32_t d)
+{
+    static uint32_t mark_changes, mark_at = 0xFFFFFFFFu;
+    uint32_t sl = step_len(), t0 = reg_wrap(seq_step_tick), s = trk_start(t), e = s + S->trk[t].nev, i, pass;
+    uint32_t mx = seq_song_ticks() / sl, at = (uint32_t)t << 16 | t0;
+    for (pass = 0; pass < 2; pass++)            /* 0: is anything to change; 1: change it */
+        for (i = s; i < e && S->ev[i].tick < t0 + sl; i++) {
+            seq_ev_t *v = &S->ev[i];
+            int32_t n;
+            uint32_t len;
+            if (v->tick < t0 || (note < 128 && v->note != note))
+                continue;
+            n = (int32_t)len_steps(v->len, sl) + d;
+            n = n < 1 ? 1 : n > (int32_t)mx ? (int32_t)mx : n;
+            len = (uint32_t)n * sl - sl / 8u;
+            if (len == v->len)
+                continue;
+            if (!pass) {                        /* the first change here since any other: the undo copy */
+                if (mark_at != at || mark_changes != seq_changes)
+                    snapshot();
+                break;
+            }
+            v->len = (uint16_t)len;
+            changed();
+            mark_at = at;
+            mark_changes = seq_changes;
+        }
+}
+
 /* -------------------------------------------------------- bar editing --- */
 static void bar_clear(int t, uint32_t bar)      /* track t's notes in the bar */
 {
@@ -954,6 +991,9 @@ static void exec(const cmd_t *c)
         snapshot();
         tracks_off(t);
         step_clear(t, reg_wrap(seq_step_tick), step_len());
+        break;
+    case SC_STEP_LEN:
+        step_len_add(t, c->b > 127 ? 128 : c->b, c->w);
         break;
     default:
         break;

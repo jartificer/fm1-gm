@@ -9,7 +9,7 @@
  *
  *   Real-time recording (overdub, quantized on input) while the loop plays, with an optional
  *   one-bar count-in; step recording while stopped; one level of undo; erase a track. Bar editing:
- *   loop one bar; clear, copy, paste or delete it; delete one step's notes.
+ *   loop one bar; clear, copy, paste or delete it; delete one step's notes, or change their length.
  *
  *   In flash a song is a byte stream (song_stream / song_parse), as compact as a MIDI file without
  *   the parts the FM-1 has no use for (velocity, controllers, bend): the song's and the tracks'
@@ -99,6 +99,8 @@ enum {
     SC_BAR_PASTE,   /* a: track: bar w's notes replaced by the clipboard's */
     SC_BAR_DELETE,  /* bar w out of the song, every track; the bars after it move up one */
     SC_STEP_DELETE, /* a: track: its notes in the step at the step cursor (a quantize step long) */
+    SC_STEP_LEN,    /* a: track, b: note (128: every note): its notes in the step at the step cursor, w steps
+                     * longer (w < 0: shorter), a step at least; one undo for the changes at a step in a row */
     SC_INIT,        /* a new song in place of this one: no notes, every track and setting at its default
                      * (stops first; undo brings the song back) */
 };

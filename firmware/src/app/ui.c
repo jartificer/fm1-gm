@@ -15,11 +15,12 @@
  *   HOME EDIT FX SEL GLO   the pages: SONG, TRACK, MIX, SONGS, SETUP (EDIT, GLO again: their next
  *                  knob page; HOME again: BAR); on SONGS, SEL again loads the song highlighted, ARP
  *                  held twice deletes it, SEL held twice starts a new song (undo: ARP)
- *   BAR            one bar of the selected track, close up: KNOB 1 the bar, 2 the step, 3 loop the
- *                  bar (playback and recording stay in it), 4 quantize (the step's size). ENV deletes
- *                  the step's notes (held: deletes the bar, every track), LFO copies the bar (held:
- *                  pastes it over this one), ARP held clears the bar; ARP undoes any of them. SEQ
- *                  step-records from the step.
+ *   BAR            one bar of the selected track, close up: KNOB 1 the bar, 2 the step, 3 the length
+ *                  of the step's notes in steps (with keys held: of those notes only), 4 quantize (the
+ *                  step's size). HOME held loops the bar (playback and recording stay in it). ENV
+ *                  deletes the step's notes (held: deletes the bar, every track), LFO copies the bar
+ *                  (held: pastes it over this one), ARP held clears the bar; ARP undoes any of them.
+ *                  SEQ step-records from the step.
  *   SAVE           saves the song to its slot (on SONGS: to the slot highlighted)
  *   SELECT         the track (on SONGS: the slot)   ALGORITHM the track's program   PRESETS the tempo
  *   KNOB 1-4       the page's four values */
@@ -34,7 +35,7 @@ enum {
     K_FAMILY, K_PROG, K_VOL, K_PAN, K_CHAN, K_REV, K_TRANSPOSE, K_KEYVEL,
     K_MIX0, K_MIX1, K_MIX2, K_MIX3,
     K_MIDIIN, K_MIDIOUT, K_CLOCK, K_COUNTIN, K_POLY, K_METROVOL, K_LEDS, K_THEME,
-    K_SLOT, K_BAR, K_STEP, K_LOOP,
+    K_SLOT, K_BAR, K_STEP, K_LEN,
 };
 #define NKPAGES 2
 static const uint8_t VIEW_KNOB[NVIEWS][NKPAGES][4] = {
@@ -43,7 +44,7 @@ static const uint8_t VIEW_KNOB[NVIEWS][NKPAGES][4] = {
     {{K_MIX0, K_MIX1, K_MIX2, K_MIX3}, {K_MIX0, K_MIX1, K_MIX2, K_MIX3}},
     {{K_SLOT, K_NONE, K_NONE, K_NONE}, {K_SLOT, K_NONE, K_NONE, K_NONE}},
     {{K_MIDIIN, K_MIDIOUT, K_CLOCK, K_COUNTIN}, {K_POLY, K_METROVOL, K_LEDS, K_THEME}},
-    {{K_BAR, K_STEP, K_LOOP, K_QUANT}, {K_BAR, K_STEP, K_LOOP, K_QUANT}},
+    {{K_BAR, K_STEP, K_LEN, K_QUANT}, {K_BAR, K_STEP, K_LEN, K_QUANT}},
 };
 
 /* the screen's colours (Setup, COLOURS): one accent per meaning. Dark is the default; the two
@@ -181,6 +182,48 @@ static void bar_go(int bar, uint32_t step)      /* the bar and the step in it (0
     post(SC_CURSOR, 0, 0, 0, (int32_t)((uint32_t)bar * SEQ_BAR + step * step_ticks()));
 }
 
+/* the notes LENGTH changes: the selected track's in the step at the cursor; with keys held, those
+ * keys' notes only */
+static int key_held_note(int note)
+{
+    uint32_t i;
+    for (i = 0; i < NKEYS; i++)
+        if ((ui.keys >> i & 1u) && ui.key_note[i] == note && ui.key_trk[i] == seq_sel)
+            return 1;
+    return 0;
+}
+static int len_picked(const seq_ev_t *e)
+{
+    uint32_t t0 = seq_step_tick, st = step_ticks();
+    return e->tick >= t0 && e->tick < t0 + st && (!ui.keys || key_held_note(e->note));
+}
+static int len_get(void)                       /* the longest picked note, in steps; 0: none */
+{
+    uint32_t i, s = 0, st = step_ticks(), b0 = (uint32_t)bar_cur() * SEQ_BAR, n = 0;
+    if (seq_step_tick < b0 || seq_step_tick >= b0 + SEQ_BAR)
+        return 0;
+    for (i = 0; i < (uint32_t)seq_sel; i++)
+        s += seq_song.trk[i].nev;
+    for (i = s; i < s + sel_trk()->nev; i++) {
+        const seq_ev_t *e = &seq_song.ev[i];
+        uint32_t k = (e->len + st / 8u + st / 2u) / st;   /* as seq.c's len_steps */
+        if (len_picked(e) && (k ? k : 1u) > n)
+            n = k ? k : 1u;
+    }
+    return (int)n;
+}
+static void len_add(int d)
+{
+    uint32_t i;
+    if (!ui.keys) {
+        post(SC_STEP_LEN, seq_sel, 128, 0, d);
+        return;
+    }
+    for (i = 0; i < NKEYS; i++)
+        if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel)
+            post(SC_STEP_LEN, seq_sel, ui.key_note[i], 0, d);
+}
+
 /* -------------------------------------------------------------- knobs --- */
 static int knob_get(int k)
 {
@@ -214,7 +257,7 @@ static int knob_get(int k)
         uint32_t b0 = (uint32_t)bar_cur() * SEQ_BAR;
         return seq_step_tick >= b0 && seq_step_tick < b0 + SEQ_BAR ? (int)((seq_step_tick - b0) / step_ticks()) + 1 : 1;
     }
-    case K_LOOP: return ui.loop;
+    case K_LEN: return len_get();
     default: return 0;
     }
 }
@@ -230,13 +273,13 @@ static void knob_range(int k, int *lo, int *hi)
         {K_REV, 0, 127}, {K_TRANSPOSE, -24, 24}, {K_KEYVEL, 1, 127}, {K_MIX0, 0, 127}, {K_MIX1, 0, 127},
         {K_MIX2, 0, 127}, {K_MIX3, 0, 127}, {K_MIDIIN, 0, 1}, {K_MIDIOUT, 0, 1}, {K_CLOCK, 0, 1},
         {K_COUNTIN, 0, 1}, {K_POLY, 8, GM_NVOICE}, {K_METROVOL, 0, 10}, {K_LEDS, 0, 1}, {K_THEME, 0, NTHEMES - 1},
-        {K_SLOT, 1, SEQ_NSONGS}, {K_LOOP, 0, 1},
+        {K_SLOT, 1, SEQ_NSONGS},
     };
     uint32_t i;
     *lo = *hi = 0;
-    if (k == K_BAR || k == K_STEP) {
+    if (k == K_BAR || k == K_STEP || k == K_LEN) {
         *lo = 1;
-        *hi = k == K_BAR ? seq_song.bars : (int)(SEQ_BAR / step_ticks());
+        *hi = k == K_BAR ? seq_song.bars : (int)((k == K_LEN ? seq_song_ticks() : SEQ_BAR) / step_ticks());
         return;
     }
     for (i = 0; i < sizeof R / sizeof R[0]; i++)
@@ -279,7 +322,7 @@ static const char *knob_name(int k)
     case K_SLOT: return "SLOT";
     case K_BAR: return "BAR";
     case K_STEP: return "STEP";
-    case K_LOOP: return "LOOP";
+    case K_LEN: return "LENGTH";
     default: return "";
     }
 }
@@ -320,7 +363,13 @@ static void knob_text(int k, int v, char *b)    /* knob k's value v as it shows 
         }
         return;
     case K_MIDIIN: cat(b, v ? "MULTI" : "TRACK"); return;
-    case K_MIDIOUT: case K_CLOCK: case K_LEDS: case K_LOOP: cat(b, OFFON[v & 1]); return;
+    case K_MIDIOUT: case K_CLOCK: case K_LEDS: cat(b, OFFON[v & 1]); return;
+    case K_LEN:
+        if (v)
+            itoa_s(v, b);
+        else
+            cat(b, "-");
+        return;
     case K_COUNTIN: cat(b, v ? "1 BAR" : "OFF"); return;
     case K_THEME: cat(b, THEME[v % NTHEMES].name); return;
     default: itoa_s(v, b); return;
@@ -361,10 +410,14 @@ static void knob_set(int k, int v)
     case K_SLOT: ui.slot_cur = (uint8_t)(v - 1); break;
     case K_BAR: bar_go(v - 1, 0); break;
     case K_STEP: post(SC_CURSOR, 0, 0, 0, (int32_t)((uint32_t)bar_cur() * SEQ_BAR + (uint32_t)(v - 1) * step_ticks())); break;
-    case K_LOOP:
-        ui.loop = (uint8_t)v;
-        post(SC_LOOP, (uint32_t)v, 0, 0, bar_cur());
+    case K_LEN: {
+        int n = knob_get(K_LEN);
+        if (!n)
+            say("NO NOTES", "AT THIS STEP");
+        else
+            len_add(v - n);
         break;
+    }
     default: {   /* the settings */
         uint8_t *p = k == K_METRO ? &set.metro : k == K_MIDIIN ? &set.midi_in : k == K_MIDIOUT ? &set.midi_out :
                      k == K_CLOCK ? &set.clock_out : k == K_COUNTIN ? &set.countin : k == K_POLY ? &set.poly :
@@ -606,7 +659,17 @@ void ui_song_deleted(int slot)
 static void button(int b, int held_long)
 {
     switch (b) {
-    case B_HOME: set_view(V_SONG); break;
+    case B_HOME:
+        if (held_long) {                        /* the bar view's loop */
+            char t[8] = "BAR ";
+            ui.loop ^= 1u;
+            post(SC_LOOP, ui.loop, 0, 0, bar_cur());
+            itoa_s(bar_cur() + 1, t + 4);
+            say(ui.loop ? "LOOP ON" : "LOOP OFF", t);
+        } else {
+            set_view(V_SONG);
+        }
+        break;
     case B_EDIT: set_view(V_TRACK); break;
     case B_FX: set_view(V_MIX); break;
     case B_GLO: set_view(V_SETUP); break;
@@ -748,7 +811,7 @@ static void button(int b, int held_long)
 
 static int has_long(int b)                      /* a button with a held action here */
 {
-    return b == B_ARP || (ui.view == V_BAR && !seq_step && (b == B_ENV || b == B_LFO)) ||
+    return b == B_ARP || (ui.view == V_BAR && (b == B_HOME || (!seq_step && (b == B_ENV || b == B_LFO)))) ||
            (ui.view == V_SONGS && b == B_SEL);
 }
 
@@ -1014,7 +1077,8 @@ static uint32_t main_sig(void)
     if (ui.view == V_SETUP)
         h = hash(hash(h, plat_cpu_pct()), gm_voices_used | gm_drums_used << 8 | plat_xruns() << 16);
     if (ui.view == V_BAR)
-        h = hash(h, (uint32_t)bar_cur() | (uint32_t)seq_loop << 8 | (uint32_t)seq_clip_n << 9 | seq_song.quant << 24);
+        h = hash(hash(h, (uint32_t)bar_cur() | (uint32_t)seq_loop << 8 | (uint32_t)seq_clip_n << 9 | seq_song.quant << 24),
+                 ui.keys);
     if (ui.view == V_SONGS)
         h = hash(h, plat_song_free());
     return h;
@@ -1126,8 +1190,8 @@ static void draw_track(void)
 }
 
 /* BAR: one bar of the selected track, close up: the steps, the step selected, the notes */
-#define BAR_HELP1 "[ENV] del step (held: bar)  [ARP] undo"
-#define BAR_HELP2 "[LFO] copy (held: paste)  [ARP] held: clear"
+#define BAR_HELP1 "[HOME] held: loop  [ENV] del step (held: bar)"
+#define BAR_HELP2 "[LFO] copy (held: paste)  [ARP] undo (held: clear)"
 #define SONGS_HELP "[SEL] load (held: new)  [SAVE] save  [ARP] held: del"
 static void draw_bar(void)
 {
@@ -1143,9 +1207,9 @@ static void draw_bar(void)
     q = cat(q + str_len(q), "/");
     itoa_s(seq_song.bars, q);
     x = cv_text(8, 0, &FONT_B, b, K_TEXT);
-    if (seq_loop) {
-        cv_round(x + 8, 2, text_w(&FONT_XS, "LOOP") + 8, 16, 5, K_PLAYC);
-        x = cv_text(x + 12, 3, &FONT_XS, "LOOP", K_BG) + 4;
+    if (seq_loop) {                             /* the loop: a badge, and the bar framed in its colour */
+        cv_round(x + 8, 2, text_w(&FONT_XS, "LOOP ON") + 8, 16, 5, K_PLAYC);
+        x = cv_text(x + 12, 3, &FONT_XS, "LOOP ON", K_BG) + 4;
     }
     b[0] = 0;
     itoa2((uint32_t)seq_sel + 1u, b);
@@ -1168,6 +1232,8 @@ static void draw_bar(void)
         lo = (hi + lo) / 2 - 6;
         hi = lo + 12;
     }
+    if (seq_loop)
+        cv_round(2, 18, 236, 94, 5, K_PLAYC);
     cv_round(4, 20, 232, 90, 4, K_PANEL);
     for (i = 0; i < ns; i++) {                  /* the steps: the beats brighter, the step selected lit */
         int32_t sx = 8 + (int32_t)(224u * i / ns), sw = (int32_t)(224u * (i + 1u) / ns) - (int32_t)(224u * i / ns);
@@ -1185,6 +1251,8 @@ static void draw_bar(void)
         ex = 8 + (int32_t)(224u * (e->tick - b0) / SEQ_BAR);
         ew = (int32_t)(224u * (end - e->tick) / SEQ_BAR);
         ey = 22 + 81 - (int32_t)((e->note - lo) * 80 / (hi - lo));
+        if (ui.keys && len_picked(e))   /* LENGTH's notes, picked by the keys held */
+            cv_rect(ex, ey - 1, (ew < 3 ? 2 : ew - 1) + 2, 6, K_TEXT);
         cv_rect(ex + 1, ey, ew < 3 ? 2 : ew - 1, 4, is_drum(k) ? K_DRUMC : K_ACC);
     }
     if (seq_playing && !seq_counting && seq_tick >= b0 && seq_tick < b0 + SEQ_BAR)
@@ -1367,7 +1435,8 @@ static void leds(void)
     uint32_t b = 0, k = 0;
     static const uint8_t VIEW_BTN[NVIEWS] = {B_HOME, B_EDIT, B_FX, B_SEL, B_GLO, B_HOME};
     int blink = (ui.frame / 8u) & 1u;
-    b |= 1u << VIEW_BTN[ui.view];
+    if (!(ui.view == V_BAR && seq_loop && blink))   /* the bar view's loop: HOME blinks */
+        b |= 1u << VIEW_BTN[ui.view];
     if (seq_playing && !seq_counting)
         b |= seq_tick % SEQ_PPQN < SEQ_PPQN / 2 ? 1u << B_PLAY : 0u;
     if (seq_rec && (!seq_counting || blink))
@@ -1458,7 +1527,7 @@ int ui_fit_check(void)
     char t[48];
     uint8_t keep = seq_song.bars;
     seq_song.bars = SEQ_MAXBARS;                 /* the widest the values get */
-    for (k = K_TEMPO; k <= K_LOOP; k++) {
+    for (k = K_TEMPO; k <= K_LEN; k++) {
         const char *q;
         int lower;
         bad += fit1("knob name", &FONT_XS, knob_name(k), 58);

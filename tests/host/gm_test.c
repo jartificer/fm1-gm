@@ -584,6 +584,106 @@ static void test_bars(void)
     run(256);
 }
 
+/* a step's notes longer and shorter in steps (SC_STEP_LEN): every note, or one; a step at least, the song
+ * at most; one undo for the changes at a step in a row, a new one after another edit or another step;
+ * and the note plays as long as it now is */
+static void test_step_len(void)
+{
+    int s, i;
+    uint32_t on = 0, off = 0, k;
+    post(SC_SONG, SP_BARS, 0, 0, 2);
+    post(SC_SONG, SP_QUANT, 0, 0, 2);           /* 1/8: steps of 24 */
+    post(SC_SELECT, 4, 0, 0, 0);
+    post(SC_CURSOR, 0, 0, 0, 48);
+    post(SC_STEP, 1, 0, 0, 0);
+    post(SC_NOTE_ON, 4, 60, 100, 0);            /* a chord at tick 48, then a note at 72 */
+    post(SC_NOTE_ON, 4, 64, 100, 0);
+    post(SC_NOTE_ON, 4, 67, 100, 0);
+    post(SC_NOTE_OFF, 4, 60, 0, 0);
+    post(SC_NOTE_OFF, 4, 64, 0, 0);
+    post(SC_NOTE_OFF, 4, 67, 0, 0);
+    post(SC_NOTE_ON, 4, 72, 100, 0);
+    post(SC_NOTE_OFF, 4, 72, 0, 0);
+    post(SC_STEP, 0, 0, 0, 0);
+    run(256);
+    s = trk_first(4);
+    CHECK(seq_song.trk[4].nev == 4 && seq_song.ev[s].len == 21, "step notes: %d, len %d", seq_song.trk[4].nev,
+          seq_song.ev[s].len);
+    post(SC_CURSOR, 0, 0, 0, 48);
+    post(SC_STEP_LEN, 4, 128, 0, 3);            /* the chord: 4 steps */
+    run(256);
+    for (i = 0; i < 3; i++)
+        CHECK(seq_song.ev[s + i].len == 4 * 24 - 3, "chord note %d: len %d", i, seq_song.ev[s + i].len);
+    CHECK(seq_song.ev[s + 3].len == 21, "the next step's note changed: %d", seq_song.ev[s + 3].len);
+    post(SC_STEP_LEN, 4, 64, 0, 2);             /* the E only, 2 more; then shorter than a step: 1 */
+    run(256);
+    CHECK(seq_song.ev[s + 1].len == 6 * 24 - 3 && seq_song.ev[s].len == 4 * 24 - 3 && seq_song.ev[s + 2].len == 4 * 24 - 3,
+          "one note: %d %d %d", seq_song.ev[s].len, seq_song.ev[s + 1].len, seq_song.ev[s + 2].len);
+    post(SC_STEP_LEN, 4, 67, 0, -50);
+    post(SC_STEP_LEN, 4, 60, 0, 1000);          /* the song (2 bars, 16 steps) at most */
+    run(256);
+    CHECK(seq_song.ev[s + 2].len == 21 && seq_song.ev[s].len == 16 * 24 - 3, "limits: %d %d", seq_song.ev[s + 2].len,
+          seq_song.ev[s].len);
+    post(SC_UNDO, 0, 0, 0, 0);                  /* all four changes at the step: one undo */
+    run(256);
+    for (i = 0; i < 4; i++)
+        CHECK(seq_song.ev[s + i].len == 21, "undo: note %d len %d", i, seq_song.ev[s + i].len);
+    post(SC_UNDO, 0, 0, 0, 0);                  /* redo */
+    run(256);
+    CHECK(seq_song.ev[s].len == 16 * 24 - 3 && seq_song.ev[s + 1].len == 6 * 24 - 3, "redo: %d %d", seq_song.ev[s].len,
+          seq_song.ev[s + 1].len);
+    post(SC_STEP_LEN, 4, 60, 0, -15);           /* after the undo, a new undo copy */
+    run(256);
+    post(SC_CURSOR, 0, 0, 0, 72);               /* another step: another */
+    post(SC_STEP_LEN, 4, 128, 0, 1);
+    run(256);
+    CHECK(seq_song.ev[s].len == 21 && seq_song.ev[s + 3].len == 2 * 24 - 3, "after redo: %d %d", seq_song.ev[s].len,
+          seq_song.ev[s + 3].len);
+    post(SC_UNDO, 0, 0, 0, 0);
+    run(256);
+    CHECK(seq_song.ev[s].len == 21 && seq_song.ev[s + 3].len == 21, "undo the other step: %d %d", seq_song.ev[s].len,
+          seq_song.ev[s + 3].len);
+    k = seq_changes;
+    post(SC_CURSOR, 0, 0, 0, 24);               /* an empty step, or nothing to change: no change, undo kept */
+    post(SC_STEP_LEN, 4, 128, 0, 1);
+    post(SC_CURSOR, 0, 0, 0, 48);
+    post(SC_STEP_LEN, 4, 60, 0, -1);
+    run(256);
+    CHECK(seq_changes == k && seq_undo_ok, "nothing to change changed the song: %u -> %u", k, seq_changes);
+    /* played: the E 6 steps long sounds 6 steps */
+    post(SC_UNDO, 0, 0, 0, 0);
+    post(SC_ERASE, 4, 0, 0, 0);
+    post(SC_CURSOR, 0, 0, 0, 0);
+    post(SC_STEP, 1, 0, 0, 0);
+    post(SC_NOTE_ON, 4, 64, 100, 0);
+    post(SC_NOTE_OFF, 4, 64, 0, 0);
+    post(SC_STEP, 0, 0, 0, 0);
+    post(SC_CURSOR, 0, 0, 0, 0);
+    post(SC_STEP_LEN, 4, 128, 0, 5);
+    post(SC_TRK, 4, TP_PROG, 0, 16);            /* an organ: it holds as long as the note */
+    post(SC_PLAY, 0, 0, 0, 0);
+    run(256);
+    for (k = 0; k < 120000u && !off; k += 64) {
+        run(64);
+        if (!on && gm_voices_used)
+            on = k;
+        if (on && !gm_voices_used && seq_tick > 0)
+            off = k;
+    }
+    post(SC_STOP, 0, 0, 0, 0);
+    {
+        double want = SPT(120) * (6 * 24 - 3);
+        CHECK(on < 512 && off > on, "the note did not play: on %u off %u", on, off);
+        CHECK((double)(off - on) > want && (double)(off - on) < want + 22050.0,
+              "the note played %u frames, %.0f (and its release) expected", off - on, want);
+    }
+    post(SC_ERASE, 4, 0, 0, 0);
+    post(SC_TRK, 4, TP_PROG, 0, 24);
+    post(SC_SONG, SP_BARS, 0, 0, 4);
+    post(SC_SONG, SP_QUANT, 0, 0, 4);
+    run(256);
+}
+
 /* the count-in: a key still held when recording begins starts at the top; one let go before, not at all */
 static void test_countin(void)
 {
@@ -676,6 +776,7 @@ int main(int argc, char **argv)
     test_restart_held();
     test_step();
     test_bars();
+    test_step_len();
     test_countin();
     test_full();
     printf("song in RAM: %u B header + %u B a note, %u B full\n", (unsigned)SONG_HEAD_BYTES,
