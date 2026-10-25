@@ -201,9 +201,11 @@ static int len_picked(const seq_ev_t *e)
     uint32_t t0 = seq_step_tick, st = step_ticks();
     return e->tick >= t0 && e->tick < t0 + st && (!ui.keys || key_held_note(e->note));
 }
+static int len_lo;                              /* len_get's lowest note picked */
 static int len_get(void)                       /* the longest picked note, in steps; 0: none */
 {
     uint32_t i, s = 0, st = step_ticks(), b0 = (uint32_t)bar_cur() * SEQ_BAR, n = 0;
+    len_lo = 127;
     if (seq_step_tick < b0 || seq_step_tick >= b0 + SEQ_BAR)
         return 0;
     for (i = 0; i < (uint32_t)seq_sel; i++)
@@ -211,8 +213,12 @@ static int len_get(void)                       /* the longest picked note, in st
     for (i = s; i < s + sel_trk()->nev && seq_song.ev[i].tick < seq_step_tick + st; i++) {   /* by tick */
         const seq_ev_t *e = &seq_song.ev[i];
         uint32_t k = (e->len + st / 8u + st / 2u) / st;   /* as seq.c's len_steps */
-        if (len_picked(e) && (k ? k : 1u) > n)
+        if (!len_picked(e))
+            continue;
+        if ((k ? k : 1u) > n)
             n = k ? k : 1u;
+        if (e->note < len_lo)
+            len_lo = e->note;
     }
     return (int)n;
 }
@@ -237,41 +243,21 @@ static void len_add(int d)
 }
 
 static int moving(void) { return ui.move && ui.view == V_BAR && !seq_step; }
-static int pick_lo(void)                        /* the lowest pitch picked (keys held, else the step's notes) */
-{
-    uint32_t i, s = 0;
-    int n = 127;
-    for (i = 0; i < NKEYS; i++)
-        if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel && ui.key_pick[i] < n)
-            n = ui.key_pick[i];
-    if (len_keys())
-        return n;
-    for (i = 0; i < (uint32_t)seq_sel; i++)
-        s += seq_song.trk[i].nev;
-    for (i = s; i < s + sel_trk()->nev; i++)
-        if (len_picked(&seq_song.ev[i]) && seq_song.ev[i].note < n)
-            n = seq_song.ev[i].note;
-    return n;
-}
 /* MOVE mode: KNOB 1 and 2 move the step's notes (with keys held, theirs): d semitones up (kind 0), d
  * steps later in the bar (1) */
 static void move(int kind, int32_t d)
 {
-    uint32_t i, mask = 0;
-    int base = len_keys() ? pick_lo() : 0;
-    for (i = 0; i < NKEYS; i++)
-        if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel) {
-            if (ui.key_pick[i] - base > 31) {
-                say("KEYS TOO FAR", "APART TO MOVE");
-                return;
-            }
-            mask |= 1u << (ui.key_pick[i] - base);
-        }
-    d = d < -12 ? -12 : d > 12 ? 12 : d;
+    uint32_t i, mask = 0, b;
+    int base;
     if (!len_get()) {
         say("NO NOTES", "AT THIS STEP");
         return;
     }
+    base = len_keys() ? len_lo : 0;             /* keys held: theirs, by bit from the lowest note picked */
+    for (i = 0; i < NKEYS; i++)
+        if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel && (b = (uint32_t)(ui.key_pick[i] - base)) < 32u)
+            mask |= 1u << b;
+    d = d < -12 ? -12 : d > 12 ? 12 : d;
     if (!seq_step_can_move(seq_sel, base, mask, kind, d)) {
         say("CAN NOT MOVE", "THERE");
         return;
@@ -311,7 +297,7 @@ static int knob_get(int k)
     case K_LEDS: return set.leds;
     case K_THEME: return set.theme;
     case K_SLOT: return ui.slot_cur + 1;
-    case K_BAR: return moving() ? (len_get() ? pick_lo() : 0) : bar_cur() + 1;
+    case K_BAR: return moving() ? (len_get() ? len_lo : 0) : bar_cur() + 1;
     case K_STEP: {
         uint32_t b0 = (uint32_t)bar_cur() * SEQ_BAR;
         return seq_step_tick >= b0 && seq_step_tick < b0 + SEQ_BAR ? (int)((seq_step_tick - b0) / step_ticks()) + 1 : 1;
