@@ -729,8 +729,12 @@ static void test_step_move(void)
     post(SC_STEP_MOVE, 4 | 16, 0, (uint8_t)-3, 0);   /* blocked: out of the bar */
     run(256);
     CHECK(seq_changes == k, "a blocked move changed the song");
+    run(GM_SR * 3);                             /* quiet first */
     post(SC_STEP_MOVE, 4, 60, 1, 5u);           /* C and D (bits 0 and 2 from 60) up a semitone */
     run(256);
+    CHECK(gm_voices_used == 2, "the moved notes are not heard at their new pitch: %u voices", gm_voices_used);
+    run(GM_SR * 3);
+    CHECK(gm_voices_used == 0, "the preview did not end: %u voices", gm_voices_used);
     CHECK(seq_song.ev[s].note == 61 && seq_song.ev[s + 1].note == 63 && seq_song.ev[s + 2].note == 64,
           "picked up a semitone: %d %d %d", seq_song.ev[s].note, seq_song.ev[s + 1].note, seq_song.ev[s + 2].note);
     post(SC_STEP_MOVE, 4, 61, 1, 9u);           /* C# and E (bits 0, 3): C#->D, E->F; the D# stays */
@@ -742,8 +746,10 @@ static void test_step_move(void)
     run(256);
     CHECK(seq_song.ev[s].note == 61 && seq_song.ev[s + 1].note == 63 && seq_song.ev[s + 2].note == 65,
           "down: %d %d %d", seq_song.ev[s].note, seq_song.ev[s + 1].note, seq_song.ev[s + 2].note);
-    post(SC_STEP_MOVE, 4 | 16, 0, 2, 0);         /* every note, two steps later: past the G */
+    run(GM_SR * 3);
+    post(SC_STEP_MOVE, 4 | 16, 0, 2, 0);         /* every note, two steps later: past the G (not heard) */
     run(256);
+    CHECK(gm_voices_used == 0, "a time move sounded %u voices", gm_voices_used);
     CHECK(seq_step_tick == 96, "the cursor did not follow: %d", seq_step_tick);
     CHECK(seq_song.ev[s].note == 67 && seq_song.ev[s].tick == 72, "the G is first: %d at %d", seq_song.ev[s].note,
           seq_song.ev[s].tick);

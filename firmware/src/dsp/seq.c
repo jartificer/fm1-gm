@@ -746,6 +746,16 @@ int seq_step_can_move(int t, int base, uint32_t mask, int kind, int32_t d)
     return (int)any;
 }
 
+/* a pitch move's notes, heard at their new pitch for a moment (seq_render ends them) */
+#define NPREV 16
+static uint8_t prev_n, prev_ch, prev_note[NPREV];
+static uint32_t prev_left;                      /* samples until they end */
+static void preview_off(void)
+{
+    while (prev_n)
+        out3(0x80u | prev_ch, prev_note[--prev_n], 0);
+}
+
 /* the picked notes d semitones up (kind 0), or d steps later in their bar (kind 1: the cursor goes
  * with them); none move if one can't */
 static void step_move(int t, int base, uint32_t mask, int kind, int32_t d)
@@ -757,10 +767,19 @@ static void step_move(int t, int base, uint32_t mask, int kind, int32_t d)
     step_undo((uint32_t)t << 16 | t0);
     for (ie = s; ie < e && S->ev[ie].tick < t0 + sl; ie++)
         ;
+    if (!kind)
+        preview_off();
     for (i = s; i < ie; i++)
         if (move_picked(&S->ev[i], t0, sl, base, mask)) {
             S->ev[i].tick = (uint16_t)((int32_t)S->ev[i].tick + dt);
             S->ev[i].note = (uint8_t)(S->ev[i].note + (kind ? 0 : d));
+            if (!kind && prev_n < NPREV) {      /* heard at the new pitch */
+                const seq_trk_t *k = &S->trk[t];
+                prev_ch = k->chan;
+                prev_note[prev_n] = (uint8_t)out_note(k, S->ev[i].note);
+                out3(0x90u | k->chan, prev_note[prev_n++], k->vel);
+                prev_left = (uint32_t)(GM_SR * 0.4f);
+            }
         }
     if (kind) {                                 /* by tick again (in order: a stable insertion sort) */
         for (i = s + 1u; i < e; i++) {
@@ -1112,6 +1131,8 @@ void seq_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         }
     while (n) {
         uint32_t k = n > GM_CHUNK ? GM_CHUNK : n, j;
+        if (prev_n && (prev_left = prev_left > k ? prev_left - k : 0u) == 0u)
+            preview_off();
         if (seq_playing && !seq_lock) {
             acc += (float)k;
             while (acc >= spt && seq_playing) {
