@@ -780,6 +780,32 @@ static void test_step_move(void)
     }
     CHECK(on < 512, "the moved note did not play at the top: %u", on);
     post(SC_STOP, 0, 0, 0, 0);
+    /* a run of moves keeps to its notes: the G moved across the step of the chord leaves the chord */
+    post(SC_ERASE, 4, 0, 0, 0);
+    post(SC_CURSOR, 0, 0, 0, 0);
+    post(SC_STEP, 1, 0, 0, 0);
+    post(SC_NOTE_ON, 4, 67, 100, 0);            /* G at 0, a rest, C E at 48 */
+    post(SC_NOTE_OFF, 4, 67, 0, 0);
+    post(SC_STEP_REST, 0, 0, 0, 0);
+    post(SC_NOTE_ON, 4, 60, 100, 0);
+    post(SC_NOTE_ON, 4, 64, 100, 0);
+    post(SC_NOTE_OFF, 4, 60, 0, 0);
+    post(SC_NOTE_OFF, 4, 64, 0, 0);
+    post(SC_STEP, 0, 0, 0, 0);
+    post(SC_CURSOR, 0, 0, 0, 0);
+    post(SC_STEP_MOVE, 4 | 16, 0, 1, 0);        /* G to 24, then on with it (32) to 48 and 72 */
+    post(SC_STEP_MOVE, 4 | 16 | 32, 0, 1, 0);
+    post(SC_STEP_MOVE, 4 | 16 | 32, 0, 1, 0);
+    run(256);
+    CHECK(seq_step_tick == 72 && seq_song.ev[s].note == 60 && seq_song.ev[s].tick == 48 && seq_song.ev[s + 1].note == 64 &&
+          seq_song.ev[s + 1].tick == 48 && seq_song.ev[s + 2].note == 67 && seq_song.ev[s + 2].tick == 72,
+          "the run took the chord along: cursor %d, %d at %d, %d at %d, %d at %d", seq_step_tick, seq_song.ev[s].note,
+          seq_song.ev[s].tick, seq_song.ev[s + 1].note, seq_song.ev[s + 1].tick, seq_song.ev[s + 2].note, seq_song.ev[s + 2].tick);
+    post(SC_CURSOR, 0, 0, 0, 48);               /* without 32 at the chord's step: the chord moves */
+    post(SC_STEP_MOVE, 4 | 16, 0, 1, 0);
+    run(256);
+    CHECK(seq_song.ev[s].tick == 72 && seq_song.ev[s + 1].tick == 72 && seq_song.ev[s + 2].tick == 72 &&
+          seq_song.ev[s + 2].note == 67, "a new run: the chord at %d %d", seq_song.ev[s].tick, seq_song.ev[s + 1].tick);
     post(SC_ERASE, 4, 0, 0, 0);
     post(SC_SONG, SP_BARS, 0, 0, 4);
     post(SC_SONG, SP_QUANT, 0, 0, 4);

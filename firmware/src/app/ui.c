@@ -99,6 +99,8 @@ static struct {
     int8_t oct;
     uint8_t slot_cur;                  /* the SONGS page's cursor */
     uint8_t bar, loop, move;           /* the BAR page's bar (0..), its loop on, MOVE mode on */
+    uint8_t mv_go;                     /* the next move goes on with the last one's notes (same keys) */
+    uint32_t mv_keys;
     uint8_t key_note[NKEYS], key_trk[NKEYS];   /* what each key held plays (the track may change meanwhile) */
     uint8_t key_pick[NKEYS];                   /* the pitch it picks in the Bar view: its note, moved with it */
     uint8_t midi_trk[128];             /* MIDI in (TRACK mode): the track each held note went to, +1 */
@@ -260,11 +262,17 @@ static void move(int kind, int32_t d)
         if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel && (b = (uint32_t)(ui.key_pick[i] - base)) < 32u)
             mask |= 1u << b;
     d = d < -12 ? -12 : d > 12 ? 12 : d;
-    if (!seq_step_can_move(seq_sel, base, mask, kind, d)) {
-        say("CAN NOT MOVE", "THERE");
-        return;
-    }
+    if (ui.mv_go && ui.keys == ui.mv_keys)      /* the same notes as the last move, wherever they passed */
+        kind |= 2;
+    while (!seq_step_can_move(seq_sel, base, mask, kind, d))   /* onto a note that stays: jump past it */
+        if ((d += d < 0 ? -1 : 1) > 127 || d < -127) {
+            say("CAN NOT MOVE", "THERE");
+            return;
+        }
     post(SC_STEP_MOVE, seq_sel | (uint32_t)kind << 4, (uint32_t)base, (uint32_t)(uint8_t)(int8_t)d, (int32_t)mask);
+    ui.mv_go = 1;
+    ui.mv_keys = ui.keys;
+    kind &= 1;
     if (!kind)
         for (i = 0; i < NKEYS; i++)
             if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel)
@@ -473,8 +481,11 @@ static void knob_set(int k, int v)
         post(SC_TRK, (seq_sel & ~3u) + (uint32_t)(k - K_MIX0), TP_VOL, 0, v);
         break;
     case K_SLOT: ui.slot_cur = (uint8_t)(v - 1); break;
-    case K_BAR: bar_go(v - 1, 0); break;
-    case K_STEP: post(SC_CURSOR, 0, 0, 0, (int32_t)((uint32_t)bar_cur() * SEQ_BAR + (uint32_t)(v - 1) * step_ticks())); break;
+    case K_BAR: bar_go(v - 1, 0); ui.mv_go = 0; break;
+    case K_STEP:
+        post(SC_CURSOR, 0, 0, 0, (int32_t)((uint32_t)bar_cur() * SEQ_BAR + (uint32_t)(v - 1) * step_ticks()));
+        ui.mv_go = 0;
+        break;
     case K_LEN: {
         int n = knob_get(K_LEN);
         if (!n)
@@ -746,6 +757,7 @@ static void button(int b, int held_long)
     case B_SEL:
         if (ui.view == V_BAR && (held_long || ui.move)) {   /* held: MOVE mode; then a press ends it */
             ui.move ^= 1u;
+            ui.mv_go = 0;
             say(ui.move ? "MOVE ON" : "MOVE OFF", ui.move ? "[SEL] DONE" : "");
         } else if (ui.view == V_SONGS && held_long) {     /* a new song: held twice */
             if (ui.confirm != C_INIT) {

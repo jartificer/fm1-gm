@@ -102,9 +102,11 @@ enum {
                      * note b; c 2: only note b, and the undo copy kept (the next of a chord of keys) */
     SC_STEP_LEN,    /* a: track, b: note (128: every note): its notes in the step at the step cursor, w steps
                      * longer (w < 0: shorter), a step at least; one undo for the changes at a step in a row */
-    SC_STEP_MOVE,   /* a: track | 16 (by time), b: base note, w: notes (bit i: base + i; 0: every note), c: an
-                     * int8 d: the step's notes d semitones up, or d steps later in their bar (the cursor
-                     * follows); none move if one can't (seq_step_can_move); one undo as for SC_STEP_LEN */
+    SC_STEP_MOVE,   /* a: track | 16 (by time) | 32 (go on: the notes the last move moved, if it was the
+                     * last edit), b: base note, w: notes (bit i: base + i; 0: every note), c: an int8 d:
+                     * the step's notes d semitones up, or d steps later in their bar (the cursor follows);
+                     * none move if one can't (seq_step_can_move, kind 1 time | 2 go on); one undo as for
+                     * SC_STEP_LEN */
     SC_INIT,        /* a new song in place of this one: no notes, every track and setting at its default
                      * (stops first; undo brings the song back) */
 };

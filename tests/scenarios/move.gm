@@ -1,5 +1,5 @@
 # The BAR page's MOVE mode (SEL held): KNOB 1 and 2 still pick the bar and step, KNOB 3 moves the
-# step's notes up and down, KNOB 4 their start in the bar; with a key held, only its note; blocked moves (onto a note, out of the bar) do nothing;
+# step's notes up and down, KNOB 4 their start in the bar; with a key held, only its note; a move onto a note jumps past it, one out of the bar does nothing; a run of moves keeps to its notes;
 # one undo for the run; a short SEL ends it, and SEL then still opens SONGS.
 wait 600
 tap HOME
@@ -33,7 +33,7 @@ expect evtick1 36
 expect evtick2 36
 expect step_tick 36
 expect evlen0 11
-# the F# only, its key held: up a semitone, two more; the second is onto the A: blocked
+# the F# only, its key held: up a semitone, two more; the second would land on the A: it jumps past it
 key 13 down
 turn K3 1
 expect evnote1 67
@@ -41,7 +41,7 @@ turn K3 2
 wait 100
 shot move_key.png
 key 13 up
-expect evnote1 68
+expect evnote1 70
 expect evnote0 62
 expect evnote2 69
 # to the bar's first step and its last; no further
@@ -69,7 +69,7 @@ expect evnote2 67
 expect evtick0 0
 tap ARP
 expect evtick0 36
-expect evnote1 68
+expect evnote1 70
 # a short SEL ends MOVE mode (KNOB 2 is the step again); SEL again opens SONGS
 tap SEL
 expect move 0
@@ -98,7 +98,19 @@ wait 100
 expect evnote3 62
 expect evtick3 204
 expect step_tick 216
+key 9 down
+key 9 up
+wait 100
+expect evnote4 62
+expect evtick4 216
 tap SEQ
+# a D one step on from the D at step 2: moving it there jumps past it, and the other stays
+turn K2 -2
+expect step_tick 204
+turn K4 1
+expect evtick3 216
+expect evtick4 228
+expect step_tick 228
 tap SEL
 expect move 0
 expect resets 0
