@@ -1188,6 +1188,14 @@ static void draw_track(void)
         help_text(10, 124, &FONT_XS, SEQ_HELP, K_DIM, 1);
 }
 
+/* a note's chevron, 4 px wide and 8 high around its 4 px bar at y: > (dir 1) its tip at x, < from x */
+static void chevron(int32_t x, int32_t y, int dir, uint16_t c)
+{
+    int32_t j;
+    for (j = 0; j < 4; j++)
+        cv_rect(dir > 0 ? x - 3 + j : x + 3 - j, y - 2 + j, 1, 8 - 2 * j, c);
+}
+
 /* BAR: one bar of the selected track, close up: the steps, the step selected, the notes */
 #define BAR_HELP1 "[HOME] held: loop  [ENV] del step (held: bar)"
 #define BAR_HELP2 "[LFO] copy (held: paste)  [ARP] undo (held: clear)"
@@ -1219,7 +1227,7 @@ static void draw_bar(void)
         s += seq_song.trk[i].nev;
     for (i = s; i < s + k->nev; i++) {          /* the notes' span in this bar, an octave at least */
         const seq_ev_t *e = &seq_song.ev[i];
-        if (e->tick < b0 || e->tick >= b0 + SEQ_BAR)
+        if (e->tick >= b0 + SEQ_BAR || e->tick + e->len <= b0)
             continue;
         lo = e->note < lo ? e->note : lo;
         hi = e->note > hi ? e->note : hi;
@@ -1253,16 +1261,24 @@ static void draw_bar(void)
         int32_t ex, ew, ey;
         uint32_t end;
         int held;
-        if (e->tick < b0 || e->tick >= b0 + SEQ_BAR)
+        uint32_t t0;
+        uint16_t c;
+        if (e->tick >= b0 + SEQ_BAR || e->tick + e->len <= b0)   /* also the notes held over from before */
             continue;
+        t0 = e->tick < b0 ? b0 : e->tick;
         end = e->tick + e->len > b0 + SEQ_BAR ? b0 + SEQ_BAR : e->tick + e->len;
-        ex = 8 + (int32_t)(224u * (e->tick - b0) / SEQ_BAR);
-        ew = (int32_t)(224u * (end - e->tick) / SEQ_BAR);
+        ex = 8 + (int32_t)(224u * (t0 - b0) / SEQ_BAR);
+        ew = (int32_t)(224u * (end - t0) / SEQ_BAR);
         ey = 22 + 81 - (int32_t)((e->note - lo) * 80 / (hi - lo));
         held = ui.keys && key_held_note(e->note);
+        c = held ? K_TEXT : is_drum(k) ? K_DRUMC : K_ACC;
         if (held && len_picked(e))              /* LENGTH's notes, picked by the keys held: outlined */
             cv_rect(ex - 1, ey - 2, (ew < 3 ? 2 : ew - 1) + 4, 8, K_ACC);
-        cv_rect(ex + 1, ey, ew < 3 ? 2 : ew - 1, 4, held ? K_TEXT : is_drum(k) ? K_DRUMC : K_ACC);
+        cv_rect(ex + 1, ey, ew < 3 ? 2 : ew - 1, 4, c);
+        if (e->tick + e->len > b0 + SEQ_BAR)    /* held into the next bar: > at its end */
+            chevron(ex + (ew < 3 ? 2 : ew - 1) + 2, ey, 1, c);
+        if (e->tick < b0)                       /* held over from the bar before: < at its start */
+            chevron(ex + 1, ey, -1, c);
     }
     if (seq_playing && !seq_counting && seq_tick >= b0 && seq_tick < b0 + SEQ_BAR)
         cv_rect(8 + (int32_t)(224u * (seq_tick - b0) / SEQ_BAR), 22, 1, 86, seq_rec ? K_RECC : K_PLAYC);

@@ -66,6 +66,20 @@ expect length 0
 turn K3 1
 expect evlen0 23
 expect evlen2 23
+# a note held past its bar: > at its end; in the next bar, from its start, with <
+turn K2 -1
+key 11 down
+turn K3 16
+key 11 up
+expect evlen1 263
+wait 100
+shot length_over.png
+turn K1 1
+expect bar 2
+expect length 0
+shot length_held.png
+turn K1 -1
+expect bar 1
 # the loop: HOME held, on and off; HOME short still leaves the view
 hold HOME 1200
 expect loop 1
