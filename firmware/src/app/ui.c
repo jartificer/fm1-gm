@@ -17,8 +17,8 @@
  *                  held twice deletes it, SEL held twice starts a new song (undo: ARP)
  *   BAR            one bar of the selected track, close up: KNOB 1 the bar, 2 the step, 3 the length
  *                  of the step's notes in steps (with keys held: of those notes only), 4 quantize (the
- *                  step's size). SEL held: MOVE mode (SEL again ends it), KNOB 1 moves the step's
- *                  notes (with keys held: those notes) up and down, KNOB 2 their start in the bar.
+ *                  step's size). SEL held: MOVE mode (SEL again ends it), KNOB 3 moves the step's
+ *                  notes (with keys held: those notes) up and down, KNOB 4 their start in the bar.
  *                  HOME held loops the bar (playback and recording stay in it). ENV
  *                  deletes the step's notes (with keys held: those notes only; held: deletes the bar,
  *                  every track), LFO copies the bar
@@ -38,7 +38,7 @@ enum {
     K_FAMILY, K_PROG, K_VOL, K_PAN, K_CHAN, K_REV, K_TRANSPOSE, K_KEYVEL,
     K_MIX0, K_MIX1, K_MIX2, K_MIX3,
     K_MIDIIN, K_MIDIOUT, K_CLOCK, K_COUNTIN, K_POLY, K_METROVOL, K_LEDS, K_THEME,
-    K_SLOT, K_BAR, K_STEP, K_LEN,
+    K_SLOT, K_BAR, K_STEP, K_LEN, K_PITCH, K_START,
 };
 #define NKPAGES 2
 static const uint8_t VIEW_KNOB[NVIEWS][NKPAGES][4] = {
@@ -49,6 +49,7 @@ static const uint8_t VIEW_KNOB[NVIEWS][NKPAGES][4] = {
     {{K_MIDIIN, K_MIDIOUT, K_CLOCK, K_COUNTIN}, {K_POLY, K_METROVOL, K_LEDS, K_THEME}},
     {{K_BAR, K_STEP, K_LEN, K_QUANT}, {K_BAR, K_STEP, K_LEN, K_QUANT}},
 };
+static const uint8_t MOVE_KNOB[4] = {K_BAR, K_STEP, K_PITCH, K_START};   /* BAR in MOVE mode */
 
 /* the screen's colours (Setup, COLOURS): one accent per meaning. Dark is the default; the two
  * colour-blind ones take their accents from Okabe and Ito's palette (red-green: no red against
@@ -243,7 +244,8 @@ static void len_add(int d)
 }
 
 static int moving(void) { return ui.move && ui.view == V_BAR && !seq_step; }
-/* MOVE mode: KNOB 1 and 2 move the step's notes (with keys held, theirs): d semitones up (kind 0), d
+static const uint8_t *view_knobs(void) { return moving() ? MOVE_KNOB : VIEW_KNOB[ui.view][ui.kpage[ui.view]]; }
+/* MOVE mode: KNOB 3 and 4 move the step's notes (with keys held, theirs): d semitones up (kind 0), d
  * steps later in the bar (1) */
 static void move(int kind, int32_t d)
 {
@@ -297,12 +299,14 @@ static int knob_get(int k)
     case K_LEDS: return set.leds;
     case K_THEME: return set.theme;
     case K_SLOT: return ui.slot_cur + 1;
-    case K_BAR: return moving() ? (len_get() ? len_lo : 0) : bar_cur() + 1;
+    case K_BAR: return bar_cur() + 1;
     case K_STEP: {
         uint32_t b0 = (uint32_t)bar_cur() * SEQ_BAR;
         return seq_step_tick >= b0 && seq_step_tick < b0 + SEQ_BAR ? (int)((seq_step_tick - b0) / step_ticks()) + 1 : 1;
     }
     case K_LEN: return len_get();
+    case K_PITCH: return len_get() ? len_lo + 1 : 0;   /* the lowest note picked, + 1; 0: none */
+    case K_START: return len_get() ? knob_get(K_STEP) : 0;
     default: return 0;
     }
 }
@@ -322,12 +326,12 @@ static void knob_range(int k, int *lo, int *hi)
     };
     uint32_t i;
     *lo = *hi = 0;
-    if (k == K_BAR && moving()) {
-        *hi = 127;
+    if (k == K_PITCH) {
+        *hi = 128;
         return;
     }
-    if (k == K_BAR || k == K_STEP || k == K_LEN) {
-        *lo = 1;
+    if (k == K_BAR || k == K_STEP || k == K_LEN || k == K_START) {
+        *lo = k != K_START;
         *hi = k == K_BAR ? seq_song.bars : (int)((k == K_LEN ? seq_song_ticks() : SEQ_BAR) / step_ticks());
         return;
     }
@@ -369,8 +373,10 @@ static const char *knob_name(int k)
     case K_LEDS: return "LIGHTS";
     case K_THEME: return "COLOURS";
     case K_SLOT: return "SLOT";
-    case K_BAR: return moving() ? "PITCH" : "BAR";
-    case K_STEP: return moving() ? "START" : "STEP";
+    case K_BAR: return "BAR";
+    case K_STEP: return "STEP";
+    case K_PITCH: return "PITCH";
+    case K_START: return "START";
     case K_LEN: return "LENGTH";
     default: return "";
     }
@@ -412,19 +418,18 @@ static void knob_text(int k, int v, char *b)    /* knob k's value v as it shows 
         return;
     case K_MIDIIN: cat(b, v ? "MULTI" : "TRACK"); return;
     case K_MIDIOUT: case K_CLOCK: case K_LEDS: cat(b, OFFON[v & 1]); return;
-    case K_BAR:
-        if (moving() && !len_get()) {
-            cat(b, "-");
-        } else if (moving()) {                  /* the lowest note picked, by name */
+    case K_PITCH:
+        if (v) {                                /* the note v - 1, by name */
             static const char NN[] = "C C#D D#E F F#G G#A A#B ";
+            v--;
             b[0] = NN[v % 12 * 2];
             b[1] = NN[v % 12 * 2 + 1];
             itoa_s(v / 12 - 1, b + (b[1] != ' ' ? 2 : 1));
         } else {
-            itoa_s(v, b);
+            cat(b, "-");
         }
         return;
-    case K_LEN:
+    case K_LEN: case K_START:
         if (v)
             itoa_s(v, b);
         else
@@ -517,8 +522,8 @@ static void turn(int role, int k, int32_t e)
     int lo, hi;
     if (!e || k == K_NONE)
         return;
-    if ((k == K_BAR || k == K_STEP) && moving()) {
-        move(k == K_STEP, e);
+    if (k == K_PITCH || k == K_START) {
+        move(k == K_START, e);
         return;
     }
     knob_range(k, &lo, &hi);
@@ -941,7 +946,7 @@ static void input(void)
         turn(EN_PRESET, K_TEMPO, e);
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + (int)i)) != 0) {
-            turn(EN_K1 + (int)i, VIEW_KNOB[ui.view][ui.kpage[ui.view]][i], e);
+            turn(EN_K1 + (int)i, view_knobs()[i], e);
             ui.touched = (int8_t)i;
             ui.touch_until = now + 1200u;
             ui.act_t = now;
@@ -1275,7 +1280,7 @@ static void chevron(int32_t x, int32_t y, int dir, uint16_t c)
 /* BAR: one bar of the selected track, close up: the steps, the step selected, the notes */
 #define BAR_HELP1 "[HOME] held: loop  [SEL] held: move  [ARP] undo"
 #define BAR_HELP2 "[ENV] del (held: bar)  [LFO] copy (held: paste)"
-#define MOVE_HELP1 "MOVE: KNOB 1 pitch, KNOB 2 start  [SEL] done"
+#define MOVE_HELP1 "MOVE: KNOB 3 pitch, KNOB 4 start  [SEL] done"
 #define MOVE_HELP2 "Hold keys to move only those notes"
 #define SONGS_HELP "[SEL] load (held: new)  [SAVE] save  [ARP] held: del"
 static void draw_bar(void)
@@ -1478,7 +1483,7 @@ static void draw_main(void)
 
 static void draw_knobs(void)
 {
-    const uint8_t *kn = VIEW_KNOB[ui.view][ui.kpage[ui.view]];
+    const uint8_t *kn = view_knobs();
     uint32_t h = hash(hash(2166136261u, ui.view | (uint32_t)ui.kpage[ui.view] << 4 | (uint32_t)ui.touched << 8 |
                                             (uint32_t)set.theme << 16 | (uint32_t)moving() << 24), seq_sel), i;
     int now_touch = plat_ms() < ui.touch_until;
@@ -1636,12 +1641,12 @@ int ui_fit_check(void)
     char t[48];
     uint8_t keep = seq_song.bars;
     seq_song.bars = SEQ_MAXBARS;                 /* the widest the values get */
-    for (k = K_TEMPO; k <= K_LEN; k++) {
+    for (k = K_TEMPO; k <= K_START; k++) {
         const char *q;
         int lower;
         bad += fit1("knob name", &FONT_XS, knob_name(k), 58);
         knob_range(k, &lo, &hi);
-        if (k == K_STEP)
+        if (k == K_STEP || k == K_START)
             hi = SEQ_BAR / 6;
         for (v = lo; v <= hi; v++) {
             t[0] = 0;
