@@ -204,7 +204,7 @@ static int len_get(void)                       /* the longest picked note, in st
         return 0;
     for (i = 0; i < (uint32_t)seq_sel; i++)
         s += seq_song.trk[i].nev;
-    for (i = s; i < s + sel_trk()->nev; i++) {
+    for (i = s; i < s + sel_trk()->nev && seq_song.ev[i].tick < seq_step_tick + st; i++) {   /* by tick */
         const seq_ev_t *e = &seq_song.ev[i];
         uint32_t k = (e->len + st / 8u + st / 2u) / st;   /* as seq.c's len_steps */
         if (len_picked(e) && (k ? k : 1u) > n)
@@ -1225,6 +1225,11 @@ static void draw_bar(void)
         lo = e->note < lo ? e->note : lo;
         hi = e->note > hi ? e->note : hi;
     }
+    for (i = 0; i < NKEYS; i++)                 /* and the keys held, so their rows show */
+        if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel) {
+            lo = ui.key_note[i] < lo ? ui.key_note[i] : lo;
+            hi = ui.key_note[i] > hi ? ui.key_note[i] : hi;
+        }
     if (hi < lo) {
         lo = 54;
         hi = 66;
@@ -1241,19 +1246,24 @@ static void draw_bar(void)
             cv_rect(sx, 22, sw, 86, seq_step ? mix(K_PANEL, K_ACC, 5) : K_SEL_T);
         cv_rect(sx, 22, 1, 86, i * st % SEQ_PPQN == 0 ? K_DIM : K_LINE);
     }
+    for (i = 0; i < NKEYS; i++)                 /* a key held: its row lit across the bar */
+        if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel)
+            cv_rect(8, 22 + 81 - (ui.key_note[i] - lo) * 80 / (hi - lo), 224, 4, mix(K_PANEL, K_TEXT, 4));
     for (i = s; i < s + k->nev; i++) {
         const seq_ev_t *e = &seq_song.ev[i];
         int32_t ex, ew, ey;
         uint32_t end;
+        int held;
         if (e->tick < b0 || e->tick >= b0 + SEQ_BAR)
             continue;
         end = e->tick + e->len > b0 + SEQ_BAR ? b0 + SEQ_BAR : e->tick + e->len;
         ex = 8 + (int32_t)(224u * (e->tick - b0) / SEQ_BAR);
         ew = (int32_t)(224u * (end - e->tick) / SEQ_BAR);
         ey = 22 + 81 - (int32_t)((e->note - lo) * 80 / (hi - lo));
-        if (ui.keys && len_picked(e))   /* LENGTH's notes, picked by the keys held */
-            cv_rect(ex, ey - 1, (ew < 3 ? 2 : ew - 1) + 2, 6, K_TEXT);
-        cv_rect(ex + 1, ey, ew < 3 ? 2 : ew - 1, 4, is_drum(k) ? K_DRUMC : K_ACC);
+        held = ui.keys && key_held_note(e->note);
+        if (held && len_picked(e))              /* LENGTH's notes, picked by the keys held: outlined */
+            cv_rect(ex - 1, ey - 2, (ew < 3 ? 2 : ew - 1) + 4, 8, K_ACC);
+        cv_rect(ex + 1, ey, ew < 3 ? 2 : ew - 1, 4, held ? K_TEXT : is_drum(k) ? K_DRUMC : K_ACC);
     }
     if (seq_playing && !seq_counting && seq_tick >= b0 && seq_tick < b0 + SEQ_BAR)
         cv_rect(8 + (int32_t)(224u * (seq_tick - b0) / SEQ_BAR), 22, 1, 86, seq_rec ? K_RECC : K_PLAYC);

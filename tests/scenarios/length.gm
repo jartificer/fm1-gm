@@ -26,6 +26,7 @@ expect evlen2 47
 key 11 down
 expect length 4
 turn K3 2
+wait 100
 shot length_key.png
 key 11 up
 expect evlen0 47
@@ -50,6 +51,15 @@ expect evlen1 11
 expect evlen2 11
 tap ARP
 expect evlen1 71
+# a key held: its row and its notes lit in the bar, also where it has none (the row of B, below)
+key 7 down
+wait 100
+shot length_row.png
+key 7 up
+key 4 down
+wait 100
+shot length_row_empty.png
+key 4 up
 # an empty step: nothing to change
 turn K2 1
 expect length 0

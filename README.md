@@ -121,7 +121,7 @@ Press HOME twice for the **Bar** view: one bar of the selected track, close up, 
 |---|---|
 | KNOB 1 | The bar |
 | KNOB 2 | The step (it is also where step recording starts: press SEQ) |
-| KNOB 3 | Length of the notes that start in the step, in steps (1/16 steps at 1/16): turn it to make them longer or shorter, a step at least. It shows the longest one's length, or "-" when the step has none. Hold a note's key while you turn it to change only that note (hold several keys for several notes); the notes picked are outlined. ARP undoes the changes made at a step in one go |
+| KNOB 3 | Length of the notes that start in the step, in steps (1/16 steps at 1/16): turn it to make them longer or shorter, a step at least. It shows the longest one's length, or "-" when the step has none. Hold a note's key while you turn it to change only that note (hold several keys for several notes); the notes picked are outlined. Any key you hold in this view lights its row across the bar and its notes in it, so you can see where a pitch is. ARP undoes the changes made at a step in one go |
 | KNOB 4 | Quantize, which sets the step size |
 | HOME held 1 s | Loop: playback and recording stay in this bar until you hold HOME again or leave the view. While it is on, the bar is framed in green, LOOP ON shows beside the bar number and HOME's light blinks |
 | ENV | Delete the step's notes (the selected track) |
