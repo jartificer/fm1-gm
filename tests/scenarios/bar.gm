@@ -49,8 +49,9 @@ expect trknev1 3
 # loop bar 2: playback stays in it
 turn K1 -1
 expect bar 2
-turn K3 1
+hold HOME 1200
 expect loop 1
+expect view 5
 tap PLAY
 wait 4500
 expect playing 1

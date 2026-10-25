@@ -1,0 +1,111 @@
+# The BAR page's LENGTH (KNOB 3): a chord's notes longer, one note picked by its key, two by theirs,
+# undo and redo; an empty step; then the loop on HOME held, seen on the screen and on HOME's light.
+wait 600
+tap HOME
+expect view 5
+# C E G at bar 1, step 1, step-recorded (1/16: 11 ticks long)
+tap SEQ
+key 7 down
+key 11 down
+key 14 down
+key 7 up
+key 11 up
+key 14 up
+tap SEQ
+expect trknev1 3
+expect evlen0 11
+turn K2 -1
+expect step_tick 0
+expect length 1
+turn K3 3
+expect length 4
+expect evlen0 47
+expect evlen1 47
+expect evlen2 47
+# the E only: its key held
+key 11 down
+expect length 4
+turn K3 2
+wait 100
+shot length_key.png
+key 11 up
+expect evlen0 47
+expect evlen1 71
+expect evlen2 47
+expect length 6
+# C and G: their keys held, two steps shorter
+key 7 down
+key 14 down
+expect length 4
+turn K3 -2
+key 7 up
+key 14 up
+expect evlen0 23
+expect evlen1 71
+expect evlen2 23
+shot length.png
+# one undo for all of it; again: redo
+tap ARP
+expect evlen0 11
+expect evlen1 11
+expect evlen2 11
+tap ARP
+expect evlen1 71
+# a key held: its row and its notes lit in the bar, also where it has none (the row of B, below)
+key 7 down
+wait 100
+shot length_row.png
+key 7 up
+key 4 down
+wait 100
+shot length_row_empty.png
+key 4 up
+# an empty step: nothing to change
+turn K2 1
+expect length 0
+turn K3 1
+expect evlen0 23
+expect evlen2 23
+# a note held past its bar: > at its end; in the next bar, from its start, with <
+turn K2 -1
+key 11 down
+turn K3 16
+key 11 up
+expect evlen1 263
+wait 100
+shot length_over.png
+turn K1 1
+expect bar 2
+expect length 0
+shot length_held.png
+turn K1 -1
+expect bar 1
+# ENV with a key held: only that note of the step goes; ARP brings it back
+turn K2 1
+turn K2 -1
+expect step_tick 0
+key 11 down
+tap ENV
+key 11 up
+expect trknev1 2
+expect evnote0 60
+expect evnote1 67
+tap ARP
+expect trknev1 3
+expect evnote1 64
+# the loop: HOME held, on and off; HOME short still leaves the view
+hold HOME 1200
+expect loop 1
+expect view 5
+shot length_loop.png
+leds
+tap PLAY
+wait 3000
+expect playing 1
+tap PLAY
+hold HOME 1200
+expect loop 0
+expect view 5
+tap HOME
+expect view 0
+expect fit 0

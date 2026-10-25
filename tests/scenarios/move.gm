@@ -1,0 +1,117 @@
+# The BAR page's MOVE mode (SEL held): KNOB 1 and 2 still pick the bar and step, KNOB 3 moves the
+# step's notes up and down, KNOB 4 their start in the bar; with a key held, only its note; a move onto a note jumps past it, one out of the bar does nothing; a run of moves keeps to its notes;
+# one undo for the run; a short SEL ends it, and SEL then still opens SONGS.
+wait 600
+tap HOME
+expect view 5
+# C E G at bar 1, step 1
+tap SEQ
+key 7 down
+key 11 down
+key 14 down
+key 7 up
+key 11 up
+key 14 up
+tap SEQ
+expect trknev1 3
+turn K2 -1
+expect step_tick 0
+hold SEL 1200
+expect move 1
+expect view 5
+expect sellit 1
+wait 100
+shot move_on.png
+# the chord up a tone, then three steps later
+turn K3 2
+expect evnote0 62
+expect evnote1 66
+expect evnote2 69
+turn K4 3
+expect evtick0 36
+expect evtick1 36
+expect evtick2 36
+expect step_tick 36
+expect evlen0 11
+# the F# only, its key held: up a semitone, two more; the second would land on the A: it jumps past it
+key 13 down
+turn K3 1
+expect evnote1 67
+turn K3 2
+wait 100
+shot move_key.png
+key 13 up
+expect evnote1 70
+expect evnote0 62
+expect evnote2 69
+# to the bar's first step and its last; no further
+turn K4 -4
+expect evtick0 0
+turn K4 16
+expect evtick0 180
+expect evtick2 180
+turn K4 -12
+expect evtick0 36
+expect resets 0
+# KNOB 2 still picks the step: an empty one, where KNOB 3 moves nothing; then back
+turn K2 1
+expect step_tick 48
+turn K3 1
+expect evnote0 62
+turn K2 -1
+expect step_tick 36
+expect resets 0
+# one undo for the run
+tap ARP
+expect evnote0 60
+expect evnote1 64
+expect evnote2 67
+expect evtick0 0
+tap ARP
+expect evtick0 36
+expect evnote1 70
+# a short SEL ends MOVE mode (KNOB 2 is the step again); SEL again opens SONGS
+tap SEL
+expect move 0
+expect view 5
+turn K2 1
+expect evtick0 36
+tap SEL
+expect view 3
+tap HOME
+expect view 0
+expect fit 0
+# MOVE mode while step recording: the chord being entered (keys still held) moves; letting go goes on
+# from where it now is
+tap HOME
+expect view 5
+turn K1 1
+expect bar 2
+tap SEQ
+hold SEL 1200
+expect move 1
+key 7 down
+turn K3 2
+turn K4 1
+key 7 up
+wait 100
+expect evnote3 62
+expect evtick3 204
+expect step_tick 216
+key 9 down
+key 9 up
+wait 100
+expect evnote4 62
+expect evtick4 216
+tap SEQ
+# a D one step on from the D at step 2: moving it there jumps past it, and the other stays
+turn K2 -2
+expect step_tick 204
+turn K4 1
+expect evtick3 216
+expect evtick4 228
+expect step_tick 228
+tap SEL
+expect move 0
+expect resets 0
+expect fit 0

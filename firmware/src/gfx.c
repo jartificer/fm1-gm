@@ -10,7 +10,7 @@ typedef struct {               /* proportional, see tools/gen_font.py */
     const uint8_t *adv;        /* advance per glyph */
     const uint8_t *bw;         /* bitmap width per glyph (starts FONT_PAD left of the pen) */
     const uint16_t *off;       /* byte offset of each glyph */
-    const uint8_t *data;
+    const uint8_t *data;       /* its pixels, run-length packed (gen_font.py) */
 } felucca_font_t;
 #include "felucca_font.h"
 
@@ -151,16 +151,19 @@ static int32_t cv_text(int32_t x, int32_t y, const felucca_font_t *f, const char
 {
     uint32_t r = c >> 11, g = (c >> 5) & 63u, b = c & 31u;
     for (; *s; s++) {
-        uint32_t gi = glyph(f, (uint8_t)*s), gx, gy, w, bpr;
+        uint32_t gi = glyph(f, (uint8_t)*s), gx, gy, w, ni = 0, run = 0, a = 0;
         const uint8_t *gd;
         w = f->bw[gi];
-        bpr = (w + 1u) / 2u;
         gd = f->data + f->off[gi];
+#define NIB() ((ni & 1u) ? gd[ni++ >> 1] & 15u : gd[ni++ >> 1] >> 4)
         for (gy = 0; gy < f->h; gy++)
             for (gx = 0; gx < w; gx++) {
-                uint32_t a = gd[gy * bpr + gx / 2u];
                 int32_t px = x - f->pad + (int32_t)gx, py = y + (int32_t)gy + cv_oy;
-                a = (gx & 1u) ? (a & 15u) : (a >> 4);
+                if (!run) {                     /* the next pixel, or run of them */
+                    a = NIB();
+                    run = a && a < 15u ? 1u : NIB() + 1u;
+                }
+                run--;
                 if (!a || (uint32_t)px >= cv_w || py < cv_y0 || py >= cv_y1)
                     continue;
                 if (a == 15u) {
@@ -174,6 +177,7 @@ static int32_t cv_text(int32_t x, int32_t y, const felucca_font_t *f, const char
                 }
             }
         x += f->adv[gi];
+#undef NIB
     }
     return x;
 }

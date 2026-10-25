@@ -631,11 +631,12 @@ static void rec_flush(void)                     /* stop: the notes still held en
             rec_off(n);
 }
 
-static void step_clear(int t, uint32_t t0, uint32_t sl)   /* track t's notes that start in t0 .. t0 + sl - 1 */
+/* track t's notes (note < 0: all, else that one) that start in t0 .. t0 + sl - 1 */
+static void step_clear(int t, uint32_t t0, uint32_t sl, int note)
 {
     uint32_t s = trk_start(t), e = s + S->trk[t].nev, i;
     for (i = s; i < e;) {
-        if (S->ev[i].tick >= t0 && S->ev[i].tick < t0 + sl) {
+        if (S->ev[i].tick >= t0 && S->ev[i].tick < t0 + sl && (note < 0 || S->ev[i].note == note)) {
             ev_remove(i, t);
             e--;
         } else {
@@ -649,14 +650,181 @@ static void step_back(void)
     uint32_t sl = step_len(), lo = reg_lo(), len = reg_hi() - lo, t0;
     t0 = lo + (reg_wrap(seq_step_tick) - lo + len - sl % len) % len;
     seq_step_tick = (uint16_t)t0;
-    step_clear(seq_sel, t0, sl);
+    step_clear(seq_sel, t0, sl, -1);
+}
+
+/* a note's length in steps of sl: what step_len() notes are (a step less its eighth), rounded */
+static uint32_t len_steps(uint32_t len, uint32_t sl)
+{
+    uint32_t n = (len + sl / 8u + sl / 2u) / sl;
+    return n ? n : 1u;
+}
+
+/* the step edits (LENGTH, moves): one undo for a run of them at a step, with nothing else between */
+static uint32_t mark_changes, mark_at = 0xFFFFFFFFu;
+static uint8_t move_run;                        /* the last of them was a move (its notes marked) */
+static void step_undo(uint32_t at)
+{
+    if (mark_at != at || mark_changes != seq_changes)
+        snapshot();
+}
+static void step_mark(uint32_t at)
+{
+    changed();
+    mark_at = at;
+    mark_changes = seq_changes;
+}
+
+/* track t's notes (note 128: all) that start in the step at the step cursor: d steps longer */
+static void step_len_add(int t, int note, int32_t d)
+{
+    uint32_t sl = step_len(), t0 = reg_wrap(seq_step_tick), s = trk_start(t), e = s + S->trk[t].nev, i, pass;
+    uint32_t mx = seq_song_ticks() / sl, at = (uint32_t)t << 16 | t0;
+    for (pass = 0; pass < 2; pass++)            /* 0: is anything to change; 1: change it */
+        for (i = s; i < e && S->ev[i].tick < t0 + sl; i++) {
+            seq_ev_t *v = &S->ev[i];
+            int32_t n;
+            uint32_t len;
+            if (v->tick < t0 || (note < 128 && v->note != note))
+                continue;
+            n = (int32_t)len_steps(v->len, sl) + d;
+            n = n < 1 ? 1 : n > (int32_t)mx ? (int32_t)mx : n;
+            len = (uint32_t)n * sl - sl / 8u;
+            if (len == v->len)
+                continue;
+            if (!pass) {                        /* the first change here since any other: the undo copy */
+                step_undo(at);
+                break;
+            }
+            v->len = (uint16_t)len;
+            step_mark(at);
+            move_run = 0;
+        }
+}
+
+/* moving notes: those picked in the step at the step cursor (mask 0: all; else bit i: note base + i);
+ * base < 0: the notes the last move moved (marked rsv 1), so a run of moves keeps to them */
+static int move_picked(const seq_ev_t *v, uint32_t t0, uint32_t sl, int base, uint32_t mask)
+{
+    uint32_t i = (uint32_t)(v->note - base);
+    if (base < 0)
+        return v->rsv & 1u;
+    return v->tick >= t0 && v->tick < t0 + sl && (!mask || (i < 32u && (mask >> i & 1u)));
+}
+static int move_cont(int t, int kind)           /* kind & 2: go on with the last move's notes, if they still are */
+{
+    return (kind & 2) && move_run && mark_at == ((uint32_t)t << 16 | reg_wrap(seq_step_tick)) &&
+           mark_changes == seq_changes;
+}
+
+/* track t's note at tick (s, e: its notes), or -1 */
+static int32_t ev_find(uint32_t s, uint32_t e, uint32_t tick, int note)
+{
+    uint32_t lo = s, hi = e, m;
+    while (lo < hi) {
+        m = (lo + hi) / 2u;
+        if (S->ev[m].tick < tick)
+            lo = m + 1u;
+        else
+            hi = m;
+    }
+    for (; lo < e && S->ev[lo].tick == tick; lo++)
+        if (S->ev[lo].note == note)
+            return (int32_t)lo;
+    return -1;
+}
+
+int seq_step_can_move(int t, int base, uint32_t mask, int kind, int32_t d)
+{
+    uint32_t sl = step_len(), t0 = reg_wrap(seq_step_tick), s = trk_start(t), e = s + S->trk[t].nev, i, any = 0;
+    uint32_t b0 = t0 / SEQ_BAR * SEQ_BAR;
+    int32_t dt, dn, k;
+    if (move_cont(t, kind))
+        base = -1;
+    kind &= 1;
+    dt = kind ? d * (int32_t)sl : 0;
+    dn = kind ? 0 : d;
+    if (!d)
+        return 0;
+    for (i = s; i < e && S->ev[i].tick < t0 + sl; i++) {
+        const seq_ev_t *v = &S->ev[i];
+        int32_t nt = (int32_t)v->tick + dt, nn = (int32_t)v->note + dn;
+        if (!move_picked(v, t0, sl, base, mask))
+            continue;
+        if (nn < 0 || nn > 127 || nt < (int32_t)b0 || nt >= (int32_t)(b0 + SEQ_BAR))
+            return 0;
+        k = ev_find(s, e, (uint32_t)nt, (int)nn);
+        if (k >= 0 && (kind || !move_picked(&S->ev[k], t0, sl, base, mask)))
+            return 0;                           /* onto a note that stays */
+        any = 1;
+    }
+    return (int)any;
+}
+
+/* a pitch move's notes, heard at their new pitch for a moment (seq_render ends them) */
+#define NPREV 16
+static uint8_t prev_n, prev_ch, prev_note[NPREV];
+static uint32_t prev_left;                      /* samples until they end */
+static void preview_off(void)
+{
+    while (prev_n)
+        out3(0x80u | prev_ch, prev_note[--prev_n], 0);
+}
+
+/* the picked notes d semitones up (kind 0), or d steps later in their bar (kind 1: the cursor goes
+ * with them); none move if one can't */
+static void step_move(int t, int base, uint32_t mask, int kind, int32_t d)
+{
+    uint32_t sl = step_len(), t0 = reg_wrap(seq_step_tick), s = trk_start(t), e = s + S->trk[t].nev, i, j, ie;
+    int32_t dt;
+    if (!seq_step_can_move(t, base, mask, kind, d))
+        return;
+    step_undo((uint32_t)t << 16 | t0);
+    if (move_cont(t, kind))
+        base = -1;
+    else                                        /* a new set of notes: only they get marked */
+        for (i = s; i < e; i++)
+            S->ev[i].rsv = 0;
+    kind &= 1;
+    dt = kind ? d * (int32_t)sl : 0;
+    for (ie = s; ie < e && S->ev[ie].tick < t0 + sl; ie++)
+        ;
+    if (!kind)
+        preview_off();
+    for (i = s; i < ie; i++)
+        if (move_picked(&S->ev[i], t0, sl, base, mask)) {
+            S->ev[i].rsv = 1;
+            S->ev[i].tick = (uint16_t)((int32_t)S->ev[i].tick + dt);
+            S->ev[i].note = (uint8_t)(S->ev[i].note + (kind ? 0 : d));
+            if (!kind && prev_n < NPREV) {      /* heard at the new pitch */
+                const seq_trk_t *k = &S->trk[t];
+                prev_ch = k->chan;
+                prev_note[prev_n] = (uint8_t)out_note(k, S->ev[i].note);
+                out3(0x90u | k->chan, prev_note[prev_n++], k->vel);
+                prev_left = (uint32_t)(GM_SR * 0.4f);
+            }
+        }
+    if (kind) {                                 /* by tick again (in order: a stable insertion sort) */
+        for (i = s + 1u; i < e; i++) {
+            seq_ev_t x = S->ev[i];
+            for (j = i; j > s && S->ev[j - 1u].tick > x.tick; j--)
+                S->ev[j] = S->ev[j - 1u];
+            S->ev[j] = x;
+        }
+        for (j = s; j < e && S->ev[j].tick < cur; j++)
+            ;
+        pos[t] = (uint16_t)j;
+        seq_step_tick = (uint16_t)((int32_t)t0 + dt);
+    }
+    step_mark((uint32_t)t << 16 | seq_step_tick);
+    move_run = 1;
 }
 
 /* -------------------------------------------------------- bar editing --- */
 static void bar_clear(int t, uint32_t bar)      /* track t's notes in the bar */
 {
     tracks_off(t);
-    step_clear(t, bar * SEQ_BAR, SEQ_BAR);
+    step_clear(t, bar * SEQ_BAR, SEQ_BAR, -1);
 }
 
 static void bar_copy(int t, uint32_t bar)
@@ -951,9 +1119,16 @@ static void exec(const cmd_t *c)
         changed();
         break;
     case SC_STEP_DELETE:
-        snapshot();
+        if (c->c != 2)
+            snapshot();
         tracks_off(t);
-        step_clear(t, reg_wrap(seq_step_tick), step_len());
+        step_clear(t, reg_wrap(seq_step_tick), step_len(), c->c ? c->b & 127 : -1);
+        break;
+    case SC_STEP_LEN:
+        step_len_add(t, c->b > 127 ? 128 : c->b, c->w);
+        break;
+    case SC_STEP_MOVE:
+        step_move(t, c->b, (uint32_t)c->w, c->a >> 4 & 3, (int8_t)c->c);
         break;
     default:
         break;
@@ -980,6 +1155,8 @@ void seq_render(int32_t *out, uint32_t n, uint32_t gain_q12)
         }
     while (n) {
         uint32_t k = n > GM_CHUNK ? GM_CHUNK : n, j;
+        if (prev_n && (prev_left = prev_left > k ? prev_left - k : 0u) == 0u)
+            preview_off();
         if (seq_playing && !seq_lock) {
             acc += (float)k;
             while (acc >= spt && seq_playing) {

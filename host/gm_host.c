@@ -436,6 +436,18 @@ static int expect(const char *what, const char *val)
         got = seq_song.ev[atoi(what + 6)].tick;
     else if (!strncmp(what, "evnote", 6))
         got = seq_song.ev[atoi(what + 6)].note;
+    else if (!strncmp(what, "evlen", 5))            /* evlenI: note I's length in ticks */
+        got = seq_song.ev[atoi(what + 5)].len;
+    else if (!strcmp(what, "length"))               /* the BAR page's LENGTH knob (0: no notes) */
+        got = knob_get(K_LEN);
+    else if (!strcmp(what, "resets"))               /* times the engine's safety net went quiet */
+        got = (int)gm_resets;
+    else if (!strcmp(what, "move"))                 /* the BAR page's MOVE mode */
+        got = moving();
+    else if (!strcmp(what, "sellit"))               /* the SEL button's light */
+        got = (int)(lit_btn >> B_SEL & 1u);
+    else if (!strcmp(what, "homelit"))              /* the HOME button's light */
+        got = (int)(lit_btn >> B_HOME & 1u);
     else if (!strcmp(what, "peak_db_max") || !strcmp(what, "peak_db_min")) {
         double db = 20.0 * log10(peak_out > 1e-9f ? peak_out : 1e-9f);
         int bad = what[8] == 'm' && what[9] == 'a' ? db > atof(val) : db < atof(val);

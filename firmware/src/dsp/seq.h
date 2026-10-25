@@ -9,7 +9,7 @@
  *
  *   Real-time recording (overdub, quantized on input) while the loop plays, with an optional
  *   one-bar count-in; step recording while stopped; one level of undo; erase a track. Bar editing:
- *   loop one bar; clear, copy, paste or delete it; delete one step's notes.
+ *   loop one bar; clear, copy, paste or delete it; delete one step's notes, or change their length.
  *
  *   In flash a song is a byte stream (song_stream / song_parse), as compact as a MIDI file without
  *   the parts the FM-1 has no use for (velocity, controllers, bend): the song's and the tracks'
@@ -98,7 +98,15 @@ enum {
     SC_BAR_COPY,    /* a: track: its notes in bar w to the clipboard */
     SC_BAR_PASTE,   /* a: track: bar w's notes replaced by the clipboard's */
     SC_BAR_DELETE,  /* bar w out of the song, every track; the bars after it move up one */
-    SC_STEP_DELETE, /* a: track: its notes in the step at the step cursor (a quantize step long) */
+    SC_STEP_DELETE, /* a: track: its notes in the step at the step cursor (a quantize step long); c 1: only
+                     * note b; c 2: only note b, and the undo copy kept (the next of a chord of keys) */
+    SC_STEP_LEN,    /* a: track, b: note (128: every note): its notes in the step at the step cursor, w steps
+                     * longer (w < 0: shorter), a step at least; one undo for the changes at a step in a row */
+    SC_STEP_MOVE,   /* a: track | 16 (by time) | 32 (go on: the notes the last move moved, if it was the
+                     * last edit), b: base note, w: notes (bit i: base + i; 0: every note), c: an int8 d:
+                     * the step's notes d semitones up, or d steps later in their bar (the cursor follows);
+                     * none move if one can't (seq_step_can_move, kind 1 time | 2 go on); one undo as for
+                     * SC_STEP_LEN */
     SC_INIT,        /* a new song in place of this one: no notes, every track and setting at its default
                      * (stops first; undo brings the song back) */
 };
@@ -137,6 +145,7 @@ static inline uint32_t song_bytes(const song_t *s) { return song_stream(s, 0, 0,
  * copy (SC_UNDO brings it back); stopped and with seq_lock set. 0, or -1: not a song (nothing changed) */
 int seq_import(int (*get)(void));
 uint32_t seq_song_ticks(void);
+int seq_step_can_move(int t, int base, uint32_t mask, int kind, int32_t d);   /* SC_STEP_MOVE would move notes */
 /* the render (audio ISR): n stereo frames, 24-bit in int32; gain Q12 */
 void seq_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12);
 /* MIDI out from the render: the app sends it (USB) */
