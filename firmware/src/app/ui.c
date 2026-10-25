@@ -1273,8 +1273,8 @@ static void chevron(int32_t x, int32_t y, int dir, uint16_t c)
 }
 
 /* BAR: one bar of the selected track, close up: the steps, the step selected, the notes */
-#define BAR_HELP1 "[HOME] held: loop  [ENV] del step (held: bar)"
-#define BAR_HELP2 "[LFO] copy (held: paste)  [ARP] undo (held: clear)"
+#define BAR_HELP1 "[HOME] held: loop  [SEL] held: move  [ARP] undo"
+#define BAR_HELP2 "[ENV] del (held: bar)  [LFO] copy (held: paste)"
 #define MOVE_HELP1 "MOVE: KNOB 1 pitch, KNOB 2 start  [SEL] done"
 #define MOVE_HELP2 "Hold keys to move only those notes"
 #define SONGS_HELP "[SEL] load (held: new)  [SAVE] save  [ARP] held: del"
