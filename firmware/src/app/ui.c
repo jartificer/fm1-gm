@@ -329,14 +329,13 @@ static const char *knob_name(int k)
 
 static void knob_text(int k, int v, char *b)    /* knob k's value v as it shows */
 {
-    const seq_trk_t *t = sel_trk();
     static const char *const OFFON[2] = {"OFF", "ON"};
     switch (k) {
     case K_QUANT: cat(b, seq_quant_name(v)); return;
     case K_METRO: cat(b, v == 0 ? "OFF" : v == 1 ? "REC" : "ON"); return;
     case K_FAMILY:
     case K_PROG:
-        if (is_drum(t)) {
+        if (is_drum(sel_trk())) {
             cat(b, k == K_FAMILY ? "Drums" : "Kit");
             return;
         }
