@@ -1,0 +1,75 @@
+# The BAR page's MOVE mode (SEL held): KNOB 1 moves the step's notes up and down, KNOB 2 their start
+# in the bar; with a key held, only its note; blocked moves (onto a note, out of the bar) do nothing;
+# one undo for the run; a short SEL ends it, and SEL then still opens SONGS.
+wait 600
+tap HOME
+expect view 5
+# C E G at bar 1, step 1
+tap SEQ
+key 7 down
+key 11 down
+key 14 down
+key 7 up
+key 11 up
+key 14 up
+tap SEQ
+expect trknev1 3
+turn K2 -1
+expect step_tick 0
+hold SEL 1200
+expect move 1
+expect view 5
+expect sellit 1
+wait 100
+shot move_on.png
+# the chord up a tone, then three steps later
+turn K1 2
+expect evnote0 62
+expect evnote1 66
+expect evnote2 69
+turn K2 3
+expect evtick0 36
+expect evtick1 36
+expect evtick2 36
+expect step_tick 36
+expect evlen0 11
+# the F# only, its key held: up a semitone, two more; the second is onto the A: blocked
+key 13 down
+turn K1 1
+expect evnote1 67
+turn K1 2
+wait 100
+shot move_key.png
+key 13 up
+expect evnote1 68
+expect evnote0 62
+expect evnote2 69
+# to the bar's first step and its last; no further
+turn K2 -4
+expect evtick0 0
+turn K2 16
+expect evtick0 180
+expect evtick2 180
+turn K2 -12
+expect evtick0 36
+expect resets 0
+# one undo for the run
+tap ARP
+expect evnote0 60
+expect evnote1 64
+expect evnote2 67
+expect evtick0 0
+tap ARP
+expect evtick0 36
+expect evnote1 68
+# a short SEL ends MOVE mode (KNOB 2 is the step again); SEL again opens SONGS
+tap SEL
+expect move 0
+expect view 5
+turn K2 1
+expect evtick0 36
+tap SEL
+expect view 3
+tap HOME
+expect view 0
+expect fit 0

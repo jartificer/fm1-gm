@@ -102,6 +102,9 @@ enum {
                      * note b; c 2: only note b, and the undo copy kept (the next of a chord of keys) */
     SC_STEP_LEN,    /* a: track, b: note (128: every note): its notes in the step at the step cursor, w steps
                      * longer (w < 0: shorter), a step at least; one undo for the changes at a step in a row */
+    SC_STEP_MOVE,   /* a: track | 16 (by time), b: base note, w: notes (bit i: base + i; 0: every note), c: an
+                     * int8 d: the step's notes d semitones up, or d steps later in their bar (the cursor
+                     * follows); none move if one can't (seq_step_can_move); one undo as for SC_STEP_LEN */
     SC_INIT,        /* a new song in place of this one: no notes, every track and setting at its default
                      * (stops first; undo brings the song back) */
 };
@@ -140,6 +143,7 @@ static inline uint32_t song_bytes(const song_t *s) { return song_stream(s, 0, 0,
  * copy (SC_UNDO brings it back); stopped and with seq_lock set. 0, or -1: not a song (nothing changed) */
 int seq_import(int (*get)(void));
 uint32_t seq_song_ticks(void);
+int seq_step_can_move(int t, int base, uint32_t mask, int kind, int32_t d);   /* SC_STEP_MOVE would move notes */
 /* the render (audio ISR): n stereo frames, 24-bit in int32; gain Q12 */
 void seq_render(int32_t *out_lr, uint32_t n, uint32_t gain_q12);
 /* MIDI out from the render: the app sends it (USB) */

@@ -698,6 +698,88 @@ static void test_step_len(void)
     run(256);
 }
 
+/* a step's notes moved (SC_STEP_MOVE): up and down, one note or a chord of picked ones (moving onto a
+ * note that moves too), later and earlier in the bar; blocked moves change nothing; the track stays in
+ * tick order; one undo for the run; and a moved note plays where it now is */
+static void test_step_move(void)
+{
+    int s, i;
+    uint32_t k, on = 0;
+    post(SC_SONG, SP_BARS, 0, 0, 2);
+    post(SC_SONG, SP_QUANT, 0, 0, 2);           /* 1/8: steps of 24 */
+    post(SC_SELECT, 4, 0, 0, 0);
+    post(SC_CURSOR, 0, 0, 0, 48);
+    post(SC_STEP, 1, 0, 0, 0);
+    post(SC_NOTE_ON, 4, 60, 100, 0);            /* C D E at tick 48, then G at 72 */
+    post(SC_NOTE_ON, 4, 62, 100, 0);
+    post(SC_NOTE_ON, 4, 64, 100, 0);
+    post(SC_NOTE_OFF, 4, 60, 0, 0);
+    post(SC_NOTE_OFF, 4, 62, 0, 0);
+    post(SC_NOTE_OFF, 4, 64, 0, 0);
+    post(SC_NOTE_ON, 4, 67, 100, 0);
+    post(SC_NOTE_OFF, 4, 67, 0, 0);
+    post(SC_STEP, 0, 0, 0, 0);
+    post(SC_CURSOR, 0, 0, 0, 48);
+    run(256);
+    s = trk_first(4);
+    k = seq_changes;
+    CHECK(!seq_step_can_move(4, 60, 1u, 0, 2), "C up a tone onto the D: allowed");
+    CHECK(!seq_step_can_move(4, 0, 0, 1, -3), "the chord before the bar: allowed");
+    post(SC_STEP_MOVE, 4, 60, 2, 1u);           /* blocked: C onto D */
+    post(SC_STEP_MOVE, 4 | 16, 0, (uint8_t)-3, 0);   /* blocked: out of the bar */
+    run(256);
+    CHECK(seq_changes == k, "a blocked move changed the song");
+    post(SC_STEP_MOVE, 4, 60, 1, 5u);           /* C and D (bits 0 and 2 from 60) up a semitone */
+    run(256);
+    CHECK(seq_song.ev[s].note == 61 && seq_song.ev[s + 1].note == 63 && seq_song.ev[s + 2].note == 64,
+          "picked up a semitone: %d %d %d", seq_song.ev[s].note, seq_song.ev[s + 1].note, seq_song.ev[s + 2].note);
+    post(SC_STEP_MOVE, 4, 61, 1, 9u);           /* C# and E (bits 0, 3): C#->D, E->F; the D# stays */
+    run(256);
+    CHECK(seq_song.ev[s].note == 62 && seq_song.ev[s + 1].note == 63 && seq_song.ev[s + 2].note == 65,
+          "picked again: %d %d %d", seq_song.ev[s].note, seq_song.ev[s + 1].note, seq_song.ev[s + 2].note);
+    post(SC_STEP_MOVE, 4, 62, (uint8_t)-1, 1u); /* D down a semitone; F down a tone, onto the D#: blocked */
+    post(SC_STEP_MOVE, 4, 65, (uint8_t)-2, 1u);
+    run(256);
+    CHECK(seq_song.ev[s].note == 61 && seq_song.ev[s + 1].note == 63 && seq_song.ev[s + 2].note == 65,
+          "down: %d %d %d", seq_song.ev[s].note, seq_song.ev[s + 1].note, seq_song.ev[s + 2].note);
+    post(SC_STEP_MOVE, 4 | 16, 0, 2, 0);         /* every note, two steps later: past the G */
+    run(256);
+    CHECK(seq_step_tick == 96, "the cursor did not follow: %d", seq_step_tick);
+    CHECK(seq_song.ev[s].note == 67 && seq_song.ev[s].tick == 72, "the G is first: %d at %d", seq_song.ev[s].note,
+          seq_song.ev[s].tick);
+    for (i = 1; i < 4; i++)
+        CHECK(seq_song.ev[s + i].tick == 96 && seq_song.ev[s + i].len == 21, "moved note %d at %d, len %d", i,
+              seq_song.ev[s + i].tick, seq_song.ev[s + i].len);
+    post(SC_STEP_MOVE, 4 | 16, 0, 3, 0);         /* to the bar's last step; one more: blocked */
+    post(SC_STEP_MOVE, 4 | 16, 0, 1, 0);
+    run(256);
+    CHECK(seq_step_tick == 168 && seq_song.ev[s + 1].tick == 168, "last step: cursor %d, note at %d", seq_step_tick,
+          seq_song.ev[s + 1].tick);
+    post(SC_UNDO, 0, 0, 0, 0);                  /* the whole run: one undo */
+    run(256);
+    CHECK(seq_song.ev[s].note == 60 && seq_song.ev[s].tick == 48 && seq_song.ev[s + 1].note == 62 &&
+          seq_song.ev[s + 2].note == 64 && seq_song.ev[s + 3].note == 67, "undo: %d at %d", seq_song.ev[s].note,
+          seq_song.ev[s].tick);
+    /* playing: the chord moved to tick 0 while playing sounds there on the next pass, once */
+    post(SC_CURSOR, 0, 0, 0, 72);
+    post(SC_STEP_MOVE, 4 | 16, 0, (uint8_t)-3, 0);
+    run(256);
+    CHECK(seq_song.ev[s].note == 67 && seq_song.ev[s].tick == 0 && seq_song.ev[s + 1].tick == 48, "G to 0: %d at %d",
+          seq_song.ev[s].note, seq_song.ev[s].tick);
+    post(SC_PLAY, 0, 0, 0, 0);
+    for (k = 0; k < 30000u; k += 64) {
+        run(64);
+        if (gm_voices_used && !on)
+            on = k;
+    }
+    CHECK(on < 512, "the moved note did not play at the top: %u", on);
+    post(SC_STOP, 0, 0, 0, 0);
+    post(SC_ERASE, 4, 0, 0, 0);
+    post(SC_SONG, SP_BARS, 0, 0, 4);
+    post(SC_SONG, SP_QUANT, 0, 0, 4);
+    run(256);
+}
+
 /* the count-in: a key still held when recording begins starts at the top; one let go before, not at all */
 static void test_countin(void)
 {
@@ -791,6 +873,7 @@ int main(int argc, char **argv)
     test_step();
     test_bars();
     test_step_len();
+    test_step_move();
     test_countin();
     test_full();
     printf("song in RAM: %u B header + %u B a note, %u B full\n", (unsigned)SONG_HEAD_BYTES,

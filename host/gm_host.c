@@ -442,6 +442,10 @@ static int expect(const char *what, const char *val)
         got = knob_get(K_LEN);
     else if (!strcmp(what, "resets"))               /* times the engine's safety net went quiet */
         got = (int)gm_resets;
+    else if (!strcmp(what, "move"))                 /* the BAR page's MOVE mode */
+        got = moving();
+    else if (!strcmp(what, "sellit"))               /* the SEL button's light */
+        got = (int)(lit_btn >> B_SEL & 1u);
     else if (!strcmp(what, "homelit"))              /* the HOME button's light */
         got = (int)(lit_btn >> B_HOME & 1u);
     else if (!strcmp(what, "peak_db_max") || !strcmp(what, "peak_db_min")) {

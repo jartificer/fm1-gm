@@ -13,7 +13,7 @@ Custom firmware that turns the M-VAVE FM-1 into a General MIDI sound module and 
 - **16 tracks, each on any of the 16 MIDI channels**, with program, volume, pan, reverb, transpose and velocity per track.
 - **64 song slots sharing all of the device's free data flash** (284 KB, roughly 100,000 notes), power-safe (a save never touches the song it replaces until it is complete; CRC-checked).
 - Real-time recording with overdub, quantize and count-in, plus step recording, undo, mute and solo.
-- **Bar editing:** pick a bar and a step; change the length of the step's notes (all of them, or the ones whose keys you hold), loop the bar, delete a step, copy, paste, clear or delete a bar. Undo covers all of it.
+- **Bar editing:** pick a bar and a step; change the length of the step's notes (all of them, or the ones whose keys you hold), move them up and down or to another step in the bar, loop the bar, delete a step, copy, paste, clear or delete a bar. Undo covers all of it.
 - MIDI in (USB and the TRS jack) plays the sounds; MIDI out and clock out over USB are optional.
 - A battery indicator, and five screen colour schemes, two of them for colour-blind players.
 
@@ -123,6 +123,7 @@ Press HOME twice for the **Bar** view: one bar of the selected track, close up, 
 | KNOB 2 | The step (it is also where step recording starts: press SEQ) |
 | KNOB 3 | Length of the notes that start in the step, in steps (1/16 steps at 1/16): turn it to make them longer or shorter, a step at least. It shows the longest one's length, or "-" when the step has none. Hold a note's key while you turn it to change only that note (hold several keys for several notes); the notes picked are outlined. Any key you hold in this view lights its row across the bar and its notes in it, so you can see where a pitch is. A note can be longer than its bar: it ends in a > where the bar ends, and the bars it is still held in show it from their start with a <. ARP undoes the changes made at a step in one go |
 | KNOB 4 | Quantize, which sets the step size |
+| SEL held 1 s | MOVE mode: KNOB 1 moves the step's notes up and down in semitones (it shows the lowest one), KNOB 2 moves their start within the bar, in steps (the step goes with them). Hold keys to move only those notes; a held key follows its note. A move that would put a note onto another of the same pitch, or out of the bar, does nothing. MOVE shows beside the bar number and SEL is lit; press SEL to leave it. ARP undoes the moves made in a row in one go |
 | HOME held 1 s | Loop: playback and recording stay in this bar until you hold HOME again or leave the view. While it is on, the bar is framed in green, LOOP ON shows beside the bar number and HOME's light blinks |
 | ENV | Delete the step's notes (the selected track). With keys held, only those keys' notes in the step |
 | ENV held 1 s | Delete the bar from the song, all tracks; the bars after it move up |

@@ -17,7 +17,9 @@
  *                  held twice deletes it, SEL held twice starts a new song (undo: ARP)
  *   BAR            one bar of the selected track, close up: KNOB 1 the bar, 2 the step, 3 the length
  *                  of the step's notes in steps (with keys held: of those notes only), 4 quantize (the
- *                  step's size). HOME held loops the bar (playback and recording stay in it). ENV
+ *                  step's size). SEL held: MOVE mode (SEL again ends it), KNOB 1 moves the step's
+ *                  notes (with keys held: those notes) up and down, KNOB 2 their start in the bar.
+ *                  HOME held loops the bar (playback and recording stay in it). ENV
  *                  deletes the step's notes (with keys held: those notes only; held: deletes the bar,
  *                  every track), LFO copies the bar
  *                  (held: pastes it over this one), ARP held clears the bar; ARP undoes any of them.
@@ -95,8 +97,9 @@ static struct {
     uint32_t enc_t[NE];
     int8_t oct;
     uint8_t slot_cur;                  /* the SONGS page's cursor */
-    uint8_t bar, loop;                 /* the BAR page's bar (0..), and its loop on */
+    uint8_t bar, loop, move;           /* the BAR page's bar (0..), its loop on, MOVE mode on */
     uint8_t key_note[NKEYS], key_trk[NKEYS];   /* what each key held plays (the track may change meanwhile) */
+    uint8_t key_pick[NKEYS];                   /* the pitch it picks in the Bar view: its note, moved with it */
     uint8_t midi_trk[128];             /* MIDI in (TRACK mode): the track each held note went to, +1 */
     uint8_t last_drum;                 /* the drum played last (its name on the TRACK page) */
     uint32_t saved_changes;            /* seq_changes when the song was last loaded / saved */
@@ -189,7 +192,7 @@ static int key_held_note(int note)
 {
     uint32_t i;
     for (i = 0; i < NKEYS; i++)
-        if ((ui.keys >> i & 1u) && ui.key_note[i] == note && ui.key_trk[i] == seq_sel)
+        if ((ui.keys >> i & 1u) && ui.key_pick[i] == note && ui.key_trk[i] == seq_sel)
             return 1;
     return 0;
 }
@@ -230,7 +233,54 @@ static void len_add(int d)
     }
     for (i = 0; i < NKEYS; i++)
         if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel)
-            post(SC_STEP_LEN, seq_sel, ui.key_note[i], 0, d);
+            post(SC_STEP_LEN, seq_sel, ui.key_pick[i], 0, d);
+}
+
+static int moving(void) { return ui.move && ui.view == V_BAR && !seq_step; }
+static int pick_lo(void)                        /* the lowest pitch picked (keys held, else the step's notes) */
+{
+    uint32_t i, s = 0;
+    int n = 127;
+    for (i = 0; i < NKEYS; i++)
+        if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel && ui.key_pick[i] < n)
+            n = ui.key_pick[i];
+    if (len_keys())
+        return n;
+    for (i = 0; i < (uint32_t)seq_sel; i++)
+        s += seq_song.trk[i].nev;
+    for (i = s; i < s + sel_trk()->nev; i++)
+        if (len_picked(&seq_song.ev[i]) && seq_song.ev[i].note < n)
+            n = seq_song.ev[i].note;
+    return n;
+}
+/* MOVE mode: KNOB 1 and 2 move the step's notes (with keys held, theirs): d semitones up (kind 0), d
+ * steps later in the bar (1) */
+static void move(int kind, int32_t d)
+{
+    uint32_t i, mask = 0;
+    int base = len_keys() ? pick_lo() : 0;
+    for (i = 0; i < NKEYS; i++)
+        if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel) {
+            if (ui.key_pick[i] - base > 31) {
+                say("KEYS TOO FAR", "APART TO MOVE");
+                return;
+            }
+            mask |= 1u << (ui.key_pick[i] - base);
+        }
+    d = d < -12 ? -12 : d > 12 ? 12 : d;
+    if (!len_get()) {
+        say("NO NOTES", "AT THIS STEP");
+        return;
+    }
+    if (!seq_step_can_move(seq_sel, base, mask, kind, d)) {
+        say("CAN NOT MOVE", "THERE");
+        return;
+    }
+    post(SC_STEP_MOVE, seq_sel | (uint32_t)kind << 4, (uint32_t)base, (uint32_t)(uint8_t)(int8_t)d, (int32_t)mask);
+    if (!kind)
+        for (i = 0; i < NKEYS; i++)
+            if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel)
+                ui.key_pick[i] = (uint8_t)(ui.key_pick[i] + d);
 }
 
 /* -------------------------------------------------------------- knobs --- */
@@ -261,7 +311,7 @@ static int knob_get(int k)
     case K_LEDS: return set.leds;
     case K_THEME: return set.theme;
     case K_SLOT: return ui.slot_cur + 1;
-    case K_BAR: return bar_cur() + 1;
+    case K_BAR: return moving() ? (len_get() ? pick_lo() : 0) : bar_cur() + 1;
     case K_STEP: {
         uint32_t b0 = (uint32_t)bar_cur() * SEQ_BAR;
         return seq_step_tick >= b0 && seq_step_tick < b0 + SEQ_BAR ? (int)((seq_step_tick - b0) / step_ticks()) + 1 : 1;
@@ -286,6 +336,10 @@ static void knob_range(int k, int *lo, int *hi)
     };
     uint32_t i;
     *lo = *hi = 0;
+    if (k == K_BAR && moving()) {
+        *hi = 127;
+        return;
+    }
     if (k == K_BAR || k == K_STEP || k == K_LEN) {
         *lo = 1;
         *hi = k == K_BAR ? seq_song.bars : (int)((k == K_LEN ? seq_song_ticks() : SEQ_BAR) / step_ticks());
@@ -329,8 +383,8 @@ static const char *knob_name(int k)
     case K_LEDS: return "LIGHTS";
     case K_THEME: return "COLOURS";
     case K_SLOT: return "SLOT";
-    case K_BAR: return "BAR";
-    case K_STEP: return "STEP";
+    case K_BAR: return moving() ? "PITCH" : "BAR";
+    case K_STEP: return moving() ? "START" : "STEP";
     case K_LEN: return "LENGTH";
     default: return "";
     }
@@ -372,6 +426,18 @@ static void knob_text(int k, int v, char *b)    /* knob k's value v as it shows 
         return;
     case K_MIDIIN: cat(b, v ? "MULTI" : "TRACK"); return;
     case K_MIDIOUT: case K_CLOCK: case K_LEDS: cat(b, OFFON[v & 1]); return;
+    case K_BAR:
+        if (moving() && !len_get()) {
+            cat(b, "-");
+        } else if (moving()) {                  /* the lowest note picked, by name */
+            static const char NN[] = "C C#D D#E F F#G G#A A#B ";
+            b[0] = NN[v % 12 * 2];
+            b[1] = NN[v % 12 * 2 + 1];
+            itoa_s(v / 12 - 1, b + (b[1] != ' ' ? 2 : 1));
+        } else {
+            itoa_s(v, b);
+        }
+        return;
     case K_LEN:
         if (v)
             itoa_s(v, b);
@@ -465,6 +531,10 @@ static void turn(int role, int k, int32_t e)
     int lo, hi;
     if (!e || k == K_NONE)
         return;
+    if ((k == K_BAR || k == K_STEP) && moving()) {
+        move(k == K_STEP, e);
+        return;
+    }
     knob_range(k, &lo, &hi);
     knob_set(k, knob_get(k) + accel(role, e, hi - lo));
 }
@@ -486,7 +556,7 @@ static void drum_played(int n)                  /* the drum's name on the TRACK 
 static void key_down(int key)
 {
     int n = key_to_note(key);
-    ui.key_note[key] = (uint8_t)n;
+    ui.key_note[key] = ui.key_pick[key] = (uint8_t)n;
     ui.key_trk[key] = seq_sel;
     if (is_drum(sel_trk()))
         drum_played(n);
@@ -557,7 +627,8 @@ static void set_view(int v)
         ui.view = V_BAR;
         bar_go((int)(t / SEQ_BAR < seq_song.bars ? t / SEQ_BAR : 0u), t % SEQ_BAR / step_ticks());
     } else if (v != V_BAR && ui.view == V_BAR) {
-        post(SC_LOOP, 0, 0, 0, 0);              /* the loop is the bar page's */
+        post(SC_LOOP, 0, 0, 0, 0);              /* the loop is the bar page's, and MOVE mode */
+        ui.move = 0;
     }
     ui.view = (uint8_t)v;
     ui.confirm = C_NONE;
@@ -682,7 +753,10 @@ static void button(int b, int held_long)
     case B_FX: set_view(V_MIX); break;
     case B_GLO: set_view(V_SETUP); break;
     case B_SEL:
-        if (ui.view == V_SONGS && held_long) {     /* a new song: held twice */
+        if (ui.view == V_BAR && (held_long || ui.move)) {   /* held: MOVE mode; then a press ends it */
+            ui.move ^= 1u;
+            say(ui.move ? "MOVE ON" : "MOVE OFF", ui.move ? "[SEL] DONE" : "");
+        } else if (ui.view == V_SONGS && held_long) {     /* a new song: held twice */
             if (ui.confirm != C_INIT) {
                 ui.confirm = C_INIT;
                 ui.confirm_until = plat_ms() + 4000u;
@@ -749,7 +823,7 @@ static void button(int b, int held_long)
             uint32_t i, n = 0;
             for (i = 0; i < NKEYS; i++)
                 if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel)
-                    post(SC_STEP_DELETE, seq_sel, ui.key_note[i], n++ ? 2u : 1u, 0);
+                    post(SC_STEP_DELETE, seq_sel, ui.key_pick[i], n++ ? 2u : 1u, 0);
             say(n > 1 ? "NOTES DELETED" : "NOTE DELETED", "");
         } else if (ui.view == V_BAR || seq_step) {
             post(SC_STEP_DELETE, seq_sel, 0, 0, 0);
@@ -825,7 +899,7 @@ static void button(int b, int held_long)
 
 static int has_long(int b)                      /* a button with a held action here */
 {
-    return b == B_ARP || (ui.view == V_BAR && (b == B_HOME || (!seq_step && (b == B_ENV || b == B_LFO)))) ||
+    return b == B_ARP || (ui.view == V_BAR && (b == B_HOME || b == B_SEL || (!seq_step && (b == B_ENV || b == B_LFO)))) ||
            (ui.view == V_SONGS && b == B_SEL);
 }
 
@@ -1091,7 +1165,8 @@ static uint32_t main_sig(void)
     if (ui.view == V_SETUP)
         h = hash(hash(h, plat_cpu_pct()), gm_voices_used | gm_drums_used << 8 | plat_xruns() << 16);
     if (ui.view == V_BAR)
-        h = hash(hash(h, (uint32_t)bar_cur() | (uint32_t)seq_loop << 8 | (uint32_t)seq_clip_n << 9 | seq_song.quant << 24),
+        h = hash(hash(h, (uint32_t)bar_cur() | (uint32_t)seq_loop << 8 | (uint32_t)seq_clip_n << 9 | (uint32_t)moving() << 23 |
+                             seq_song.quant << 24),
                  ui.keys);
     if (ui.view == V_SONGS)
         h = hash(h, plat_song_free());
@@ -1214,6 +1289,8 @@ static void chevron(int32_t x, int32_t y, int dir, uint16_t c)
 /* BAR: one bar of the selected track, close up: the steps, the step selected, the notes */
 #define BAR_HELP1 "[HOME] held: loop  [ENV] del step (held: bar)"
 #define BAR_HELP2 "[LFO] copy (held: paste)  [ARP] undo (held: clear)"
+#define MOVE_HELP1 "MOVE: KNOB 1 pitch, KNOB 2 start  [SEL] done"
+#define MOVE_HELP2 "Hold keys to move only those notes"
 #define SONGS_HELP "[SEL] load (held: new)  [SAVE] save  [ARP] held: del"
 static void draw_bar(void)
 {
@@ -1233,6 +1310,10 @@ static void draw_bar(void)
         cv_round(x + 8, 2, text_w(&FONT_XS, "LOOP ON") + 8, 16, 5, K_PLAYC);
         x = cv_text(x + 12, 3, &FONT_XS, "LOOP ON", K_BG) + 4;
     }
+    if (moving()) {                             /* MOVE mode: a badge */
+        cv_round(x + 8, 2, text_w(&FONT_XS, "MOVE") + 8, 16, 5, K_ACC);
+        x = cv_text(x + 12, 3, &FONT_XS, "MOVE", K_BG) + 4;
+    }
     b[0] = 0;
     itoa2((uint32_t)seq_sel + 1u, b);
     q = cat(b + 2, " ");
@@ -1249,8 +1330,8 @@ static void draw_bar(void)
     }
     for (i = 0; i < NKEYS; i++)                 /* and the keys held, so their rows show */
         if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel) {
-            lo = ui.key_note[i] < lo ? ui.key_note[i] : lo;
-            hi = ui.key_note[i] > hi ? ui.key_note[i] : hi;
+            lo = ui.key_pick[i] < lo ? ui.key_pick[i] : lo;
+            hi = ui.key_pick[i] > hi ? ui.key_pick[i] : hi;
         }
     if (hi < lo) {
         lo = 54;
@@ -1270,7 +1351,7 @@ static void draw_bar(void)
     }
     for (i = 0; i < NKEYS; i++)                 /* a key held: its row lit across the bar */
         if ((ui.keys >> i & 1u) && ui.key_trk[i] == seq_sel)
-            cv_rect(8, 22 + 81 - (ui.key_note[i] - lo) * 80 / (hi - lo), 224, 4, mix(K_PANEL, K_TEXT, 4));
+            cv_rect(8, 22 + 81 - (ui.key_pick[i] - lo) * 80 / (hi - lo), 224, 4, mix(K_PANEL, K_TEXT, 4));
     for (i = s; i < s + k->nev; i++) {
         const seq_ev_t *e = &seq_song.ev[i];
         int32_t ex, ew, ey;
@@ -1297,8 +1378,8 @@ static void draw_bar(void)
     }
     if (seq_playing && !seq_counting && seq_tick >= b0 && seq_tick < b0 + SEQ_BAR)
         cv_rect(8 + (int32_t)(224u * (seq_tick - b0) / SEQ_BAR), 22, 1, 86, seq_rec ? K_RECC : K_PLAYC);
-    help_text(6, 114, &FONT_XS, BAR_HELP1, K_DIM, 1);
-    help_text(6, 128, &FONT_XS, BAR_HELP2, K_DIM, 1);
+    help_text(6, 114, &FONT_XS, moving() ? MOVE_HELP1 : BAR_HELP1, K_DIM, 1);
+    help_text(6, 128, &FONT_XS, moving() ? MOVE_HELP2 : BAR_HELP2, K_DIM, 1);
 }
 
 /* MIX: sixteen strips; the four the knobs move are marked */
@@ -1413,7 +1494,7 @@ static void draw_knobs(void)
 {
     const uint8_t *kn = VIEW_KNOB[ui.view][ui.kpage[ui.view]];
     uint32_t h = hash(hash(2166136261u, ui.view | (uint32_t)ui.kpage[ui.view] << 4 | (uint32_t)ui.touched << 8 |
-                                            (uint32_t)set.theme << 16), seq_sel), i;
+                                            (uint32_t)set.theme << 16 | (uint32_t)moving() << 24), seq_sel), i;
     int now_touch = plat_ms() < ui.touch_until;
     for (i = 0; i < 4; i++)
         h = hash(h, (uint32_t)knob_get(kn[i]));
@@ -1477,6 +1558,8 @@ static void leds(void)
     int blink = (ui.frame / 8u) & 1u;
     if (!(ui.view == V_BAR && seq_loop && blink))   /* the bar view's loop: HOME blinks */
         b |= 1u << VIEW_BTN[ui.view];
+    if (moving())                               /* MOVE mode: SEL lit */
+        b |= 1u << B_SEL;
     if (seq_playing && !seq_counting)
         b |= seq_tick % SEQ_PPQN < SEQ_PPQN / 2 ? 1u << B_PLAY : 0u;
     if (seq_rec && (!seq_counting || blink))
@@ -1588,6 +1671,8 @@ int ui_fit_check(void)
         bad += fit1("family (TRACK)", &FONT_S, gm_family_name(p), 232 - 16 - text_w(&FONT_S, "8192 notes"));
     bad += fit1("BAR help", &FONT_XS, BAR_HELP1, 228);
     bad += fit1("BAR help", &FONT_XS, BAR_HELP2, 228);
+    bad += fit1("MOVE help", &FONT_XS, MOVE_HELP1, 228);
+    bad += fit1("MOVE help", &FONT_XS, MOVE_HELP2, 228);
     bad += fit1("SONGS help", &FONT_XS, SONGS_HELP, 232);
     bad += fit1("step help", &FONT_XS, SEQ_HELP, 226);
     bad += fit1("SETUP help", &FONT_XS, SETUP_HELP1, 228);
