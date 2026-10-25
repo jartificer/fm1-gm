@@ -81,3 +81,25 @@ expect view 3
 tap HOME
 expect view 0
 expect fit 0
+# MOVE mode while step recording: the chord being entered (keys still held) moves; letting go goes on
+# from where it now is
+tap HOME
+expect view 5
+turn K1 1
+expect bar 2
+tap SEQ
+hold SEL 1200
+expect move 1
+key 7 down
+turn K3 2
+turn K4 1
+key 7 up
+wait 100
+expect evnote3 62
+expect evtick3 204
+expect step_tick 216
+tap SEQ
+tap SEL
+expect move 0
+expect resets 0
+expect fit 0

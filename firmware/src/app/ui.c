@@ -243,7 +243,7 @@ static void len_add(int d)
             post(SC_STEP_LEN, seq_sel, ui.key_pick[i], 0, d);
 }
 
-static int moving(void) { return ui.move && ui.view == V_BAR && !seq_step; }
+static int moving(void) { return ui.move && ui.view == V_BAR; }
 static const uint8_t *view_knobs(void) { return moving() ? MOVE_KNOB : VIEW_KNOB[ui.view][ui.kpage[ui.view]]; }
 /* MOVE mode: KNOB 3 and 4 move the step's notes (with keys held, theirs): d semitones up (kind 0), d
  * steps later in the bar (1) */
