@@ -424,6 +424,8 @@ static int expect(const char *what, const char *val)
         got = seq_song.trk[atoi(what + 6) - 1].nev;
     else if (!strncmp(what, "prog", 4))             /* progT: track T's program (0..127) */
         got = seq_song.trk[atoi(what + 4) - 1].prog;
+    else if (!strncmp(what, "chprog", 6))           /* chprogC: the engine's program on channel C (1..16) */
+        got = gm_ch_prog[atoi(what + 6) - 1];
     else if (!strncmp(what, "vol", 3))
         got = seq_song.trk[atoi(what + 3) - 1].vol;
     else if (!strncmp(what, "chan", 4))             /* chanT: 1..16 */

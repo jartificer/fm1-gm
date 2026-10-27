@@ -105,7 +105,7 @@ Loading a different song while the current one has changes asks for a second SEL
 
 **Battery:** the icon at the top right shows three bars, two, one (orange) or none (red), from the battery's voltage. A bolt means a USB host is powering the FM-1.
 
-**MIDI in** has two modes, set in Setup. TRACK (the default) plays whatever arrives on the selected track, with its sound, so a keyboard records into the track you are on. MULTI plays each channel as sent, as a GM module; channel 10 is drums. MIDI Start and Stop start and stop the sequencer.
+**MIDI in** has two modes, set in Setup. TRACK (the default) plays whatever arrives on the selected track, with its sound, so a keyboard records into the track you are on. MULTI plays each channel as sent, as a GM module; channel 10 is drums. A program change in MULTI mode also becomes the program of the tracks on its channel, so the track list shows the instruments you hear (and saving the song keeps them). In TRACK mode program changes are ignored. MIDI Start and Stop start and stop the sequencer.
 
 ### Recording
 

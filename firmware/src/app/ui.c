@@ -577,7 +577,8 @@ static void keys_release(void)                  /* before the track or the octav
 }
 
 /* MIDI in (USB and the TRS jack). TRACK: every channel plays the selected track; MULTI: the engine
- * as a 16-channel GM module, and notes on the selected track's channel record. Start / stop: PLAY. */
+ * as a 16-channel GM module, notes on the selected track's channel record, and a program change is the
+ * program of the tracks on its channel (seq.c). Start / stop: PLAY. */
 static void midi_in(void)
 {
     uint32_t pkt;
