@@ -1,0 +1,55 @@
+# MIDI in, MULTI: a program change from the computer is the program of the tracks on its channel, so
+# the track list shows what plays; TRACK mode leaves programs alone; the drum channel stays the kit.
+wait 600
+expect prog3 48
+# TRACK mode: no program change
+midi C2 28 00
+wait 20
+expect prog3 48
+expect dirty 0
+# MULTI (Setup, K1)
+tap GLO
+turn K1 1
+expect midi_in 1
+tap HOME
+midi C2 28 00
+wait 20
+expect prog3 40
+expect chprog3 40
+expect dirty 1
+midi C0 49 00
+midi C5 13 00
+wait 20
+expect prog1 73
+expect prog6 19
+expect prog2 33
+# the drum channel: the track stays the kit
+midi C9 05 00
+wait 20
+expect prog10 0
+shot midiprog_song.png
+# two tracks on one channel: both take it (track 4 to channel 3)
+turn SELECT 3
+expect sel 3
+tap EDIT
+tap EDIT
+spin K1 -1
+wait 20
+expect chan4 3
+tap HOME
+midi C2 18 00
+wait 20
+expect prog3 24
+expect prog4 24
+# plays as named: a note on channel 3 after the change, and PLAY sends the tracks' programs again
+midi 92 3C 64
+wait 200
+midi 82 3C 00
+wait 20
+tap PLAY
+wait 100
+tap PLAY
+wait 20
+expect chprog3 24
+expect chprog1 73
+expect resets 0

@@ -76,7 +76,8 @@ enum {
     SC_NOTE_ON,     /* a: track, b: note, c: velocity: played now, recorded when recording (without it) */
     SC_NOTE_OFF,    /* a: track, b: note */
     SC_MIDI,        /* a: status, b, c: data: straight to the engine (and recorded when it is a note on the
-                     * recording track's channel) */
+                     * recording track's channel); a program change also sets the program of the tracks on
+                     * its channel (not the drum channel) */
     SC_PLAY,        /* from the top (with the count-in when recording and it is on) */
     SC_STOP,
     SC_REC,         /* a: 1 arm / 0 disarm real-time recording */

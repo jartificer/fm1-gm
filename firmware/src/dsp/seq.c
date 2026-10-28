@@ -988,6 +988,14 @@ static void exec(const cmd_t *c)
     case SC_MIDI: {
         uint32_t st = c->a, ty = st & 0xF0u;
         out3(st, c->b, c->c);
+        if (ty == 0xC0u && (st & 15u) != GM_DRUM_CH) {    /* a program change: the channel's tracks take it */
+            int i;
+            for (i = 0; i < SEQ_NTRK; i++)
+                if (S->trk[i].chan == (st & 15u) && S->trk[i].prog != (c->b & 127u)) {
+                    S->trk[i].prog = (uint8_t)(c->b & 127u);
+                    changed();
+                }
+        }
         if ((ty == 0x90u || ty == 0x80u) && (st & 15u) == S->trk[seq_sel].chan) {
             if (ty == 0x90u && c->c)
                 rec_on(seq_sel, c->b & 127);
