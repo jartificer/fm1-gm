@@ -19,6 +19,10 @@ export const PORT_RE = /fm-?1|felucca|ota|composite|sinco|usb-midi/i;   // never
 export const OPEN_RE = /^FM1_(OFFICIAL_OPEN|COMMUNITY_\d+)$/;
 export const STOCK = "FM-1_015";
 export const STOCK_SHA256 = "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a";
+// M-VAVE's official packages installed without the Felucca loader marker: these exact files only (their loader
+// writes the boot area too; firmware/src/ota.c OTA_STOCK pins the same images on the device)
+export const OFFICIAL = {"FM-1_015": STOCK_SHA256,                                                  // V15
+    "FM-1_016": "d017fb65e70aca97ee29d944470c3515a74581df5c0576bf70de917c7b2b61d5"};                       // V16 (2026-10-21)
 
 // milliseconds; the tests shorten them
 export const DELAY = {open: 300, start: 2000, reply: 10, loader: 3000, reboot: 3000, retry: 1000,
@@ -146,9 +150,9 @@ export async function loadPackage(raw, force = false) {
         throw new InstallError("badpkg", `not an FM-1 package (identity ${JSON.stringify(product)})`);
     const digest = hex(new Uint8Array(await crypto.subtle.digest("SHA-256", raw)));
     const loader = contains(raw, LOADER_MARK);
-    if (!loader && !force && digest !== STOCK_SHA256)
+    if (!loader && !force && OFFICIAL[product] !== digest)
         throw new InstallError("badpkg", "no Felucca update loader in this package; only Felucca's own packages " +
-            "and M-VAVE's FM-1 V15 are installed");
+            "and M-VAVE's FM-1 V15 or V16 (unchanged) are installed");
     return {product, image: logicalImage(raw), digest, loader, size: raw.length};
 }
 
