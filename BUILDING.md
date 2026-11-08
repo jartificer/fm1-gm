@@ -45,6 +45,8 @@ GitHub Actions (`.github/workflows/build.yml`) does all of this on every push an
 
 `tests/web_install_test.mjs` (Node 18 or later, run by `tests/run_tests.sh`) tests the installer against a simulated FM-1, and `tests/web_song_test.mjs` the editor's song format, MIDI export and SysEx protocol against the firmware in `web/fm1gm.wasm`.
 
+M-VAVE's official packages are not in the repository. With them in a folder, `FM1_STOCK_DIR=folder tests/run_tests.sh` also checks the updater's pins (`firmware/src/ota.c` OTA_STOCK, the installers' OFFICIAL) against the real V15 / V16 files, the return to stock over each boot area (`tests/ota_test.c`, `tests/rescue_test.py`), and FM1-GM's loader over V16's boot area (`tests/ldr_test.c`).
+
 ## Layout
 
 - `firmware/hal/`, `firmware/loader/`, `firmware/crt0.S`, `firmware/app.ld`: Felucca's FM-1 platform and update loader, unchanged.

@@ -137,7 +137,7 @@ int main(int argc, char **argv)
     uint8_t *old, head[0x4000];
     uint32_t ofo, nfo;
     int bad = 0, rc;
-    if (argc < 3) { printf("usage: ldr_test OLD.fwsc NEW.fwsc\n"); return 2; }
+    if (argc < 3) { printf("usage: ldr_test OLD.fwsc NEW.fwsc [V16.fwsc]\n"); return 2; }
     old = load_logical(argv[1], &olen);
     logical = load_logical(argv[2], &logical_len);
     ofo = flash_off(old);
@@ -173,6 +173,30 @@ int main(int argc, char **argv)
         rc = ldr_session();
         bad += check("foreign key / damaged app head refused, nothing erased", rc == -6 && erases == 0);
         logical[nfo + 0x4000 + 5] = save;
+    }
+    /* OFFICIAL.fwsc (M-VAVE's V16) installed: the new package over its boot area and its bigger app area */
+    if (argc > 3) {
+        size_t slen;
+        uint8_t *st = load_logical(argv[3], &slen);
+        uint32_t sfo = flash_off(st);
+        memset(nor, 0xFF, sizeof nor);
+        memcpy(nor, st + sfo, 0xA9000);
+        memcpy(head, nor, sizeof head);
+        {
+            uint8_t r[112] = {0};
+            r[2] = 0x0D; r[3] = 0x5A; r[4] = 0x01; r[5] = 0x5A; r[6] = 0x41; r[7] = 0x54;
+            ota_wr16(r, ota_crc16(r + 2, 78, 0));
+            memcpy(nor + 0xE4F00, r, sizeof r);
+        }
+        erases = 0; requests = 0; bad_range = 0;
+        rc = ldr_session();
+        printf("  over %s: rc %d, %u sector erases\n", argv[3], rc, erases);
+        bad += check("over V16: install completes (its chip key read)", rc == 0);
+        bad += check("over V16: app area == the new package's flash.bin",
+                     !memcmp(nor + 0x4000, logical + nfo + 0x4000, 0x93000 - 0x4000));
+        bad += check("over V16: its boot area [0, 0x4000) untouched", !memcmp(nor, head, sizeof head));
+        bad += check("over V16: no write outside the allowed windows", bad_range == 0);
+        free(st);
     }
     printf("%s\n", bad ? "LOADER TEST FAILED" : "loader test passed");
     return bad != 0;

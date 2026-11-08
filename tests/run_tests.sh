@@ -37,18 +37,28 @@ fi
 run storage sh -c "$CC -O2 -Wall -Werror -o $OUT/storage_test tests/storage_test.c && $OUT/storage_test"
 # the update path, against the firmware package (Felucca's tests; needs ./build.sh)
 if [ -f build/fm1gm.fwsc ]; then
-    run ota-entry sh -c "$CC -o $OUT/ota_test tests/ota_test.c && $OUT/ota_test build/fm1gm.fwsc"
+    # FM1_STOCK_DIR: a folder with M-VAVE's official packages (FM-1.fwsc V15 / V16), to check the pins
+    STOCK=""
+    V16=""
+    if [ -n "${FM1_STOCK_DIR:-}" ]; then
+        STOCK=$(ls "$FM1_STOCK_DIR"/*.fwsc 2>/dev/null | tr '\n' ' ')
+        for f in $STOCK; do   # the loader test takes V16 (its flash.bin is 0xA9000)
+            if [ "$(sha256sum "$f" | cut -c1-16)" = d017fb65e70aca97 ]; then V16="$f"; fi
+        done
+    fi
+    run ota-entry sh -c "$CC -o $OUT/ota_test tests/ota_test.c && $OUT/ota_test build/fm1gm.fwsc $STOCK"
     if [ -z "${AC79_SDK:-}" ]; then
         echo "  skip update-loader (needs AC79_SDK, as the build)"
     else
     run update-loader sh -c "head -c 100000 build/fm1gm.bin > $OUT/old_app.bin && \
         python3 tools/fm1pkg_make.py $OUT/old_app.bin build/loader/ota.bin $OUT/old.fwsc >/dev/null && \
-        $CC -o $OUT/ldr_test tests/ldr_test.c && $OUT/ldr_test $OUT/old.fwsc build/fm1gm.fwsc"
+        $CC -o $OUT/ldr_test tests/ldr_test.c && $OUT/ldr_test $OUT/old.fwsc build/fm1gm.fwsc $V16"
     fi
 else
     echo "  skip update-path tests (no build/fm1gm.fwsc: run ./build.sh)"
 fi
 run installer python3 tests/install_test.py
+run rescue python3 tests/rescue_test.py
 if command -v node >/dev/null 2>&1; then
     run web-installer node tests/web_install_test.mjs
     run web-songs node tests/web_song_test.mjs

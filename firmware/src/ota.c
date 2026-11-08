@@ -24,10 +24,30 @@
 #define OTA_AREA 0x000E0000u                     /* staged loader, 5 x 4 KiB */
 #define OTA_AREA_LEN 0x5000u
 #define OTA_RES (OTA_AREA + OTA_AREA_LEN - 0x100u)  /* 0xE4F00 = 4K boundary - 256: SPL scan */
-#define OTA_LDR_HCRC 0xEBAAu                     /* official update loader (usb_hid_ota.bin) */
+#define OTA_LDR_HCRC 0xEBAAu                     /* official update loader (usb_hid_ota.bin), the same in V15 and V16 */
 #define OTA_LDR_DCRC 0x5881u
 #define OTA_LDR_LEN 0x4DE1u
 #define OTA_FRAME_MAX 640u                       /* 512-B response = 605 wire bytes */
+#define OTA_HEAD_LEN 0x4000u                     /* the boot area: flash header, JLFS entries, SPL, isd_config */
+
+/* M-VAVE's official flash images, which its loader writes whole, boot area included (Felucca #619): only these reviewed
+ * ones, by flash.bin's size and UFW data CRC16, for a chip with their key, and only with their boot area, by the
+ * SHA-256 of its 16 KiB (CRC16s can be forged: a changed boot area could keep both). head_sha256 is the hash of
+ * flash.bin[0, 0x4000) of the official file, as tests/ota_test.c checks both
+ * against the real files when they are present (OTA_STOCK_DIR). The hosts pin the whole .fwsc by SHA-256
+ * (tools/fm1_install.py STOCK_SHA256); this is the device's own guard. */
+#ifndef OTA_STOCK_CONST
+#define OTA_STOCK_CONST const                    /* (tests/ota_test.c: its stand-ins' boot areas) */
+#endif
+static OTA_STOCK_CONST struct { uint32_t fl_len; uint16_t fl_crc, key; uint8_t head_sha256[32]; } OTA_STOCK[] = {
+    {0x93000u, 0x9B24u, 0x980Fu,                 /* V15 (FM-1_015) */
+     {0xD9u, 0xF4u, 0x31u, 0x91u, 0x77u, 0x76u, 0x56u, 0xDEu, 0x01u, 0xC7u, 0xBEu, 0xD4u, 0xF9u, 0xE9u, 0xBAu, 0x2Eu,
+      0x34u, 0xE9u, 0x48u, 0x32u, 0xC5u, 0xD2u, 0xEDu, 0x02u, 0xC3u, 0xFCu, 0x7Au, 0xB7u, 0xA6u, 0xD9u, 0xBDu, 0x67u}},
+    {0xA9000u, 0x79C4u, 0x980Fu,                 /* V16 (FM-1_016): its bigger app area, a new SPL and isd_config */
+     {0x8Fu, 0x52u, 0x28u, 0xC2u, 0xD6u, 0xEAu, 0x20u, 0x68u, 0x83u, 0x8Eu, 0xF4u, 0x91u, 0x6Fu, 0x94u, 0x6Bu, 0xEAu,
+      0x87u, 0x7Du, 0x14u, 0xB0u, 0x7Eu, 0x6Cu, 0xFCu, 0xA4u, 0x9Eu, 0x41u, 0x95u, 0x7Fu, 0x4Cu, 0x7Bu, 0x23u, 0x4Fu}},
+};
+
 
 static int ota_wire_send(const uint8_t *p, uint32_t n);
 static int ota_frame_get(const uint8_t **p, uint32_t *n);
@@ -56,6 +76,72 @@ static uint32_t ota_crc16(const uint8_t *p, uint32_t n, uint32_t c)   /* poly 0x
         c &= 0xFFFFu;
     }
     return c;
+}
+
+/* SHA-256 (FIPS 180-4) of whole 64-byte blocks, for the boot area of an official image (16 KiB) */
+static const uint32_t OTA_SHA_K[64] = {
+    0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u, 0x3956c25bu, 0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u,
+    0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u, 0x72be5d74u, 0x80deb1feu, 0x9bdc06a7u, 0xc19bf174u,
+    0xe49b69c1u, 0xefbe4786u, 0x0fc19dc6u, 0x240ca1ccu, 0x2de92c6fu, 0x4a7484aau, 0x5cb0a9dcu, 0x76f988dau,
+    0x983e5152u, 0xa831c66du, 0xb00327c8u, 0xbf597fc7u, 0xc6e00bf3u, 0xd5a79147u, 0x06ca6351u, 0x14292967u,
+    0x27b70a85u, 0x2e1b2138u, 0x4d2c6dfcu, 0x53380d13u, 0x650a7354u, 0x766a0abbu, 0x81c2c92eu, 0x92722c85u,
+    0xa2bfe8a1u, 0xa81a664bu, 0xc24b8b70u, 0xc76c51a3u, 0xd192e819u, 0xd6990624u, 0xf40e3585u, 0x106aa070u,
+    0x19a4c116u, 0x1e376c08u, 0x2748774cu, 0x34b0bcb5u, 0x391c0cb3u, 0x4ed8aa4au, 0x5b9cca4fu, 0x682e6ff3u,
+    0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u, 0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u,
+};
+#define OTA_ROR(x, n) ((x) >> (n) | (x) << (32u - (n)))
+
+static void ota_sha256_init(uint32_t *h)
+{
+    static const uint32_t H0[8] = {0x6a09e667u, 0xbb67ae85u, 0x3c6ef372u, 0xa54ff53au,
+                                   0x510e527fu, 0x9b05688cu, 0x1f83d9abu, 0x5be0cd19u};
+    uint32_t i;
+    for (i = 0; i < 8u; i++)
+        h[i] = H0[i];
+}
+
+static void ota_sha256_block(uint32_t *h, const uint8_t *p)
+{
+    uint32_t w[16], v[8], i, t, u;
+    for (i = 0; i < 8u; i++)
+        v[i] = h[i];
+    for (i = 0; i < 64u; i++) {
+        if (i < 16u) {
+            w[i] = (uint32_t)p[4u * i] << 24 | (uint32_t)p[4u * i + 1u] << 16 | (uint32_t)p[4u * i + 2u] << 8 |
+                   p[4u * i + 3u];
+        } else {                                        /* w[i & 15] holds w[i - 16] */
+            t = w[(i + 1u) & 15u];
+            u = w[(i + 14u) & 15u];
+            w[i & 15u] += (OTA_ROR(t, 7) ^ OTA_ROR(t, 18) ^ t >> 3) + (OTA_ROR(u, 17) ^ OTA_ROR(u, 19) ^ u >> 10) +
+                          w[(i + 9u) & 15u];
+        }
+        t = v[7] + (OTA_ROR(v[4], 6) ^ OTA_ROR(v[4], 11) ^ OTA_ROR(v[4], 25)) + ((v[4] & v[5]) ^ (~v[4] & v[6])) +
+            OTA_SHA_K[i] + w[i & 15u];
+        u = (OTA_ROR(v[0], 2) ^ OTA_ROR(v[0], 13) ^ OTA_ROR(v[0], 22)) + ((v[0] & v[1]) ^ (v[0] & v[2]) ^ (v[1] & v[2]));
+        v[7] = v[6]; v[6] = v[5]; v[5] = v[4]; v[4] = v[3] + t;
+        v[3] = v[2]; v[2] = v[1]; v[1] = v[0]; v[0] = t + u;
+    }
+    for (i = 0; i < 8u; i++)
+        h[i] += v[i];
+}
+
+/* the padding block of a message of n bytes, n a multiple of 64 below 512 MiB; then 1 if h is the digest d */
+static int ota_sha256_is(uint32_t *h, uint32_t n, const uint8_t *d)
+{
+    uint8_t pad[64];
+    uint32_t i;
+    for (i = 0; i < 64u; i++)
+        pad[i] = 0;
+    pad[0] = 0x80u;
+    pad[60] = (uint8_t)(n >> 21);
+    pad[61] = (uint8_t)(n >> 13);
+    pad[62] = (uint8_t)(n >> 5);
+    pad[63] = (uint8_t)(n << 3);
+    ota_sha256_block(h, pad);
+    for (i = 0; i < 32u; i++)
+        if ((uint8_t)(h[i >> 2] >> (24u - 8u * (i & 3u))) != d[i])
+            return 0;
+    return 1;
 }
 
 static void ota_jl_enc(uint8_t *p, uint32_t n)   /* UFW header cipher, key 0xFFFF */
@@ -254,10 +340,42 @@ static int ota_ufw(uint8_t *hdr, uint32_t *fl_off, uint32_t *fl_len, uint32_t *o
     return 0;
 }
 
+/* chip key from the device's flash head: JLFS top entries (ENC 0xFFFF) -> isd_config.ini blob; 0 ok, -1 read,
+ * -2 entry CRC, -3 no isd_config.ini, -4 blob CRC (the update loader's check too: ldr_core.c) */
+static int ota_chip_key(uint32_t *key)
+{
+    uint8_t e[32], blob[34];
+    uint32_t off, i, sum, k;
+    for (off = 32; off < 0x400u; off += 32u) {
+        if (ota_fread(off, e, 32))
+            return -1;
+        ota_jl_enc(e, 32);
+        if (ota_crc16(e + 2, 30, 0) != ota_rd16(e))
+            return -2;
+        if (!ota_memeq(e + 16, (const uint8_t *)"isd_config.ini", 15)) {
+            if (ota_rd16(e + 14))
+                return -3;                               /* last entry, not found */
+            continue;
+        }
+        if (ota_fread(ota_rd32(e + 4), blob, 34) || ota_crc16(blob, 32, 0) != ota_rd16(blob + 32))
+            return -4;
+        for (i = 0, sum = 0; i < 16u; i++)
+            sum += blob[i];
+        sum &= 0xFFu;
+        sum = sum >= 0xE0u ? 0xAAu : sum <= 0x10u ? 0x55u : sum;
+        for (i = 0, k = 0; i < 16u; i++)
+            if ((uint32_t)(blob[16 + i] ^ blob[15 - i]) < sum)
+                k |= 1u << i;
+        *key = k;
+        return 0;
+    }
+    return -3;
+}
+
 static int ota_stage(void)                       /* steps 1..6; 0 = host said success */
 {
-    static uint8_t hdr[0x400], b[512], mine[512];
-    uint32_t i, n, ota_off, ota_len, fl_off, fl_len, c, len, own, official;
+    static uint8_t hdr[0x400], b[512];
+    uint32_t i, n, ota_off, ota_len, fl_off, fl_len, fl_crc, c, len, own, official, key;
     int rc;
     /* 1. UFW header + entry list */
     ota_show(1, 0);
@@ -265,6 +383,9 @@ static int ota_stage(void)                       /* steps 1..6; 0 = host said su
         return rc;
     if (!fl_off || !ota_off)
         return -3;
+    for (i = 0, fl_crc = 0; i < ota_rd16(hdr + 8); i++)    /* flash.bin's data CRC16: ota_ufw left the entries */
+        if (ota_rd16(hdr + 0x40 + i * 0x50u) == 0)          /* decoded, and takes the last one, as here */
+            fl_crc = ota_rd16(hdr + 0x40 + i * 0x50u + 4u);
     /* 2. which loader: the official one (known CRCs; it rewrites the whole flash.bin
      *    including the head) or Felucca's own (app area only, checks the chip key) */
     if (ota_read(ota_off, b, 512))
@@ -279,14 +400,32 @@ static int ota_stage(void)                       /* steps 1..6; 0 = host said su
         own = ota_memeq(b + i, (const uint8_t *)"FELUCCA-LOADER-1", 16) && ota_rd32(b + 0x20 + 4) <= 0x14000u;
     if (!official && !own)
         return -7;
-    if (official) {                    /* the official loader writes the head: it must equal ours */
+    if (official) {
+        /* the official loader writes the boot area too: a reviewed official image only (OTA_STOCK), whichever
+         * boot area the device has now (V15's, V16's: the image's replaces it), and for this chip's key. Its
+         * boot area by SHA-256, or byte for byte the device's own (as before: then nothing in it changes) */
+        uint32_t sha[8], same = 1;
+        uint8_t mine[64];
         ota_show(2, 0);
-        for (i = 0; i < 0x4000u; i += 512u) {
-            if (ota_read(fl_off + i, b, 512) || ota_fread(i, mine, 512))
+        for (i = 0; i < sizeof OTA_STOCK / sizeof OTA_STOCK[0]; i++)
+            if (fl_len == OTA_STOCK[i].fl_len && fl_crc == OTA_STOCK[i].fl_crc)
+                break;
+        if (i == sizeof OTA_STOCK / sizeof OTA_STOCK[0])
+            return -5;                                      /* not a reviewed official image */
+        ota_sha256_init(sha);
+        for (n = 0; n < OTA_HEAD_LEN; n += 512u) {
+            if (ota_read(fl_off + n, b, 512))
                 return -4;
-            if (!ota_memeq(b, mine, 512))
-                return -5;
+            for (c = 0; c < 512u; c += 64u) {
+                ota_sha256_block(sha, b + c);
+                if (same && (ota_fread(n + c, mine, 64) || !ota_memeq(b + c, mine, 64)))
+                    same = 0;
+            }
         }
+        if (!ota_sha256_is(sha, OTA_HEAD_LEN, OTA_STOCK[i].head_sha256) && !same)
+            return -5;                                      /* a boot area neither pinned nor the device's */
+        if (ota_chip_key(&key) || key != OTA_STOCK[i].key)
+            return -16;                                     /* this chip's key is not the image's (or unreadable) */
     }
     /* 4. stage the package's loader: erase, body, verify, head last */
     ota_show(3, 0);

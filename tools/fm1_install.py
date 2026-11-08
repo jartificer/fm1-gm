@@ -46,6 +46,10 @@ DELAY = {"open": 0.3, "start": 2.0, "reply": 0.01, "loader": 3.0, "reboot": 3.0,
 OPEN_RE = re.compile(r"FM1_(OFFICIAL_OPEN|COMMUNITY_\d+)")
 STOCK = "FM-1_015"
 STOCK_SHA256 = "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a"
+# M-VAVE's official packages installed without the Felucca loader marker: these exact files only (their loader
+# writes the boot area too; firmware/src/ota.c OTA_STOCK pins the same images on the device)
+OFFICIAL = {"FM-1_015": STOCK_SHA256,                                                   # V15
+            "FM-1_016": "d017fb65e70aca97ee29d944470c3515a74581df5c0576bf70de917c7b2b61d5"}         # V16 (2026-10-21)
 
 EXIT = {"usage": 2, "badpkg": 2, "notfound": 3, "model": 6, "open": 6, "lost": 4, "stopped": 4, "badreq": 4,
         "noloader": 5, "noreturn": 5, "mismatch": 6}
@@ -428,9 +432,9 @@ def load_package(path, force):
     if not re.fullmatch(r"[^_]+_\d+", product):
         raise InstallError("badpkg", f"{path}: not an FM-1 package (identity {product!r})")
     digest = hashlib.sha256(raw).digest()
-    if LOADER_MARK not in raw and not force and digest != bytes.fromhex(STOCK_SHA256):
-        raise InstallError("badpkg", f"{path}: no Felucca update loader in this package; "
-                                     "only Felucca's own packages and M-VAVE's FM-1 V15 are installed (--force overrides)")
+    if LOADER_MARK not in raw and not force and digest.hex() != OFFICIAL.get(product):
+        raise InstallError("badpkg", f"{path}: no Felucca update loader in this package; only Felucca's own packages "
+                                     "and M-VAVE's FM-1 V15 or V16 (unchanged) are installed (--force overrides)")
     return product, logical_image(raw), digest
 
 

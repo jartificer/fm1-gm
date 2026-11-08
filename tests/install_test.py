@@ -290,6 +290,7 @@ def from_open():
     stock, ours = pkgfile("FM-1.fwsc", stock_raw), pkgfile("ours.fwsc", package())
     real = I.STOCK_SHA256
     I.STOCK_SHA256 = __import__("hashlib").sha256(stock_raw).hexdigest()     # stand-in for the real V15
+    I.OFFICIAL["FM-1_015"] = I.STOCK_SHA256
     try:
         image = I.logical_image(stock_raw)
         dev = FakeFM1(image, identity="FM1_OFFICIAL_OPEN", name="FM1 Community", after_write="FM-1_015")
@@ -310,6 +311,35 @@ def from_open():
         ok(rc == 0 and "FM1_OFFICIAL_OPEN" in out, "--info finds Open on its own port name")
     finally:
         I.STOCK_SHA256 = real
+        I.OFFICIAL["FM-1_015"] = real
+
+
+def to_stock():
+    """back to M-VAVE's official V15 or V16 from FM1-GM: the exact files only"""
+    import hashlib
+    real = dict(I.OFFICIAL)
+    v16_raw = package("FM-1_016", marker=False)
+    v16 = pkgfile("FM-1.fwsc", v16_raw)
+    I.OFFICIAL["FM-1_016"] = hashlib.sha256(v16_raw).hexdigest()            # stand-in for the real V16
+    try:
+        dev = FakeFM1(I.logical_image(v16_raw), identity="FM-1_600", after_write="FM-1_016")
+        rc, out, err = cli([v16, "--yes"], dev)
+        ok(rc == 0 and dev.bad == 0 and "done: the FM-1 runs FM-1_016" in out, "FM1-GM -> stock V16, no --force needed")
+        changed = bytearray(v16_raw)
+        changed[-1] ^= 1
+        rc, out, err = cli([pkgfile("changed.fwsc", bytes(changed)), "--yes"], FakeFM1(I.logical_image(v16_raw)))
+        ok(rc == 2 and "V15 or V16 (unchanged)" in err, "a changed V16 -> refused, exit 2")
+    finally:
+        I.OFFICIAL.clear()
+        I.OFFICIAL.update(real)
+    # the real files, when FM1_STOCK_DIR has them
+    import os
+    d = os.environ.get("FM1_STOCK_DIR")
+    for f in sorted(Path(d).glob("*.fwsc")) if d else []:
+        raw = f.read_bytes()
+        product, image, digest = I.load_package(str(f), False)
+        ok(I.OFFICIAL.get(product) == digest.hex() and I.LOADER_MARK not in raw,
+           f"{f.name}: {product} is pinned, loads without --force")
 
 
 def built_package():
@@ -327,6 +357,7 @@ wire()
 installs()
 errors()
 from_open()
+to_stock()
 built_package()
 shutil.rmtree(TMP, ignore_errors=True)
 print(f"INSTALL TESTS FAILED ({failed})" if failed else "install tests passed")

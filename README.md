@@ -161,7 +161,9 @@ pip install mido python-rtmidi
 python3 tools/fm1_install.py fm1gm.fwsc
 ```
 
-This works from the stock firmware or any Felucca-based firmware. To go back, install M-VAVE's stock package the same way, or with M-VAVE's updater.
+This works from the stock firmware or any Felucca-based firmware. To go back, install M-VAVE's stock package the same way, or with M-VAVE's updater. The installers take M-VAVE's official V15 and V16 files (`FM-1.fwsc` from m-vave.com/download) unchanged, and FM1-GM's updater checks them again on the FM-1: their update loader rewrites the FM-1's boot area too, so only these two reviewed images go through, whichever boot area the FM-1 has now.
+
+**Newer FM-1s.** M-VAVE's V16 (21 October 2026) comes with a new boot area, and FM-1s sold from about autumn 2026 have another flash part (UCUN UC25HQ80, JEDEC ID B36014, in place of the Puya P25Q80H, 856014); both are 1 MiB and take the same commands. FM1-GM accepts both flash parts, and installs only its app area, so V16's boot area stays. On an FM-1 that runs V16, the first step of the install is V16's own updater: if it does not take the package, the installer says it stopped answering and nothing is written. FM1-GM's support for V16 and for the new flash part is tested in the simulator against the real V16 file; it has not been tried on such an FM-1 yet.
 
 Or from the browser: the web page in `web/` installs over Web MIDI in Chrome, Edge or Opera on a computer (the same update as `fm1_install.py`). See "In the browser" below.
 
@@ -169,7 +171,7 @@ Holding OCT- and OCT+ for 5 seconds puts FM1-GM into update mode, for an install
 
 ### Recovery
 
-After two failed starts in a row the firmware comes up in a safe mode with USB on and no audio, so an installer can reach it; PLAY tries the firmware again. After four, it enters the chip's own update mode, the last resort: `tools/fm1_rescue.py` writes the stock firmware back through it (see the script's header and [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter)).
+After two failed starts in a row the firmware comes up in a safe mode with USB on and no audio, so an installer can reach it; PLAY tries the firmware again. After four, it enters the chip's own update mode, the last resort: `tools/fm1_rescue.py` writes the stock firmware (V15, or V16 on an FM-1 that has V16's boot area) back through it (see the script's header and [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter)).
 
 ## In the browser
 
