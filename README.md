@@ -199,3 +199,5 @@ sh host/build_web.sh        # the same app as WebAssembly for the web page: web/
 ## License
 
 GPL-3.0-only, as Felucca, X0X and FoMni. See [LICENSING.md](LICENSING.md).
+
+You can also try FM1-GM in the browser, no flashing needed, in the free community [FM-1 Emulator](https://fm1-emulator.atst.tools/).
